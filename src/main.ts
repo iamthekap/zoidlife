@@ -12,6 +12,7 @@ type Life = {
   stats: Stats;
   pendingEvent: LifeEvent | null;
   history: string[];
+  seenEventIds: string[];
 };
 
 const copy = {
@@ -39,6 +40,26 @@ const copy = {
         { label: "Aceitar o desafio", result: "Você decidiu investir nessa oportunidade e ganhou experiência.", effects: { smarts: 7, happiness: 2, health: -3 } },
         { label: "Priorizar sua vida pessoal", result: "Você escolheu preservar seu tempo e cuidar do próprio bem-estar.", effects: { happiness: 7, health: 4 } },
         { label: "Pesquisar melhor antes de decidir", result: "Você reuniu informações e aprendeu a avaliar oportunidades com mais cuidado.", effects: { smarts: 5 } }
+      ]},
+      { id: "hobby", minAge: 6, maxAge: 15, title: "Um novo interesse", description: "Você descobriu uma atividade que parece muito interessante. Talvez seja a chance de encontrar algo que realmente gosta de fazer.", choices: [
+        { label: "Entrar em um curso ou clube", result: "Você começou a praticar regularmente e encontrou algo que faz seus dias mais interessantes.", effects: { happiness: 7, smarts: 3 } },
+        { label: "Praticar por conta própria", result: "Você aprendeu no seu ritmo e desenvolveu disciplina.", effects: { smarts: 5, happiness: 3 } },
+        { label: "Deixar para outra hora", result: "Você preferiu manter sua rotina como estava.", effects: { happiness: 1 } }
+      ]},
+      { id: "first-job", minAge: 15, maxAge: 19, title: "Seu primeiro dinheiro", description: "Surge a oportunidade de fazer um trabalho temporário e ganhar seu próprio dinheiro. Isso pode exigir abrir mão de parte do seu tempo livre.", choices: [
+        { label: "Aceitar o trabalho", result: "Você ganhou experiência e sentiu orgulho de conquistar seu próprio dinheiro.", effects: { happiness: 5, smarts: 4, health: -2 } },
+        { label: "Continuar focando nos estudos", result: "Você decidiu priorizar sua formação neste momento.", effects: { smarts: 6 } },
+        { label: "Aproveitar o tempo livre", result: "Você escolheu descansar e passar mais tempo com amigos.", effects: { happiness: 6, health: 2 } }
+      ]},
+      { id: "relationship", minAge: 18, maxAge: 45, title: "Alguém especial", description: "Você conhece alguém com quem a conversa flui naturalmente. Parece existir uma conexão, mas relacionamentos exigem tempo e cuidado.", choices: [
+        { label: "Convidar para sair", result: "Vocês começaram a se conhecer melhor e viveram bons momentos juntos.", effects: { happiness: 9 } },
+        { label: "Manter apenas a amizade", result: "Vocês construíram uma amizade leve e respeitosa.", effects: { happiness: 5 } },
+        { label: "Seguir caminhos diferentes", result: "Você decidiu não iniciar algo novo agora.", effects: { happiness: -1, smarts: 1 } }
+      ]},
+      { id: "family", minAge: 25, maxAge: 75, title: "Um momento em família", description: "Uma pessoa da sua família propõe um encontro. Sua agenda está cheia, mas esse momento pode fazer diferença.", choices: [
+        { label: "Reservar um tempo para a família", result: "O encontro fortaleceu os laços e criou boas lembranças.", effects: { happiness: 8 } },
+        { label: "Fazer uma ligação rápida", result: "Mesmo com pouco tempo, você conseguiu demonstrar carinho.", effects: { happiness: 4 } },
+        { label: "Adiar o encontro", result: "Você deixou para outra ocasião e manteve o foco nas tarefas.", effects: { smarts: 1, happiness: -2 } }
       ]},
       { id: "wellness", minAge: 65, maxAge: 110, title: "Hora de cuidar de si", description: "Você percebe que sua rotina mudou. É uma boa oportunidade para pensar no que realmente importa nesta fase da vida.", choices: [
         { label: "Fazer uma caminhada e cuidar da saúde", result: "Uma rotina mais ativa fez bem ao seu corpo e ao seu humor.", effects: { health: 8, happiness: 3 } },
@@ -72,6 +93,26 @@ const copy = {
         { label: "Prioritize your personal life", result: "You chose to protect your time and well-being.", effects: { happiness: 7, health: 4 } },
         { label: "Research before deciding", result: "You gathered information and learned to assess opportunities carefully.", effects: { smarts: 5 } }
       ]},
+      { id: "hobby", minAge: 6, maxAge: 15, title: "A new interest", description: "You discover an activity that seems fascinating. Maybe this is a chance to find something you truly enjoy.", choices: [
+        { label: "Join a class or club", result: "You started practicing regularly and found something that makes your days more interesting.", effects: { happiness: 7, smarts: 3 } },
+        { label: "Practice on your own", result: "You learned at your own pace and developed discipline.", effects: { smarts: 5, happiness: 3 } },
+        { label: "Leave it for another time", result: "You decided to keep your routine as it was.", effects: { happiness: 1 } }
+      ]},
+      { id: "first-job", minAge: 15, maxAge: 19, title: "Your first earnings", description: "A temporary job opportunity comes up. It could mean earning your own money, but giving up some free time.", choices: [
+        { label: "Take the job", result: "You gained experience and felt proud to earn your own money.", effects: { happiness: 5, smarts: 4, health: -2 } },
+        { label: "Focus on your studies", result: "You decided to prioritize your education for now.", effects: { smarts: 6 } },
+        { label: "Enjoy your free time", result: "You chose to rest and spend more time with friends.", effects: { happiness: 6, health: 2 } }
+      ]},
+      { id: "relationship", minAge: 18, maxAge: 45, title: "Someone special", description: "You meet someone you can talk to effortlessly. There may be a connection, but relationships take time and care.", choices: [
+        { label: "Ask them out", result: "You started getting to know each other and shared some great moments.", effects: { happiness: 9 } },
+        { label: "Keep it as friendship", result: "You built a relaxed and respectful friendship.", effects: { happiness: 5 } },
+        { label: "Go separate ways", result: "You decided not to start anything new right now.", effects: { happiness: -1, smarts: 1 } }
+      ]},
+      { id: "family", minAge: 25, maxAge: 75, title: "A family moment", description: "A family member suggests getting together. Your schedule is busy, but this moment could matter.", choices: [
+        { label: "Make time for family", result: "The gathering strengthened bonds and created good memories.", effects: { happiness: 8 } },
+        { label: "Make a quick call", result: "Even with little time, you managed to show you care.", effects: { happiness: 4 } },
+        { label: "Postpone the visit", result: "You left it for another time and stayed focused on your tasks.", effects: { smarts: 1, happiness: -2 } }
+      ]},
       { id: "wellness", minAge: 65, maxAge: 110, title: "Time to take care of yourself", description: "You notice your routine has changed. It's a good time to think about what matters most at this stage of life.", choices: [
         { label: "Go for walks and care for your health", result: "A more active routine helped your body and mood.", effects: { health: 8, happiness: 3 } },
         { label: "Visit people you care about", result: "The visit brought back good memories and brought you closer.", effects: { happiness: 9 } },
@@ -91,7 +132,7 @@ function loadLife(): Life | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Life;
     if (!parsed.name || !parsed.stats || typeof parsed.age !== "number") return null;
-    return { ...parsed, pendingEvent: parsed.pendingEvent ?? null, history: parsed.history ?? [] };
+    return { ...parsed, pendingEvent: parsed.pendingEvent ?? null, history: parsed.history ?? [], seenEventIds: parsed.seenEventIds ?? [] };
   } catch { return null; }
 }
 function saveLife(): void { if (life) localStorage.setItem(STORAGE_KEY, JSON.stringify(life)); }
@@ -155,14 +196,14 @@ function showCharacterForm(): void {
     const input = document.querySelector<HTMLInputElement>("#character-name");
     const name = input?.value.trim() ?? "";
     if (!name) { const error = document.querySelector<HTMLParagraphElement>("#form-error"); if (error) error.textContent = t("nameRequired"); input?.focus(); return; }
-    life = { name, birthYear: new Date().getFullYear(), age: 0, stats: { happiness: 70, health: 85, smarts: 50, looks: 60 }, pendingEvent: null, history: [] };
+    life = { name, birthYear: new Date().getFullYear(), age: 0, stats: { happiness: 70, health: 85, smarts: 50, looks: 60 }, pendingEvent: null, history: [], seenEventIds: [] };
     saveLife(); render();
   });
 }
 function advanceYear(): void {
   if (!life || life.pendingEvent) return;
   life.age += 1;
-  const pool = copy[language].events.filter((event: LifeEvent) => life!.age >= event.minAge && life!.age <= event.maxAge);
+  const pool = copy[language].events.filter((event: LifeEvent) => life!.age >= event.minAge && life!.age <= event.maxAge && !life!.seenEventIds.includes(event.id));
   if (pool.length) life.pendingEvent = pool[Math.floor(Math.random() * pool.length)];
   else {
     const smallEvent: LifeEvent = { id: "quiet-year", minAge: 0, maxAge: 110, title: language === "pt-BR" ? "Um ano tranquilo" : "A quiet year", description: language === "pt-BR" ? "Não aconteceu nada extraordinário neste ano. Como você quer aproveitar o tempo?" : "Nothing extraordinary happened this year. How would you like to spend your time?", choices: [
@@ -179,6 +220,7 @@ function chooseEvent(index: number): void {
   if (!choice) return;
   for (const key of Object.keys(choice.effects) as StatKey[]) life.stats[key] = clamp(life.stats[key] + (choice.effects[key] ?? 0));
   life.history.push(`${life.age}: ${choice.result}`);
+  life.seenEventIds.push(life.pendingEvent.id);
   life.pendingEvent = null;
   saveLife(); render();
 }
