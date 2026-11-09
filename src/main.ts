@@ -1,3 +1,5 @@
+import "./style.css";
+
 type Language = "pt-BR" | "en";
 
 type Life = {
