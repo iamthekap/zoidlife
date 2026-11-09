@@ -17,7 +17,7 @@ type Life = {
 const copy = {
   "pt-BR": {
     eyebrow: "SIMULADOR DE VIDA", title: "Sua vida. Suas escolhas.", intro: "Uma história é construída ano após ano. Decida como viver cada capítulo.",
-    newLife: "Começar uma vida", continue: "Continuar sua vida", continueText: "Sua próxima história está esperando para acontecer.",
+    newLife: "Começar uma vida", continue: "Ver minha vida", continueText: "Sua próxima história está esperando para acontecer.",
     name: "Nome do personagem", namePlaceholder: "Digite um nome", start: "Começar", back: "Voltar",
     age: "anos", born: "Sua história", year: "Próximo ano", happiness: "Felicidade", health: "Saúde", smarts: "Inteligência", looks: "Aparência",
     nextYear: "Envelhecer", eventLabel: "ACONTECEU NA SUA VIDA", firstYear: "Um novo começo", firstYearText: "Sua jornada começa agora. Avance um ano para descobrir o que a vida reserva.",
@@ -49,7 +49,7 @@ const copy = {
   },
   en: {
     eyebrow: "LIFE SIMULATOR", title: "Your life. Your choices.", intro: "A story unfolds one year at a time. Decide how to live each chapter.",
-    newLife: "Start a life", continue: "Continue your life", continueText: "Your next chapter is waiting to happen.",
+    newLife: "Start a life", continue: "View my life", continueText: "Your next chapter is waiting to happen.",
     name: "Character name", namePlaceholder: "Enter a name", start: "Begin", back: "Back",
     age: "years old", born: "Your story", year: "Next year", happiness: "Happiness", health: "Health", smarts: "Smarts", looks: "Looks",
     nextYear: "Age up", eventLabel: "SOMETHING HAPPENED", firstYear: "A new beginning", firstYearText: "Your journey starts now. Age up to discover what life has in store.",
@@ -123,7 +123,7 @@ function render(): void {
       <footer><span>${t("footer")}</span><span>BUILD 0.2.0</span></footer>
     </main>`;
   document.querySelector("#language-toggle")?.addEventListener("click", () => { language = language === "pt-BR" ? "en" : "pt-BR"; render(); });
-  document.querySelector("#new-life")?.addEventListener("click", showCharacterForm);
+  document.querySelector("#new-life")?.addEventListener("click", () => { if (life) document.querySelector("#workspace")?.scrollIntoView({ behavior: "smooth", block: "start" }); else showCharacterForm(); });
   document.querySelector("#next-year")?.addEventListener("click", advanceYear);
   document.querySelectorAll<HTMLButtonElement>("[data-choice]").forEach((button) => button.addEventListener("click", () => chooseEvent(Number(button.dataset.choice))));
 }
