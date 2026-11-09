@@ -95,7 +95,7 @@ function loadLife(): Life | null {
   } catch { return null; }
 }
 function saveLife(): void { if (life) localStorage.setItem(STORAGE_KEY, JSON.stringify(life)); }
-function t(key: string): string { return copy[language][key] ?? key; }
+function t(key: string): string { const dictionary: Record<string, any> = copy[language]; return dictionary[key] ?? key; }
 function clamp(value: number): number { return Math.max(0, Math.min(100, value)); }
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[char] ?? char);
