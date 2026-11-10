@@ -1,6 +1,8 @@
 import "./style.css";
 import { randomCandidates, randomCharacter, normalizeProfile, portraitSvg, CITIES, COUNTRIES, GENDERS, SKINS, HAIRS, HAIR_COLORS, EYES, type Country, type CharacterProfile } from "./characters";
 import { extraEvents, eventAllowed } from "./events-plus";
+import { selectEvent, recordEvent, migrateLedger, type EventLedger } from "./event-engine";
+import { eventScene } from "./event-scenes";
 
 import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, type Simulation, type Action } from "./simulation";
 
@@ -17,6 +19,8 @@ type Life = {
   pendingEvent: LifeEvent | null;
   history: string[];
   seenEventIds: string[];
+  eventLedger: EventLedger;
+  lastEventId: string | null;
   simulation: Simulation;
   profile: CharacterProfile;
   familyMembers: {name:string; kind:"mother" | "father"; birthAge:number}[];
@@ -163,12 +167,18 @@ const titles: Record<Language, Record<string,string>> = {
     blockedEvent:"Resolva o acontecimento atual antes de realizar uma atividade.",
     actionDone:"Você já escolheu uma atividade neste ano.",
     study:"Estudar", job:"Procurar emprego", socialize:"Socializar",
+    invest:"Investir", home:"Comprar imóvel", child:"Ter um filho",
     care:"Cuidar da saúde", budget:"Organizar finanças", retire:"Aposentar",
     studyInfo:"Aprenda e avance na formação.", jobInfo:"Tente conseguir uma ocupação compatível com sua experiência.",
     socializeInfo:"Fortaleça os vínculos que importam.", careInfo:"Melhore o bem-estar, com custos quando adulto.",
     budgetInfo:"Use dinheiro disponível para quitar dívidas.", retireInfo:"Encerre a carreira e viva outra fase.",
+    investInfo:"Aplique parte de seu saldo e acompanhe o crescimento anual.",
+    homeInfo:"Use uma entrada de 25 mil para financiar um imóvel.",
+    childInfo:"Amplie sua família e assuma novas responsabilidades.",
     currentJob:"Ocupação", degree:"Escolaridade", credits:"Progresso acadêmico",
     experience:"Experiência", income:"Renda anual", balance:"Saldo", debt:"Dívidas",
+    investments:"Investimentos", homeValue:"Valor do imóvel", netWorth:"Patrimônio líquido",
+    children:"Filhos", homeOwned:"Imóvel próprio", yes:"Sim", no:"Não",
     expenses:"Despesas anuais previstas", family:"Família", friends:"Amizades", partner:"Parceria",
     relationship:"Situação afetiva", parents:"Pessoas da sua família",
     warningDebt:"Suas dívidas estão afetando sua qualidade de vida.",
@@ -191,7 +201,8 @@ const titles: Record<Language, Record<string,string>> = {
     "end-of-life":"Sua vida chegou ao fim.", "college-completed":"Você concluiu a faculdade.",
     "started-dating":"Um namoro começou.", "got-married":"Você se casou.",
     "first-paycheck":"Seu primeiro pagamento chegou.",
-    incomeNote:"Renda recebida", expenseNote:"Despesas pagas", newJob:"Novo trabalho", debtPaid:"Dívida quitada",
+    incomeNote:"Renda recebida", expenseNote:"Despesas pagas", newJob:"Novo trabalho", debtPaid:"Dívida quitada", childcare:"Custos familiares",
+    investmentNote:"Valor investido", "home-bought":"Você comprou seu imóvel.", "child-born":"Uma criança nasceu na família.",
     birthNote:"Você nasceu em", mother:"Mãe", father:"Pai",
     advanceBlocked:"Escolha uma resposta para continuar.", gameLabel:"SIMULADOR DE VIDA"
   },
@@ -214,12 +225,18 @@ const titles: Record<Language, Record<string,string>> = {
     overview:"Vitals", actionOnce:"You can take one activity per year.",
     blockedEvent:"Resolve your current event before taking an activity.",
     actionDone:"You've already completed an activity this year.",
-    study:"Study", job:"Find work", socialize:"Socialize", care:"Look after health", budget:"Manage finances", retire:"Retire",
+    study:"Study", job:"Find work", socialize:"Socialize",
+    invest:"Invest", home:"Buy a home", child:"Have a child", care:"Look after health", budget:"Manage finances", retire:"Retire",
     studyInfo:"Keep learning and work toward your degree.", jobInfo:"Find work that matches your experience.",
     socializeInfo:"Strengthen bonds with people who matter.", careInfo:"Improve well-being, with costs for adults.",
     budgetInfo:"Use savings to pay down debts.", retireInfo:"Leave your job behind and enter a new chapter.",
+    investInfo:"Invest part of your balance and grow it over time.",
+    homeInfo:"Pay a 25k down payment to purchase a home.",
+    childInfo:"Grow your family and take on new responsibilities.",
     currentJob:"Occupation", degree:"Education", credits:"Academic progress", experience:"Experience",
     income:"Yearly income", balance:"Balance", debt:"Debt", expenses:"Expected annual expenses",
+    investments:"Investments", homeValue:"Home value", netWorth:"Net worth",
+    children:"Children", homeOwned:"Owned home", yes:"Yes", no:"No",
     family:"Family", friends:"Friends", partner:"Partner", relationship:"Relationship status",
     parents:"Your family", warningDebt:"Your debt is affecting your quality of life.",
     ended:"End of the road", endedText:"Every life tells a story. This one has reached its ending.",
@@ -238,7 +255,9 @@ const titles: Record<Language, Record<string,string>> = {
     "end-of-life":"Your life has ended.", "college-completed":"You graduated from college.",
     "started-dating":"A new relationship began.", "got-married":"You got married.",
     "first-paycheck":"You received your first paycheck.", incomeNote:"Income", expenseNote:"Living costs",
-    newJob:"New job", debtPaid:"Paid down debt", birthNote:"You were born in",
+    newJob:"New job", debtPaid:"Paid down debt", childcare:"Family expenses",
+    investmentNote:"Invested amount", "home-bought":"You bought your home.", "child-born":"A child was born in your family.",
+    birthNote:"You were born in",
     mother:"Mother", father:"Father", advanceBlocked:"Choose a response to continue.", gameLabel:"LIFE SIMULATOR"
   }
 };
@@ -260,6 +279,8 @@ function loadLife(): Life|null {
       pendingEvent:r.pendingEvent && typeof r.pendingEvent==='object' ? r.pendingEvent:null,
       history:Array.isArray(r.history)?r.history.filter((x):x is string=>typeof x==='string').slice(-300):[],
       seenEventIds:Array.isArray(r.seenEventIds)?r.seenEventIds.filter((x):x is string=>typeof x==='string'):[],
+      eventLedger:migrateLedger(r.eventLedger,r.seenEventIds),
+      lastEventId:typeof r.lastEventId==='string'?r.lastEventId:null,
       simulation:loadSimulation(r.simulation),
       profile:normalizeProfile(r.profile,name),
       familyMembers:Array.isArray(r.familyMembers) && r.familyMembers.length>0 ? r.familyMembers : fallbackFamily
@@ -277,7 +298,7 @@ function createLife(profile: CharacterProfile, stats: Stats): void {
   life={ name:normalized.name, profile:normalized, familyMembers:makeFamily(normalized.name),
     birthYear:new Date().getFullYear(),age:0,
     stats:{...stats},pendingEvent:null,history:[u("birthNote")+" "+normalized.city+", "+countryName(normalized.country)+"."],
-    seenEventIds:[],simulation:createSimulation() };
+    seenEventIds:[],eventLedger:{},lastEventId:null,simulation:createSimulation() };
   tab="story";scene="playing";saveLife();render();
 }
 function countryName(c: Country): string {
@@ -294,6 +315,8 @@ function caption(s: string): string {
   if(s.startsWith("income:"))return u("incomeNote")+": "+cash(Number(s.slice(7)));
   if(s.startsWith("expenses:"))return u("expenseNote")+": "+cash(Number(s.slice(9)));
   if(s.startsWith("debt-paid:"))return u("debtPaid")+": "+cash(Number(s.slice(10)));
+  if(s.startsWith("investment:"))return u("investmentNote")+": "+cash(Number(s.slice(11)));
+  if(s.startsWith("childcare:"))return u("childcare")+": "+cash(Number(s.slice(10)));
   return u(s);
 }
 function button(label: string, action: string, extra=""): string {
@@ -311,7 +334,7 @@ function render(): void {
    (language==="pt-BR"?"EN":"PT")+'</button></div></header>'+
    (scene==="welcome"?renderWelcome():scene==="selection"?renderSelection():
      scene==="custom"?renderCustom():renderPlay())+
-   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.3.0 · PT / EN</span></footer></div>';
+   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.4.0 · PT / EN</span></footer></div>';
   app.innerHTML=shell;
 }
 function renderWelcome(): string {
@@ -409,7 +432,7 @@ function renderVitals(): string {
 function renderStory(): string {
   if(!life)return '';
   const event=life.pendingEvent;
-  const story=event?'<article class="story-event"><span class="story-label">'+safe(u("event"))+' · '+life.age+' '+safe(u("age"))+'</span>'+
+  const story=event?'<article class="story-event">'+eventScene(event.id,life.profile,language)+'<span class="story-label">'+safe(u("event"))+' · '+life.age+' '+safe(u("age"))+'</span>'+
     '<h2>'+safe(event.title)+'</h2><p>'+safe(event.description)+'</p>'+
     '<div class="event-choices">'+event.choices.map((c,i)=>'<button type="button" data-choice="'+i+
       '" class="choice"><span>'+safe(c.label)+'</span><span class="choice-index">'+(i+1)+'</span></button>').join('')+'</div></article>':
@@ -427,11 +450,14 @@ function renderStory(): string {
     story+'<section class="timeline"><h2>'+safe(u("timeline"))+'</h2>'+
     (history?'<ol>'+history+'</ol>':'<p>'+safe(u("noTimeline"))+'</p>')+'</section></div></div>';
 }
-const actionTypes: Action[]=['study','job','socialize','care','budget','retire'];
+const actionTypes: Action[]=['study','job','socialize','care','budget','invest','home','child','retire'];
 function canAction(action: Action): boolean {
   if (!life || life.simulation.ended || life.pendingEvent || life.simulation.lastActionAge===life.age)return false;
   return action==='study'?life.age>=6:action==='job'?life.age>=16&&life.age<65:
-    action==='budget'?life.age>=16:action==='retire'?life.age>=60&&!['none','retired'].includes(life.simulation.job):true;
+    action==='budget'?life.age>=16:action==='invest'?life.age>=18&&life.simulation.balance>=1000:
+    action==='home'?life.age>=21&&!life.simulation.homeOwned&&life.simulation.balance>=25000:
+    action==='child'?life.age>=20&&life.age<=55&&life.simulation.relationship!=='single'&&life.simulation.partner>=50&&life.simulation.children<8:
+    action==='retire'?life.age>=60&&!['none','retired'].includes(life.simulation.job):true;
 }
 function actionButton(action: Action): string {
  return '<button type="button" data-action="'+action+'" class="activity-card"'+(canAction(action)?'':' disabled')+'>'+
@@ -457,7 +483,7 @@ function renderPeople(): string {
     '<h3>'+safe(u("parents"))+'</h3><div class="family-list">'+life.familyMembers.map(p=>
       '<div><span class="family-initial">'+safe(p.name.charAt(0))+'</span><span><strong>'+safe(p.name)+
       '</strong><small>'+safe(u(p.kind))+' · '+(p.birthAge+life!.age)+' '+safe(u("age"))+'</small></span></div>').join('')+'</div>'+
-    '<div class="context-action">'+actionButton("socialize")+'</div></section>';
+    '<div class="data-list">'+pair(u("children"),String(s.children))+'</div><div class="context-action activity-grid">'+actionButton("socialize")+actionButton("child")+'</div></section>';
 }
 function pair(label: string,value:string): string {return '<div class="data-row"><span>'+safe(label)+'</span><strong>'+safe(value)+'</strong></div>';}
 function renderCareer(): string {
@@ -476,9 +502,11 @@ function renderFinances(): string {
     '<div class="money-headline"><div><span>'+safe(u("balance"))+'</span><strong>'+safe(cash(s.balance))+'</strong></div>'+
     '<div><span>'+safe(u("debt"))+'</span><strong>'+safe(cash(s.debt))+'</strong></div></div>'+
     '<div class="data-list">'+pair(u("income"),cash(annualSalary(s)))+
-    pair(u("expenses"),cash(life.age>=65?8500:10500))+'</div>'+
+    pair(u("investments"),cash(s.investments))+pair(u("homeValue"),cash(s.homeValue))+
+    pair(u("netWorth"),cash(s.balance+s.investments+s.homeValue-s.debt))+
+    pair(u("expenses"),cash((life.age>=65?8500:10500)+(s.homeOwned?1800:0)+2000*s.children))+'</div>'+
     (s.debt>=30000?'<p class="debt-warning">'+safe(u("warningDebt"))+'</p>':'')+
-    '<div class="activity-grid">'+actionButton("budget")+'</div></section>';
+    '<div class="activity-grid">'+actionButton("budget")+actionButton("invest")+actionButton("home")+'</div></section>';
 }
 function quietEvent(): LifeEvent {
   const pt=language==="pt-BR";
@@ -511,8 +539,8 @@ function ageUp(): void {
   life.age=age;life.simulation=transition.state;life.stats=transition.stats;
   transition.notes.forEach(n=>life!.history.push(age+": "+caption(n)));
   if (!transition.state.ended) {
-    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language)] as LifeEvent[]).filter(e=>age>=e.minAge&&age<=e.maxAge&&!life!.seenEventIds.includes(e.id)&&eventAllowed(e,life!.simulation));
-    life.pendingEvent=eligible.length?eligible[Math.floor(Math.random()*eligible.length)]:quietEvent();
+    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language)] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
+    life.pendingEvent=selectEvent(eligible,age,life.eventLedger,life.lastEventId)??quietEvent();
   }
   saveLife();tab="story";render();
 }
@@ -524,7 +552,11 @@ function choose(index:number): void {
   life.simulation=result.state;life.stats=result.stats;
   life.history.push(life.age+": "+choice.result);
   for(const n of result.notes)life.history.push(life.age+": "+caption(n));
-  if(event.id!=="quiet-year" && !life.seenEventIds.includes(event.id))life.seenEventIds.push(event.id);
+  if(event.id!=="quiet-year"){
+    if(!life.seenEventIds.includes(event.id))life.seenEventIds.push(event.id);
+    life.eventLedger=recordEvent(life.eventLedger,event.id,life.age);
+  }
+  life.lastEventId=event.id;
   life.pendingEvent=null;saveLife();render();
 }
 function act(action:Action): void {
