@@ -1,26 +1,35 @@
 # Zoid Life
 
-An original browser-based life simulator. Build a character, make choices, and watch a life unfold.
+Original browser-based life simulator, developed in the NOVA STEAM VERDE ecosystem.
 
-## Current prototype
-- Responsive landing screen
-- Portuguese (Brazilian) and English interface toggle
-- Character creation
-- Basic yearly progression and attributes
-- Local save in the current browser
+- Choose from randomized lives or customize a person completely, including name, country, gender, face, hair, eyes and initial attributes.
+- Progress year by year with choices, statistics, life history and cumulative consequences.
+- Explore education, work, money, debt, relationships and health.
+- Play in Brazilian Portuguese or English, without registration.
+- Responsive blue/white design for phones and desktop.
 
-## Tech stack
-- TypeScript, Vite, HTML5 and CSS
-- Browser LocalStorage (prototype persistence)
+## Develop
 
-## Development
-Requires Node.js 20.19+ or 22.12+.
+Node.js 22+ recommended.
 
-```bash
-npm install
-npm run dev
-```
+    npm install
+    npm test
+    npm run dev
+    npm run build
 
-Production build: `npm run build`.
+## Structure
 
-The simulation will grow as modular systems for events, relationships, education, careers, economy, health, and generational history. Those systems are not implemented yet.
+- src/main.ts — UI, creation flow, local saves, navigation and story presentation
+- src/characters.ts — randomized original faces and biographies
+- src/simulation.ts — life systems and persistent transitions
+- src/events-plus.ts — additional original bilingual events and age/context requirements
+- tests/ — unit tests for each system
+- docs/REA_ANALYSIS.md — evidence-based research scope and deployment checklist
+
+## Cloudflare
+
+Production should deploy from main with build command npm run build and deployment command npx wrangler deploy. For feature branches, enable preview builds and npx wrangler preview. GitHub Actions success alone does not prove active Cloudflare deployment.
+
+Public domain: https://zoidlife.kapyoutub.workers.dev
+
+Third-party game code and expressive assets are not copied or bundled.
