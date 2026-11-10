@@ -179,6 +179,74 @@ export function applyNarrativeChoice(raw: Simulation, rawStats: Stats, age: numb
     case 'family':
       s.family = bound(s.family + (index === 0 ? 18 : index === 1 ? 7 : -6));
       break;
+
+    case 'playground':
+      if (index === 0) s.friends=bound(s.friends+12);
+      if (index === 2) s.family=bound(s.family+10);
+      break;
+    case 'science-fair':
+      if (index === 0) s.credits += 3;
+      if (index === 1) { s.credits += 1; s.friends=bound(s.friends+8); }
+      break;
+    case 'team-sport':
+      if (index === 0) s.friends=bound(s.friends+13);
+      if (index === 1) s.friends=bound(s.friends+8);
+      break;
+    case 'online-learning':
+      s.credits+= index === 0 ? 3 : index === 1 ? 1 : 0;
+      break;
+    case 'first-budget':
+      receive(s,1200);
+      if (index === 1) charge(s,850);
+      if (index === 2) { charge(s,650); s.family=bound(s.family+8); }
+      break;
+    case 'scholarship':
+      if (index === 0) s.credits+=5;
+      if (index === 1) s.credits+=3;
+      break;
+    case 'first-rent':
+      if (index === 0) { charge(s,5000); s.family=bound(s.family-4); }
+      if (index === 1) { charge(s,1800); s.friends=bound(s.friends+10); }
+      break;
+    case 'mentor':
+      if (index === 0) {s.credits+=2; s.experience+=1;}
+      if (index === 1) s.friends=bound(s.friends+12);
+      break;
+    case 'work-pressure':
+      if (index === 0) {s.experience+=2;receive(s,2000);}
+      if (index === 2) s.friends=bound(s.friends+8);
+      break;
+    case 'friend-conflict':
+      s.friends=bound(s.friends+(index===0?12:index===1?-3:-20));
+      break;
+    case 'checkup':
+      if (index===0) charge(s,500);
+      if (index===1) charge(s,130);
+      break;
+    case 'side-project':
+      if (index===0) {charge(s,3000);receive(s,2500);s.experience+=1;}
+      if (index===1) {receive(s,650);s.credits+=1;}
+      break;
+    case 'family-care':
+      if (index===0) s.family=bound(s.family+18);
+      if (index===1) {charge(s,1500);s.family=bound(s.family+14);}
+      if (index===2) s.family=bound(s.family-15);
+      break;
+    case 'career-switch':
+      if (index===0) {s.job='service';s.experience=0;notes.push('job:service');}
+      if (index===1) s.experience+=2;
+      break;
+    case 'old-friend':
+      s.friends=bound(s.friends+(index===0?18:index===1?8:-4));
+      break;
+    case 'retirement-choice':
+      if (index===0) {const payment=Math.min(s.balance,s.debt,1000);s.balance-=payment;s.debt-=payment;}
+      if (index===1) s.family=bound(s.family+12);
+      break;
+    case 'community':
+      if (index===0) s.friends=bound(s.friends+18);
+      if (index===1) s.friends=bound(s.friends+8);
+      break;
     case 'wellness':
       if (index === 1) { s.family = bound(s.family + 8); s.friends = bound(s.friends + 6); }
       if (index === 2) s.credits += 1;

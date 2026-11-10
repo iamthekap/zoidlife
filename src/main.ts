@@ -1,5 +1,6 @@
 import "./style.css";
 import { randomCandidates, randomCharacter, normalizeProfile, portraitSvg, CITIES, COUNTRIES, GENDERS, SKINS, HAIRS, HAIR_COLORS, EYES, type Country, type CharacterProfile } from "./characters";
+import { extraEvents, eventAllowed } from "./events-plus";
 
 import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, type Simulation, type Action } from "./simulation";
 
@@ -499,7 +500,7 @@ function activeEventForLanguage(): void {
   if(!life?.pendingEvent)return;
   const id=life.pendingEvent.id;
   if(id==="quiet-year"){life.pendingEvent=quietEvent();return;}
-  const localized=(copy[language].events as LifeEvent[]).find(e=>e.id===id);
+  const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language)] as LifeEvent[]).find(e=>e.id===id);
   if(localized)life.pendingEvent=localized;
 }
 function ageUp(): void {
@@ -510,7 +511,7 @@ function ageUp(): void {
   life.age=age;life.simulation=transition.state;life.stats=transition.stats;
   transition.notes.forEach(n=>life!.history.push(age+": "+caption(n)));
   if (!transition.state.ended) {
-    const eligible=(copy[language].events as LifeEvent[]).filter(e=>age>=e.minAge&&age<=e.maxAge&&!life!.seenEventIds.includes(e.id));
+    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language)] as LifeEvent[]).filter(e=>age>=e.minAge&&age<=e.maxAge&&!life!.seenEventIds.includes(e.id)&&eventAllowed(e,life!.simulation));
     life.pendingEvent=eligible.length?eligible[Math.floor(Math.random()*eligible.length)]:quietEvent();
   }
   saveLife();tab="story";render();
