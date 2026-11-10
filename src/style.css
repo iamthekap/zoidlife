@@ -196,3 +196,25 @@ h1,h2,h3,p {margin:0;}
  .creator-form {padding:24px;gap:18px;}
 }
 @media (prefers-reduced-motion:reduce) {*,*::before,*::after {animation:none!important;transition:none!important;scroll-behavior:auto!important;}}
+
+/* Original pixel portraits and reusable event illustrations */
+.portrait {image-rendering:pixelated;shape-rendering:crispEdges;}
+.portrait-card,.custom-symbol {background:#e6eef9;}
+.candidate-card .portrait-card {padding:0 2px 0;object-fit:contain;}
+.scene-visual {height:180px;position:relative;overflow:hidden;border-radius:11px;border:1px solid #c4d6ee;background:linear-gradient(140deg,#cfe3f8,#e9f0fa);display:flex;align-items:flex-end;justify-content:center;margin:-2px -2px 18px;}
+.scene-decoration {position:absolute;inset:0;pointer-events:none;opacity:.8;}
+.scene-grid {display:block;position:absolute;inset:0;background-image:linear-gradient(#ffffff25 1px,transparent 1px),linear-gradient(90deg,#ffffff25 1px,transparent 1px);background-size:20px 20px;}
+.scene-orbit {position:absolute;width:180px;height:180px;border-radius:50%;background:#ffffff30;top:-70px;left:-55px;}
+.scene-avatar {height:178px;width:156px;position:relative;z-index:2;align-self:flex-end;}
+.scene-avatar .portrait {height:100%;width:100%;filter:drop-shadow(5px 6px 0 #1d3f6633);}
+.scene-props {position:absolute;right:17px;top:22px;display:grid;gap:11px;z-index:2;}
+.scene-props>div {width:53px;height:53px;border:1px solid #ffffffaa;background:#fffbed;border-radius:12px;display:grid;place-items:center;transform:rotate(7deg);box-shadow:0 5px 0 #18385d0e;}
+.scene-props>div:nth-child(2){transform:rotate(-8deg);background:#fff;}
+.scene-label {position:absolute;left:14px;top:14px;font-size:9px;letter-spacing:1.2px;color:#284f80;background:#fffdf7db;padding:7px 9px;border-radius:6px;font-weight:900;z-index:3;}
+.scene-money{background:linear-gradient(110deg,#dbe9f6,#e7e0f5);}
+.scene-health{background:linear-gradient(110deg,#cce9e5,#dbe8f9);}
+.scene-family,.scene-friend{background:linear-gradient(110deg,#e2e0f5,#dceafa);}
+.scene-school{background:linear-gradient(110deg,#d0e1f6,#e9edfb);}
+.scene-work{background:linear-gradient(110deg,#c9ddec,#e6edf8);}
+.scene-retirement{background:linear-gradient(110deg,#e9e2d1,#e6eefb);}
+@media(min-width:700px){.scene-visual{height:218px;}.scene-avatar{height:216px;width:189px;}.scene-props{right:12%;top:29px;}}

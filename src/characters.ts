@@ -73,43 +73,89 @@ export function normalizeProfile(raw: unknown, fallbackName='Pessoa'): Character
   };
 }
 /** Safe SVG output: all colors, shapes and attributes are drawn from fixed palettes. */
-export function portraitSvg(p: CharacterProfile, size='md'): string {
-  const skin = ({light:'#f3c99e',tan:'#d9a16f',brown:'#98654a',deep:'#633b2e'} as const)[p.skin];
-  const shade = ({light:'#d99c72',tan:'#aa754f',brown:'#77432f',deep:'#4e2a20'} as const)[p.skin];
-  const hair = ({black:'#1e2532',brown:'#593e33',blonde:'#bb8e47',red:'#8c4635'} as const)[p.hairColor];
-  const eye = ({brown:'#604536',blue:'#316a9c',green:'#467d64'} as const)[p.eyes];
-  const bg = ({light:'#e4ecfa',tan:'#dfecf2',brown:'#e3eafe',deep:'#deedfa'} as const)[p.skin];
-  const back = p.hair === 'long' || p.hair === 'curls'
-    ? '<ellipse cx="100" cy="119" rx="59" ry="83" fill="'+hair+'"/>' : '';
-  const fringe = ({
-    short:'<path d="M52 99 Q46 52 80 47 Q116 29 144 61 Q153 74 148 98 Q139 72 121 69 Q94 79 73 72 Q62 84 52 99Z"/>',
-    waves:'<path d="M49 100 Q37 79 52 60 Q49 41 71 44 Q83 27 104 40 Q129 28 140 49 Q165 58 149 97 Q135 73 121 71 Q105 77 89 65 Q66 75 49 100Z"/>',
-    curls:'<path d="M48 101 Q30 94 39 77 Q27 55 51 53 Q51 29 74 40 Q90 24 105 38 Q123 23 135 47 Q161 41 153 65 Q170 85 150 101 Q142 69 121 72 Q98 60 78 74 Q61 71 48 101Z"/>',
-    long:'<path d="M50 113 Q44 73 57 51 Q79 25 117 38 Q150 42 154 80 L152 121 Q140 86 134 70 Q111 63 91 76 Q69 74 50 113Z"/>'
-  } as const)[p.hair];
-  const fringeDecor = p.hair === 'curls'
-    ? '<circle cx="59" cy="55" r="15" fill="'+hair+'"/><circle cx="83" cy="49" r="14" fill="'+hair+'"/><circle cx="114" cy="45" r="17" fill="'+hair+'"/><circle cx="139" cy="60" r="15" fill="'+hair+'"/>'
-    : '';
-  const facialHair = p.gender==='man' && p.hair==='short'
-    ? '<path d="M85 141 Q100 147 115 141" stroke="'+shade+'" stroke-width="1.6" opacity=".38" fill="none"/>' : '';
-  return [
-    '<svg class="portrait portrait-'+size+'" viewBox="0 0 200 220" role="img" aria-label="Retrato ilustrado de personagem" xmlns="http://www.w3.org/2000/svg">',
-    '<rect width="200" height="220" rx="26" fill="'+bg+'"/>',
-    '<circle cx="100" cy="80" r="82" fill="#fff" opacity=".34"/>',
-    '<path d="M29 220 Q34 174 74 170 L126 170 Q166 176 171 220Z" fill="#2457a6"/>',
-    '<path d="M75 173 L91 198 L100 184 L109 198 L125 173" fill="#fff" opacity=".82"/>',
-    back,
-    '<rect x="89" y="156" width="22" height="28" rx="9" fill="'+skin+'"/>',
-    '<ellipse cx="53" cy="120" rx="9" ry="15" fill="'+shade+'"/>',
-    '<ellipse cx="147" cy="120" rx="9" ry="15" fill="'+shade+'"/>',
-    '<path d="M53 102 Q53 64 100 62 Q147 62 147 102 L143 141 Q131 170 100 174 Q68 170 57 141Z" fill="'+skin+'"/>',
-    '<path d="M66 111 Q78 105 90 111 M110 111 Q122 105 134 111" stroke="'+hair+'" stroke-width="3" stroke-linecap="round" fill="none" opacity=".68"/>',
-    '<ellipse cx="79" cy="120" rx="8" ry="5.5" fill="#fff"/><ellipse cx="121" cy="120" rx="8" ry="5.5" fill="#fff"/>',
-    '<circle cx="79" cy="120" r="4" fill="'+eye+'"/><circle cx="121" cy="120" r="4" fill="'+eye+'"/>',
-    '<circle cx="80" cy="119" r="1.3" fill="#fff"/><circle cx="122" cy="119" r="1.3" fill="#fff"/>',
-    '<path d="M100 122 L95 139 Q100 143 105 139" stroke="'+shade+'" stroke-width="2" stroke-linecap="round" fill="none"/>',
-    '<path d="M86 152 Q100 160 114 152" fill="none" stroke="#9d5758" stroke-width="2.5" stroke-linecap="round"/>',
-    facialHair, '<g fill="'+hair+'">'+fringe+'</g>',fringeDecor,
-    '</svg>'
-  ].join('');
+/** Original generative pixel-art portrait. Grid = 128x144; the entire upper body remains visible. */
+export function portraitSvg(p: CharacterProfile, size='medium'): string {
+  const tones = {
+    light: ['#f1c7a1','#d79876','#aa735b'],
+    tan: ['#dca077','#ae704f','#80523e'],
+    brown: ['#a66e51','#784730','#56372a'],
+    deep: ['#714635','#523122','#39221a']
+  } as const;
+  const hairColors={black:'#20212b',brown:'#49342c',blonde:'#d6a151',red:'#9a5340'} as const;
+  const eyes={brown:'#44332c',blue:'#315e9c',green:'#347153'} as const;
+  const [skin,shade,shadow]=tones[p.skin];
+  const hair=hairColors[p.hairColor], eye=eyes[p.eyes];
+  const backgrounds=['#d8e7f8','#d8e9eb','#e0e6f5','#dcdff0','#e7e5f3'];
+  const seed=[...p.name+p.city+p.hair+p.hairColor+p.gender].reduce((a,ch)=>(Math.imul(a,31)+ch.charCodeAt(0))>>>0,2166136261);
+  const bg=backgrounds[seed%backgrounds.length];
+  const shirt=['#345e94','#a86157','#557c86','#876b5b','#516d9c'][seed%5];
+  const shirtShade=['#264c7e','#85473f','#3d6069','#675243','#3e5783'][seed%5];
+  const jacket=seed%3===0;
+  const glasses=seed%7===0;
+  const rect=(x:number,y:number,w:number,h:number,fill:string,more='')=>'<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" fill="'+fill+'"'+more+'/>';
+  const chunks:string[]=[];
+  // Framed backdrop and a minimal stippled accent.
+  chunks.push(rect(0,0,128,144,bg),rect(8,9,112,127,'#ffffff', ' opacity=".24"'));
+  for(let i=0;i<14;i++){
+    const x=(17+i*23)%115, y=20+(i*31)%102;
+    chunks.push(rect(x,y,2,2,'#ffffff',' opacity=".18"'));
+  }
+  // Long and curly hair behind shoulders, so the head is a separate layer.
+  if(p.hair==='long'||p.hair==='curls'){
+    chunks.push(rect(34,36,60,80,hair),rect(30,54,13,80,hair),rect(88,54,12,80,hair));
+    if(p.hair==='curls')for(const [x,y] of [[30,43],[32,57],[31,72],[90,41],[91,59],[92,74]])chunks.push(rect(x,y,9,13,hair));
+  }
+  // Arms and torso show from the mid-chest down to the waist.
+  chunks.push(rect(36,100,55,44,shirt),rect(25,111,18,33,shirtShade),rect(86,111,18,33,shirtShade));
+  chunks.push(rect(38,97,52,12,shade),rect(48,102,32,42,shirt));
+  if(jacket) {
+    chunks.push(rect(31,107,16,37,shirtShade),rect(81,107,16,37,shirtShade));
+    chunks.push(rect(45,107,7,37,'#e7e5df'),rect(76,107,7,37,'#e7e5df'));
+  } else if(seed%2===0) {
+    for(let y=115;y<145;y+=11)chunks.push(rect(48,y,32,3,shirtShade));
+  } else {
+    chunks.push(rect(60,112,7,32,shirtShade));
+    for(let y=119;y<145;y+=10)chunks.push(rect(63,y,2,2,'#ecdfc4'));
+  }
+  chunks.push(rect(28,114,4,30,'#263b59'),rect(97,114,4,30,'#263b59'));
+  // Neck and stepped face silhouette, without rounded smooth vector gradients.
+  chunks.push(rect(57,94,17,18,skin),rect(56,104,20,5,shade));
+  chunks.push(rect(43,49,43,43,skin),rect(47,40,35,57,skin),rect(39,60,8,25,skin),rect(82,59,8,26,skin));
+  chunks.push(rect(45,83,5,11,shade),rect(50,93,31,8,skin),rect(78,82,6,11,shade));
+  chunks.push(rect(36,68,7,13,shade),rect(85,68,7,13,shade));
+  // Face shading and expression are pixel bounded.
+  chunks.push(rect(50,78,8,3,'#d17772',' opacity=".22"'),rect(71,78,8,3,'#d17772',' opacity=".22"'));
+  chunks.push(rect(56,84,15,2,shadow),rect(59,86,9,2,'#b46d64'));
+  chunks.push(rect(63,70,3,10,shade),rect(61,80,7,2,shade));
+  // Two expressive pixel eyes with irises and highlights.
+  for(const ex of [49,73]){
+    chunks.push(rect(ex,64,9,3,hair),rect(ex,69,9,6,'#fff4e9'),rect(ex+3,69,4,6,eye),rect(ex+4,70,1,2,'#fff'));
+  }
+  if(glasses){
+    chunks.push(rect(46,65,15,2,'#394050'),rect(69,65,15,2,'#394050'),rect(46,65,2,14,'#394050'),rect(59,65,2,14,'#394050'),rect(69,65,2,14,'#394050'),rect(82,65,2,14,'#394050'),rect(61,67,8,2,'#394050'));
+  }
+  if(p.gender==='man' && seed%3===0){
+    chunks.push(rect(50,88,8,3,shadow),rect(70,88,8,3,shadow),rect(57,93,15,5,shadow));
+  }
+  // Hair silhouette: 4 distinct shapes using grid-aligned blocks, with volume.
+  const h=(x:number,y:number,w:number,h:number)=>chunks.push(rect(x,y,w,h,hair));
+  if(p.hair==='short'){
+    h(41,39,46,12);h(37,48,12,16);h(80,47,10,13);h(44,34,34,8);
+    h(49,49,27,5);
+  }else if(p.hair==='waves'){
+    h(39,43,50,10);h(42,35,37,11);h(45,30,19,8);h(66,31,15,10);
+    h(35,52,13,16);h(81,48,12,19);h(47,52,27,5);h(33,61,8,12);
+  }else if(p.hair==='curls'){
+    for(const [x,y,w] of [[40,38,18],[54,30,22],[74,33,17],[35,49,13],[82,46,14],[43,47,31],[34,61,9],[87,60,11]] as [number,number,number][])h(x,y,w,12);
+    h(41,55,12,9);h(78,54,10,11);
+  }else{
+    h(38,40,52,12);h(42,33,37,11);h(35,53,14,45);h(82,51,14,47);
+    h(43,49,42,7);h(35,85,11,35);h(87,84,10,36);
+  }
+  // Hair highlights are deterministic and subtle.
+  chunks.push(rect(51,40,15,3,'#ffffff',' opacity=".11"'));
+  const format=['large','card','medium','tiny'].includes(size)?size:'medium';
+  return '<svg class="portrait portrait-'+format+'" viewBox="0 0 128 144" role="img" '+
+    'aria-label="Retrato pixelado original" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">'+
+    chunks.join('')+'</svg>';
 }

@@ -3,11 +3,12 @@ export type Stats = Record<'happiness' | 'health' | 'smarts' | 'looks', number>;
 export type Job = 'none' | 'parttime' | 'service' | 'office' | 'professional' | 'retired';
 export type Education = 'none' | 'school' | 'secondary' | 'college';
 export type Relation = 'single' | 'dating' | 'married';
-export type Action = 'study' | 'job' | 'socialize' | 'care' | 'budget' | 'retire';
+export type Action = 'study' | 'job' | 'socialize' | 'care' | 'budget' | 'retire' | 'invest' | 'home' | 'child';
 export type Simulation = {
   schema: 2; balance: number; debt: number; education: Education; credits: number;
   job: Job; experience: number; family: number; friends: number; partner: number;
   relationship: Relation; lastActionAge: number; lastYearNotes: string[]; ended: boolean;
+  investments: number; homeOwned: boolean; homeValue: number; children: number;
 };
 export type Outcome = { state: Simulation; stats: Stats; notes: string[]; ok: boolean };
 const bound = (n: number) => Math.max(0, Math.min(100, Math.round(Number.isFinite(n) ? n : 0)));
@@ -19,7 +20,8 @@ export const annualSalary = (s: Simulation): number => ({
 export function createSimulation(): Simulation {
   return { schema: 2, balance: 0, debt: 0, education: 'none', credits: 0, job: 'none',
     experience: 0, family: 70, friends: 30, partner: 0, relationship: 'single',
-    lastActionAge: -1, lastYearNotes: [], ended: false };
+    lastActionAge: -1, lastYearNotes: [], ended: false,
+    investments: 0, homeOwned: false, homeValue: 0, children: 0 };
 }
 /** Migrate v1 saves safely without rewriting older life history. */
 export function loadSimulation(raw: unknown): Simulation {
@@ -37,7 +39,10 @@ export function loadSimulation(raw: unknown): Simulation {
     partner: bound(r.partner ?? 0), relationship: relations.includes(r.relationship as Relation) ? r.relationship! : initial.relationship,
     lastActionAge: Number.isInteger(r.lastActionAge) ? r.lastActionAge! : -1,
     lastYearNotes: Array.isArray(r.lastYearNotes) ? r.lastYearNotes.filter((x): x is string => typeof x === 'string').slice(-6) : [],
-    ended: r.ended === true };
+    ended: r.ended === true,
+    investments: money(r.investments ?? 0), homeOwned: r.homeOwned===true,
+    homeValue: r.homeOwned===true ? money(r.homeValue??0) : 0,
+    children: Math.min(20,money(r.children??0)) };
 }
 const updatedStats = (stats: Stats, effects: Partial<Stats>): Stats => ({
   happiness: bound(stats.happiness + (effects.happiness ?? 0)),
@@ -85,9 +90,16 @@ export function passYear(raw: Simulation, rawStats: Stats, age: number): Outcome
     notes.push('income:' + income);
   }
   if (age >= 18) {
-    const livingCost = age >= 65 ? 8500 : 10500;
+    const livingCost = (age >= 65 ? 8500 : 10500) + (s.homeOwned ? 1800 : 0);
     charge(s, livingCost);
     notes.push('expenses:' + livingCost);
+  }
+  if (s.investments > 0) s.investments=money(s.investments*1.03);
+  if (s.homeOwned) s.homeValue=money(s.homeValue*1.02);
+  if (s.children > 0 && age >= 18) {
+    const childcare=2000*s.children;
+    charge(s,childcare);
+    notes.push('childcare:'+childcare);
   }
   if (s.debt > 0) {
     s.debt = money(s.debt * 1.04);
@@ -139,6 +151,22 @@ export function takeAction(raw: Simulation, rawStats: Stats, age: number, action
     s.balance -= paid; s.debt -= paid;
     stats = updatedStats(stats, { smarts: 2 });
     notes.push('debt-paid:' + paid);
+  } else if (action === 'invest' && age >= 18 && s.balance >= 1000) {
+    const amount = Math.min(s.balance, 3000);
+    s.balance -= amount;
+    s.investments += amount;
+    notes.push('investment:'+amount);
+  } else if (action === 'home' && age >= 21 && !s.homeOwned && s.balance >= 25000) {
+    s.balance -= 25000;
+    s.debt += 105000;
+    s.homeOwned = true;
+    s.homeValue = 130000;
+    notes.push('home-bought');
+  } else if (action === 'child' && age >= 20 && age <= 55 && s.relationship !== 'single' && s.partner >= 50 && s.children < 8) {
+    s.children += 1;
+    s.family = bound(s.family+7);
+    stats=updatedStats(stats,{happiness:5,health:-1});
+    notes.push('child-born');
   } else if (action === 'retire' && age >= 60 && s.job !== 'none' && s.job !== 'retired') {
     s.job = 'retired'; notes.push('retirement');
   } else return { state: raw, stats: rawStats, notes: [], ok: false };

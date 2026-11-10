@@ -37,10 +37,11 @@ test('character normalization never echoes arbitrary values into SVG inputs',()=
 });
 test('portrait contains fully self-contained original vector art',()=>{
   const svg=portraitSvg(randomCharacter(),'card');
-  assert.ok(svg.includes('viewBox="0 0 200 220"'));
+  assert.ok(svg.includes('viewBox="0 0 128 144"'));
   assert.ok(svg.includes('aria-label='));
   assert.ok(!svg.includes('<image'));
   assert.ok(!svg.includes('<image')&&!svg.includes('href='));
+  assert.ok((svg.match(/<rect/g)||[]).length>=25);
 });
 test('legacy name can migrate to a generated visual profile',()=>{
   const p=normalizeProfile(null,'Carolina Marques');
