@@ -267,3 +267,18 @@ test('starting another life does not overwrite the saved game without confirmati
  await page.locator('[data-do="continue"]').click();
  await expect(page.locator('.identity-copy strong')).toHaveText(first||'');
 });
+
+test('newborn graphics have infant face, romper and no adult facial hair',async ({page})=>{
+ await page.goto('/');
+ await expect(page.locator('.newborn-card')).toHaveCount(3);
+ for(const card of await page.locator('.newborn-card').all()){
+   await expect(card.locator('.stage-baby[data-age-visual="infant"]')).toBeVisible();
+   await expect(card.locator('g[data-part="seated-onesie"]')).toHaveCount(1);
+   await expect(card.locator('g[data-part="infant-face"]')).toHaveCount(1);
+   await expect(card.locator('[data-part="facial-hair"]')).toHaveCount(0);
+ }
+ await page.locator('[data-do="preset-0"]').click();
+ await expect(page.locator('.identity-portrait svg[data-age-visual="infant"]')).toBeVisible();
+ await page.locator('.dock-age').click();
+ await expect(page.locator('.scene-avatar svg[data-age-visual="infant"]')).toBeVisible();
+});
