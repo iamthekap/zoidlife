@@ -320,6 +320,7 @@ test('storyboard has blue Zoid, red Life and a red age CTA on mobile',async ({pa
  await expect.poll(async()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
 });
 test('a legacy adult life shows phase scenes without changing saved genetic traits',async ({page})=>{
+ await page.setViewportSize({width:390,height:844});
  await chooseBaby(page);
  const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
  await page.evaluate(()=>{
