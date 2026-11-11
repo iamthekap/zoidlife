@@ -1,18 +1,19 @@
 import "./style.css";
 import { randomCandidates, randomCharacter, normalizeProfile, portraitSvg, CITIES, COUNTRIES, GENDERS, SKINS, HAIRS, HAIR_COLORS, EYES, type Country, type CharacterProfile } from "./characters";
 import { extraEvents, eventAllowed } from "./events-plus";
+import { extendedEvents, extendedAllowed } from "./events-extended";
 import { selectEvent, recordEvent, migrateLedger, type EventLedger } from "./event-engine";
 import { eventScene, iconSvg } from "./event-scenes";
 import { portraitLife, lifeStage } from "./life-art";
 import { initialSocial, normalizeSocial, syncSocial, spendSocialTime, personAge, personLabel, type SocialState } from "./social";
 
-import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, type Simulation, type Action } from "./simulation";
+import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, type Simulation, type Action, type WorldImpact } from "./simulation";
 
 type Language = "pt-BR" | "en";
 type StatKey = "happiness" | "health" | "smarts" | "looks";
 type Stats = Record<StatKey, number>;
-type Choice = { label: string; result: string; effects: Partial<Stats> };
-type LifeEvent = { id: string; minAge: number; maxAge: number; title: string; description: string; choices: Choice[] };
+type Choice = { label: string; result: string; effects: Partial<Stats>; world?: WorldImpact };
+type LifeEvent = { id: string; minAge: number; maxAge: number; title: string; description: string; choices: Choice[]; category?: string };
 type Life = {
   name: string;
   birthYear: number;
@@ -265,6 +266,7 @@ const titles: Record<Language, Record<string,string>> = {
   }
 };
 function u(key: string): string { return titles[language][key] || key; }
+function ageText(age:number):string {return age+" "+(language==="pt-BR"?(age===1?"ano":"anos"):(age===1?"year old":"years old"));}
 function safe(value: string): string {
   return String(value).replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char] || char));
 }
@@ -323,6 +325,8 @@ function caption(s: string): string {
   if(s.startsWith("debt-paid:"))return u("debtPaid")+": "+cash(Number(s.slice(10)));
   if(s.startsWith("investment:"))return u("investmentNote")+": "+cash(Number(s.slice(11)));
   if(s.startsWith("childcare:"))return u("childcare")+": "+cash(Number(s.slice(10)));
+  if(s.startsWith("story-income:"))return (language==="pt-BR"?"Recebeu":"Received")+": "+cash(Number(s.slice(13)));
+  if(s.startsWith("story-expense:"))return (language==="pt-BR"?"Gastou":"Spent")+": "+cash(Number(s.slice(14)));
   return u(s);
 }
 function button(label: string, action: string, extra=""): string {
@@ -363,7 +367,7 @@ function renderWelcome(): string {
     '<div class="newborn-tools">'+button(language==="pt-BR"?"↻ Sortear outros três":"↻ Reroll three","reroll","secondary")+
     button(language==="pt-BR"?"+ Criar meu personagem":"+ Create my own","custom","outline")+'</div>'+
     (hasSave?'<div class="continue-life">'+button(u("continue"),"continue","primary")+
-      '<span>'+safe(life!.name)+' · '+life!.age+' '+safe(u("age"))+'</span></div>':'')+'</section>'+
+      '<span>'+safe(life!.name)+' · '+safe(ageText(life!.age))+'</span></div>':'')+'</section>'+
     '<div class="entry-footer"><span>'+safe(u("noLogin"))+'</span><span>BLUE EDITION · 0.5</span></div></main>';
 }
 function renderSelection(): string { return renderWelcome(); }
@@ -431,7 +435,7 @@ function renderPlay(): string {
      '<button type="button" class="game-identity" data-tab="story" aria-label="'+safe(u("story"))+'">'+
      '<span class="identity-portrait">'+portraitLife(p,life.age,"tiny")+'</span>'+
      '<span class="identity-copy"><strong>'+safe(life.name)+'</strong>'+
-     '<span>'+safe(p.city)+', '+safe(countryName(p.country))+' · '+life.age+' '+safe(u("age"))+'</span></span></button>'+
+     '<span>'+safe(p.city)+', '+safe(countryName(p.country))+' · '+safe(ageText(life.age))+'</span></span></button>'+
      '<div class="game-status-money"><small>'+safe(u("balance"))+'</small><strong>'+safe(cash(s.balance))+'</strong></div>'+ 
      '<button type="button" class="game-language" data-do="language" aria-label="'+safe(u("languages"))+'">'+(language==='pt-BR'?'EN':'PT')+'</button>'+
      '<button type="button" data-do="new-life" class="game-menu" title="'+safe(u("newLife"))+'" aria-label="'+safe(u("newLife"))+'">☰</button>'+
@@ -444,7 +448,7 @@ function renderPlay(): string {
       '<div class="mobile-vitals">'+renderVitals()+'</div></section>'+
       '<aside class="game-side">'+renderVitals()+
         '<div class="inspector-card side-profile">'+portraitLife(p,life.age,"medium")+
-        '<strong>'+safe(life.name)+'</strong><span>'+life.age+' '+safe(u("age"))+'</span></div></aside>'+
+        '<strong>'+safe(life.name)+'</strong><span>'+safe(ageText(life.age))+'</span></div></aside>'+
     '</div>'+gameDock()+'</main>';
 }
 
@@ -480,8 +484,8 @@ function renderStory():string {
   if(!life)return '';
   const event=life.pendingEvent;
   const eventHtml=event?'<section class="story-event decision-card">'+
-      eventScene(event.id,life.profile,language,life.age)+
-      '<div class="decision-body"><span class="story-label">'+safe(u("event"))+' · '+life.age+' '+safe(u("age"))+'</span>'+
+      eventScene(event.id,life.profile,language,life.age,event.category)+
+      '<div class="decision-body"><span class="story-label">'+safe(u("event"))+' · '+safe(ageText(life.age))+'</span>'+
       '<h2>'+safe(event.title)+'</h2><p>'+safe(event.description)+'</p>'+
       '<div class="event-choices">'+event.choices.map((c,i)=>'<button type="button" data-choice="'+i+
       '" class="choice"><span>'+safe(c.label)+'</span><span class="choice-index">'+(i+1)+'</span></button>').join('')+
@@ -531,7 +535,7 @@ function renderPeople(): string {
     const canVisit=p.alive&&!life!.pendingEvent&&!s.ended&&s.lastActionAge!==life!.age;
     return '<article class="person-card"><div class="person-art">'+portraitLife(p.profile,age,"tiny")+'</div>'+
       '<div class="person-details"><strong>'+safe(p.profile.name)+'</strong>'+
-      '<span>'+safe(personLabel(p.role,language))+' · '+age+' '+safe(u("age"))+
+      '<span>'+safe(personLabel(p.role,language))+' · '+safe(ageText(age))+
       (p.alive?'':(language==="pt-BR"?" · Falecido":" · Deceased"))+'</span>'+
       '<div class="person-bond"><span style="width:'+p.closeness+'%"></span></div>'+
       '<small>'+safe(language==="pt-BR"?"Vínculo":"Bond")+': '+p.closeness+'%</small></div>'+
@@ -589,7 +593,7 @@ function activeEventForLanguage(): void {
   if(!life?.pendingEvent)return;
   const id=life.pendingEvent.id;
   if(id==="quiet-year"){life.pendingEvent=quietEvent();return;}
-  const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language)] as LifeEvent[]).find(e=>e.id===id);
+  const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language),...extendedEvents(language)] as LifeEvent[]).find(e=>e.id===id);
   if(localized)life.pendingEvent=localized;
 }
 function syncLifePeople():void {
@@ -626,7 +630,7 @@ function ageUp(): void {
   syncLifePeople();
   transition.notes.forEach(n=>life!.history.push(age+": "+caption(n)));
   if (!transition.state.ended) {
-    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language)] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
+    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language),...extendedEvents(language).filter(e=>extendedAllowed(e,life!.simulation))] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
     life.pendingEvent=selectEvent(eligible,age,life.eventLedger,life.lastEventId)??quietEvent();
   }
   saveLife();tab="story";render();
@@ -634,7 +638,7 @@ function ageUp(): void {
 function choose(index:number): void {
   if (!life?.pendingEvent)return;
   const event=life.pendingEvent;const choice=event.choices[index];if(!choice)return;
-  const result=applyNarrativeChoice(life.simulation,life.stats,life.age,event.id,index,choice.effects);
+  const result=applyNarrativeChoice(life.simulation,life.stats,life.age,event.id,index,choice.effects,choice.world);
   if(!result.ok)return;
   life.simulation=result.state;life.stats=result.stats;
   syncLifePeople();

@@ -53,8 +53,8 @@ export function iconSvg(icon:string,scale=38):string {
     '" width="'+Math.max(16,Math.min(64,Math.round(scale)))+'" height="'+Math.max(16,Math.min(64,Math.round(scale)))+
     '" xmlns="http://www.w3.org/2000/svg" fill="'+color+'" shape-rendering="crispEdges">'+grid+'</svg>';
 }
-export function eventScene(eventId:string,character:CharacterProfile,language:'pt-BR'|'en',age=20):string {
-  const scene=SCENES[sceneType(eventId)];
+export function eventScene(eventId:string,character:CharacterProfile,language:'pt-BR'|'en',age=20,category?:string):string {
+  const scene=category && Object.prototype.hasOwnProperty.call(SCENES,category)?SCENES[category as SceneKind]:SCENES[sceneType(eventId)];
   const label=language==='en'?scene.labelEn:scene.labelPt;
   return '<div class="scene-visual scene-'+scene.kind+'" aria-label="'+label+'">'+
     '<div class="scene-decoration" aria-hidden="true"><span class="scene-grid"></span><span class="scene-orbit"></span></div>'+

@@ -10,6 +10,7 @@ export type Simulation = {
   relationship: Relation; lastActionAge: number; lastYearNotes: string[]; ended: boolean;
   investments: number; homeOwned: boolean; homeValue: number; children: number;
 };
+export type WorldImpact={cash?:number;debt?:number;investments?:number;family?:number;friends?:number;partner?:number;credits?:number;experience?:number;relationship?:Relation};
 export type Outcome = { state: Simulation; stats: Stats; notes: string[]; ok: boolean };
 const bound = (n: number) => Math.max(0, Math.min(100, Math.round(Number.isFinite(n) ? n : 0)));
 const money = (n: number) => Math.max(0, Math.round(Number.isFinite(n) ? n : 0));
@@ -174,7 +175,7 @@ export function takeAction(raw: Simulation, rawStats: Stats, age: number, action
   return { state: s, stats, notes, ok: true };
 }
 /** Persistent effects use original Zoid Life story IDs, not third-party code. */
-export function applyNarrativeChoice(raw: Simulation, rawStats: Stats, age: number, eventId: string, index: number, statEffects: Partial<Stats>): Outcome {
+export function applyNarrativeChoice(raw: Simulation, rawStats: Stats, age: number, eventId: string, index: number, statEffects: Partial<Stats>, world:WorldImpact={}): Outcome {
   if (raw.ended || !Number.isInteger(index) || index < 0) return { state: raw, stats: rawStats, notes: [], ok: false };
   const s = { ...raw, lastYearNotes: [...raw.lastYearNotes] };
   const stats = updatedStats(rawStats, statEffects);
@@ -279,6 +280,24 @@ export function applyNarrativeChoice(raw: Simulation, rawStats: Stats, age: numb
       if (index === 1) { s.family = bound(s.family + 8); s.friends = bound(s.friends + 6); }
       if (index === 2) s.credits += 1;
       break;
+  }
+  // Data-driven world changes allow reusable original stories without huge switch tables.
+  const finite=(value:unknown):number => typeof value==='number' && Number.isFinite(value)
+    ?Math.max(-1_000_000,Math.min(1_000_000,Math.round(value))):0;
+  const cash=finite(world.cash);
+  if(cash>0){receive(s,cash);notes.push('story-income:'+cash);}
+  if(cash<0){charge(s,-cash);notes.push('story-expense:'+(-cash));}
+  s.debt=money(s.debt+finite(world.debt));
+  s.investments=money(s.investments+finite(world.investments));
+  s.family=bound(s.family+finite(world.family));
+  s.friends=bound(s.friends+finite(world.friends));
+  s.partner=bound(s.partner+finite(world.partner));
+  s.credits=money(s.credits+finite(world.credits));
+  s.experience=money(s.experience+finite(world.experience));
+  if(world.relationship==='single'){s.relationship='single';s.partner=0;}
+  if(world.relationship==='dating' && age>=18){s.relationship='dating';s.partner=Math.max(s.partner,55);}
+  if(world.relationship==='married' && age>=21 && s.relationship!=='single'){
+    s.relationship='married';s.partner=Math.max(s.partner,65);
   }
   return { state: s, stats, notes, ok: true };
 }

@@ -1,19 +1,18 @@
-# Zoid Life — life simulator
+# Zoid Life
 
-Original bilingual browser game in the NOVA STEAM VERDE ecosystem.
+Independent, browser-based life simulator for the NOVA STEAM VERDE collection.
 
-## Play
-- No login or sign-up.
-- Choose from 3 newly generated candidates or design your own: name, birthplace, appearance and attributes.
-- Original blocky **waist-up pixel characters**, repeated across scene images, selection cards and gameplay.
-- 24 authored pt-BR/en narrative event templates that respond to age and simulation state. Replayable events have a multi-year cooldown; major milestones occur at most once.
-- Yearly mechanics: school and college; work and pensions; income and debt; friendships, partners, children, health, investments and owned property.
-- Mobile game navigation plus a 3-column desktop layout.
-- Saves persist in the current browser's localStorage, with migration of older lives.
+### Play now
+- Blue/white game UI: three baby characters directly on entry, or a fully custom baby.
+- Original procedural pixel characters that evolve through life while maintaining consistent traits.
+- Story journal, contextual scene illustrations, central + Age button, and 4 game tabs.
+- Named family, friends, partners, children, schooling, work, property, debts and health.
+- 43 original age-aware bilingual event templates with persistent world consequences and replay cooldown.
+- No registration. Browser-local autosave (with compatibility migration).
 
-## Development
+### Local build
 
-Node 22 or newer.
+Node.js 22+ recommended:
 
     npm install
     npm test
@@ -21,28 +20,22 @@ Node 22 or newer.
     npx playwright install chromium
     npm run test:e2e
 
-## Automated acceptance
-GitHub Actions runs unit/stress tests, strict TypeScript, Vite build, and real Chromium UI tests. CI reports failures and uploads Playwright traces. A passing build confirms quality gates, **not zero bugs**; conduct visual/manual QA on the generated preview URL.
+### Source
+- src/main.ts: game presentation, interactive choices, autosave
+- src/life-art.ts: original age-specific modular pixel avatars
+- src/characters.ts: character identity and customization
+- src/social.ts: persistent relatives, partners and children
+- src/simulation.ts: life states, financial and career progress
+- src/event-engine.ts: weighted events, cooldown and history
+- src/events-plus.ts, src/events-extended.ts: original localized story library
+- src/event-scenes.ts: original contextual visual scenes
+- tests/: unit, stress and Chromium browser acceptance
+- docs/RELEASE_CHECKLIST.md: release gates and Cloudflare branch strategy
+- docs/REA_ANALYSIS.md: evidence-based limitations of offline package inspection
 
-## Branches and Cloudflare
-- main: production code
-- feature/*: preview and tests
-- Preview must be checked before PR merge.
-- Production branch in Cloudflare must be configured as main; build command npm run build; deploy command npx wrangler deploy.
-- If Cloudflare still has feat/initial-web-foundation as production, the main domain continues showing the old green site despite successful GitHub CI.
-- Do not merge solely to force deployment.
-- Do not assume Cloudflare production rollout until its deployment record matches the main commit and user sees the new release.
+### Release
+Main is the reviewed source. Feature branches deploy to previews first. Cloudflare currently uses feat/initial-web-foundation as its production release branch. Until that build configuration is deliberately changed, promote a tested main Git tree to the existing production branch **once per approved release**, without force updates. Confirm deployed commit in Cloudflare.
 
-Production: https://zoidlife.kapyoutub.workers.dev
+Preview and production are independent. A green GitHub Actions check does not itself prove the public site was updated.
 
-## Code
-- src/main.ts — presentation, navigation, persistence, life choices
-- src/characters.ts — procedural original waist-up character pixels
-- src/event-scenes.ts — reusable original event image compositions and iconography
-- src/event-engine.ts — age/context aware event selection, repetition cooldown and legacy history migration
-- src/events-plus.ts — original narrative content
-- src/simulation.ts — finance, family, education, career, health, aging
-- tests/ — browser, unit, stress tests
-- docs/REA_ANALYSIS.md — evidence-supported APK inspection and legal boundaries
-
-No third-party game code, UI assets, texts, portraits or sounds are used.
+This is an independent original simulation; no third-party source code, screenshots, text or graphical assets are shipped.

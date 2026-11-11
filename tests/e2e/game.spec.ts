@@ -39,10 +39,10 @@ test('choose a baby, age up with the central bottom button and restore the save'
  await expect(page.locator('.decision-card .scene-avatar .stage-baby')).toBeVisible();
  await page.locator('[data-choice="0"]').click();
  await expect(page.locator('.life-journal .life-entry').first()).toBeVisible();
- await expect(page.locator('.identity-copy')).toContainText('1 anos');
+ await expect(page.locator('.identity-copy')).toContainText('1 ano');
  await page.reload();
  await page.locator('[data-do="continue"]').click();
- await expect(page.locator('.identity-copy')).toContainText('1 anos');
+ await expect(page.locator('.identity-copy')).toContainText('1 ano');
 });
 test('free character creator retains identity and remains a baby at birth',async ({page})=>{
  await page.goto('/');
@@ -169,4 +169,32 @@ test('family members have identity, portraits, age and persistent bonds',async (
  await page.locator('.game-dock [data-tab="people"]').click();
  await expect(page.locator('.person-card').first().locator('.person-details small')).toHaveText(after||'');
  await expect(page.locator('.person-card').first().locator('[data-person]')).toBeDisabled();
+});
+
+test('game entry remains within common narrow-to-wide viewport widths',async ({page})=>{
+ test.setTimeout(70_000);
+ for(const width of [320,360,375,390,768,1024,1440]){
+  await page.setViewportSize({width,height:850});
+  await page.goto('/');
+  await expect(page.locator('.newborn-card')).toHaveCount(3);
+  const horizontal=await page.evaluate(()=>({inner:innerWidth,doc:document.documentElement.scrollWidth}));
+  expect(horizontal.doc,'overflow on entry width '+width).toBeLessThanOrEqual(horizontal.inner+2);
+ }
+ await page.setViewportSize({width:320,height:720});
+ await page.locator('[data-do="preset-0"]').click();
+ const measured=await page.evaluate(()=>({inner:innerWidth,doc:document.documentElement.scrollWidth}));
+ expect(measured.doc).toBeLessThanOrEqual(measured.inner+2);
+});
+test('a pending event changes language without losing its persistent choices',async ({page})=>{
+ await chooseBaby(page);
+ await page.locator('.dock-age').click();
+ const first=await page.locator('.decision-card h2').textContent();
+ const before=await page.locator('[data-choice]').count();
+ await page.locator('.game-language').click();
+ const after=await page.locator('.decision-card h2').textContent();
+ expect(after).not.toBe(first);
+ expect(before).toBe(3);
+ await expect(page.locator('[data-choice]')).toHaveCount(3);
+ await page.locator('[data-choice="1"]').click();
+ await expect(page.locator('.dock-age')).toBeEnabled();
 });
