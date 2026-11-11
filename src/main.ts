@@ -1,16 +1,20 @@
 import "./style.css";
 import { randomCandidates, randomCharacter, normalizeProfile, portraitSvg, CITIES, COUNTRIES, GENDERS, SKINS, HAIRS, HAIR_COLORS, EYES, type Country, type CharacterProfile } from "./characters";
 import { extraEvents, eventAllowed } from "./events-plus";
+import { extendedEvents, extendedAllowed } from "./events-extended";
 import { selectEvent, recordEvent, migrateLedger, type EventLedger } from "./event-engine";
-import { eventScene } from "./event-scenes";
+import { eventScene, iconSvg } from "./event-scenes";
+import { portraitLife, lifeStage } from "./life-art";
+import { validateLifeSave, serializeLife, saveFilename } from "./save-io";
+import { initialSocial, normalizeSocial, syncSocial, spendSocialTime, personAge, personLabel, type SocialState } from "./social";
 
-import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, type Simulation, type Action } from "./simulation";
+import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, type Simulation, type Action, type WorldImpact } from "./simulation";
 
 type Language = "pt-BR" | "en";
 type StatKey = "happiness" | "health" | "smarts" | "looks";
 type Stats = Record<StatKey, number>;
-type Choice = { label: string; result: string; effects: Partial<Stats> };
-type LifeEvent = { id: string; minAge: number; maxAge: number; title: string; description: string; choices: Choice[] };
+type Choice = { label: string; result: string; effects: Partial<Stats>; world?: WorldImpact };
+type LifeEvent = { id: string; minAge: number; maxAge: number; title: string; description: string; choices: Choice[]; category?: string };
 type Life = {
   name: string;
   birthYear: number;
@@ -24,6 +28,7 @@ type Life = {
   simulation: Simulation;
   profile: CharacterProfile;
   familyMembers: {name:string; kind:"mother" | "father"; birthAge:number}[];
+  social: SocialState;
 };
 
 const copy = {
@@ -142,6 +147,8 @@ let language: Language = localStorage.getItem(LANG_KEY) === "en" ? "en" : "pt-BR
 let life: Life | null = loadLife();
 let scene: Scene = "welcome";
 let tab: Tab = "story";
+let menuOpen=false;
+let menuError="";
 let candidates = randomCandidates(3);
 let custom = { ...randomCharacter(), name: "" };
 let customStats: Stats = {happiness: 70, health: 80, smarts: 55, looks: 60};
@@ -262,6 +269,7 @@ const titles: Record<Language, Record<string,string>> = {
   }
 };
 function u(key: string): string { return titles[language][key] || key; }
+function ageText(age:number):string {return age+" "+(language==="pt-BR"?(age===1?"ano":"anos"):(age===1?"year old":"years old"));}
 function safe(value: string): string {
   return String(value).replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char] || char));
 }
@@ -274,6 +282,8 @@ function loadLife(): Life|null {
     const stats=Object.fromEntries((['happiness','health','smarts','looks'] as StatKey[]).map(k => [k,clamp(Number(r.stats?.[k]??50))])) as Stats;
     const name=r.name.trim().slice(0,52);
     const fallbackFamily=makeFamily(name);
+    const profile=normalizeProfile(r.profile,name);
+    const simulation=loadSimulation(r.simulation);
     return { name,birthYear:Number.isInteger(r.birthYear)?Number(r.birthYear):new Date().getFullYear(),
       age:Math.min(110,Math.max(0,r.age)),stats,
       pendingEvent:r.pendingEvent && typeof r.pendingEvent==='object' ? r.pendingEvent:null,
@@ -281,8 +291,8 @@ function loadLife(): Life|null {
       seenEventIds:Array.isArray(r.seenEventIds)?r.seenEventIds.filter((x):x is string=>typeof x==='string'):[],
       eventLedger:migrateLedger(r.eventLedger,r.seenEventIds),
       lastEventId:typeof r.lastEventId==='string'?r.lastEventId:null,
-      simulation:loadSimulation(r.simulation),
-      profile:normalizeProfile(r.profile,name),
+      simulation,profile,
+      social:normalizeSocial(r.social,profile,r.age,simulation.children,Array.isArray(r.familyMembers)?r.familyMembers:fallbackFamily),
       familyMembers:Array.isArray(r.familyMembers) && r.familyMembers.length>0 ? r.familyMembers : fallbackFamily
     };
   } catch { return null; }
@@ -296,6 +306,7 @@ function makeFamily(name: string): Life['familyMembers'] {
 function createLife(profile: CharacterProfile, stats: Stats): void {
   const normalized=normalizeProfile(profile,profile.name);
   life={ name:normalized.name, profile:normalized, familyMembers:makeFamily(normalized.name),
+    social:initialSocial(normalized),
     birthYear:new Date().getFullYear(),age:0,
     stats:{...stats},pendingEvent:null,history:[u("birthNote")+" "+normalized.city+", "+countryName(normalized.country)+"."],
     seenEventIds:[],eventLedger:{},lastEventId:null,simulation:createSimulation() };
@@ -317,6 +328,8 @@ function caption(s: string): string {
   if(s.startsWith("debt-paid:"))return u("debtPaid")+": "+cash(Number(s.slice(10)));
   if(s.startsWith("investment:"))return u("investmentNote")+": "+cash(Number(s.slice(11)));
   if(s.startsWith("childcare:"))return u("childcare")+": "+cash(Number(s.slice(10)));
+  if(s.startsWith("story-income:"))return (language==="pt-BR"?"Recebeu":"Received")+": "+cash(Number(s.slice(13)));
+  if(s.startsWith("story-expense:"))return (language==="pt-BR"?"Gastou":"Spent")+": "+cash(Number(s.slice(14)));
   return u(s);
 }
 function button(label: string, action: string, extra=""): string {
@@ -328,44 +341,39 @@ function brand(): string {
 function render(): void {
   document.documentElement.lang=language;
   const app=document.querySelector<HTMLDivElement>("#app"); if(!app) return;
-  const shell='<div class="app-shell"><header class="topbar">'+brand()+
+  const header=(scene==='playing'||scene==='welcome'||scene==='selection')?'':
+    '<header class="topbar">'+brand()+
    '<div class="header-right"><span class="header-caption">'+safe(u("gameLabel"))+'</span>'+
    '<button class="lang-switch" type="button" data-do="language" aria-label="'+safe(u("languages"))+'">'+
-   (language==="pt-BR"?"EN":"PT")+'</button></div></header>'+
+   (language==="pt-BR"?"EN":"PT")+'</button></div></header>';
+  const shell='<div class="app-shell">'+header+
    (scene==="welcome"?renderWelcome():scene==="selection"?renderSelection():
      scene==="custom"?renderCustom():renderPlay())+
-   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.4.0 · PT / EN</span></footer></div>';
+   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.5.0 · PT / EN</span></footer></div>';
   app.innerHTML=shell;
 }
 function renderWelcome(): string {
   const hasSave=Boolean(life);
-  return '<main class="welcome-layout">'+
-    '<section class="welcome-lead"><div class="eyebrow"><span class="dot"></span>'+safe(u("gameLabel"))+'</div>'+
-    '<div class="cover-mark">Z<span>·</span>L</div>'+
-    '<h1>'+safe(u("begin"))+'</h1>'+
-    '<p>'+safe(u("tagline"))+'</p>'+
-    '<div class="welcome-cta">'+
-    (hasSave?button(u("continue"),"continue","primary"):"")+
-    button(u("quick"),"selection",hasSave?"secondary":"primary")+
-    button(u("create"),"custom","outline")+'</div>'+
-    '<div class="small-promise">'+safe(u("noLogin"))+'</div></section>'+
-    '<aside class="welcome-side"><div class="sample-portrait">'+portraitSvg(candidates[0],"large")+'</div>'+
-    '<div class="welcome-side-copy"><span>01 — 110</span><strong>'+safe(u("tagline"))+'</strong></div></aside>'+
-    '</main>';
+  return '<main class="welcome-screen" data-screen="candidates">'+
+    '<section class="welcome-headline"><button type="button" class="welcome-language" data-do="language" aria-label="'+safe(u("languages"))+'">'+(language==='pt-BR'?'EN':'PT')+'</button>'+ 
+    '<div class="eyebrow"><span class="dot"></span>'+safe(u("gameLabel"))+'</div>'+
+    '<div class="welcome-logo">ZOID<span>LIFE</span></div>'+
+    '<h1>'+safe(language==="pt-BR"?"Quem você vai ser nesta vida?":"Who will you be in this life?")+'</h1>'+
+    '<p>'+safe(language==="pt-BR"?"Três novos destinos. Escolha um bebê ou crie seu personagem — sem pagar e sem cadastro.":"Three new beginnings. Choose a baby or create your own — no signup or payment.")+'</p></section>'+
+    '<section class="newborn-choice" aria-label="'+safe(u("select"))+'">'+
+    '<div class="newborn-list">'+candidates.map((p,i)=>
+      '<button type="button" class="newborn-card" data-do="preset-'+i+'" aria-label="'+safe(u("choose"))+': '+safe(p.name)+'">'+
+      '<span class="newborn-art">'+portraitLife(p,0,"card")+'</span>'+
+      '<span class="newborn-number">0'+(i+1)+' · '+safe(u("infant"))+'</span>'+
+      '<strong>'+safe(p.name)+'</strong><small>'+safe(p.city)+' · '+safe(countryName(p.country))+'</small>'+
+      '<span class="newborn-select">'+safe(u("choose"))+'</span></button>').join('')+'</div>'+
+    '<div class="newborn-tools">'+button(language==="pt-BR"?"↻ Sortear outros três":"↻ Reroll three","reroll","secondary")+
+    button(language==="pt-BR"?"+ Criar meu personagem":"+ Create my own","custom","outline")+'</div>'+
+    (hasSave?'<div class="continue-life">'+button(u("continue"),"continue","primary")+
+      '<span>'+safe(life!.name)+' · '+safe(ageText(life!.age))+'</span></div>':'')+'</section>'+
+    '<div class="entry-footer"><span>'+safe(u("noLogin"))+'</span><span>BLUE EDITION · 0.5</span></div></main>';
 }
-function renderSelection(): string {
-  return '<main class="selection-page"><div class="page-heading">'+
-    '<div>'+button(u("back"),"home","ghost")+'<h1>'+safe(u("select"))+'</h1><p>'+safe(u("selectSub"))+'</p></div>'+
-    button(u("reroll"),"reroll","secondary")+'</div>'+
-    '<div class="candidate-grid">'+candidates.map((p,i)=>'<article class="candidate-card">'+
-      portraitSvg(p,"card")+'<div class="candidate-content"><span class="subtle-label">'+safe(u("infant"))+'</span>'+
-      '<h2>'+safe(p.name)+'</h2><p>'+safe(p.city)+', '+safe(countryName(p.country))+'</p>'+
-      button(u("choose"),"preset-"+i,"primary fill")+'</div></article>').join('')+
-    '<article class="candidate-card custom-candidate"><div class="custom-symbol">+</div>'+
-    '<div class="candidate-content"><span class="subtle-label">'+safe(u("free"))+'</span><h2>'+safe(u("customIntro"))+'</h2>'+
-    '<p>'+safe(u("customSub"))+'</p>'+button(u("create"),"custom","secondary fill")+'</div></article>'+
-    '</div></main>';
-}
+function renderSelection(): string { return renderWelcome(); }
 function option(value: string,label: string, selected: boolean): string {
   return '<option value="'+safe(value)+'"'+(selected?' selected':'')+'>'+safe(label)+'</option>';
 }
@@ -383,7 +391,7 @@ function renderCustom(): string {
   return '<main class="custom-page">'+button(u("back"),"selection","ghost")+
     '<div class="page-heading"><div><h1>'+safe(u("customIntro"))+'</h1><p>'+safe(u("customSub"))+'</p></div></div>'+
     '<div class="creator-layout"><aside class="creator-preview"><span class="subtle-label">'+safe(u("preview"))+'</span>'+
-    '<div id="creator-portrait">'+portraitSvg(custom,"large")+'</div><h2 id="creator-preview-name">'+safe(custom.name||"Seu personagem")+'</h2>'+
+    '<div id="creator-portrait">'+portraitLife(custom,0,"large")+'</div><h2 id="creator-preview-name">'+safe(custom.name||"Seu personagem")+'</h2>'+
     '<p>'+safe(custom.city)+' · '+safe(countryName(custom.country))+'</p></aside>'+
     '<form class="creator-form" id="creator-form">'+
     '<label class="form-field wide"><span>'+safe(u("fullName"))+'</span><input name="name" data-custom="name" type="text" minlength="2" maxlength="52" required placeholder="'+safe(u("fullName"))+'" value="'+safe(custom.name)+'" autocomplete="off"/></label>'+
@@ -403,24 +411,50 @@ function tabs(): string {
   return allTabs.map(t=>'<button type="button" data-tab="'+t+'" class="nav-item'+(tab===t?' active':'')+
    '" aria-current="'+(tab===t?'page':'false')+'"><span class="nav-icon">'+tabIcons[t]+'</span><span>'+safe(u(t))+'</span></button>').join('');
 }
+function gameDock():string {
+  if(!life)return '';
+  const dockTab=(key:Tab,symbol:string)=>
+    '<button type="button" data-tab="'+key+'" class="dock-tab'+(tab===key?' active':'')+
+    '" aria-label="'+safe(u(key))+'"><span aria-hidden="true" class="dock-icon">'+iconSvg(symbol,29)+
+    '</span><span>'+safe(u(key))+'</span></button>';
+  const locked=Boolean(life.pendingEvent||life.simulation.ended);
+  const age='<button type="button" data-do="age-up" class="dock-age"'+(locked?' disabled':'')+
+   ' aria-label="'+safe(u("ageUp"))+'" title="'+safe(locked?u("advanceBlocked"):u("ageUp"))+'">'+
+   '<span class="dock-plus" aria-hidden="true">+</span><span>'+safe(language==='pt-BR'?'Idade':'Age')+'</span></button>';
+  return '<nav class="game-dock" aria-label="'+safe(u("menu"))+'">'+
+    dockTab('career','book')+dockTab('finances','wallet')+age+
+    dockTab('people','heart')+dockTab('actions','star')+'</nav>';
+}
 function renderPlay(): string {
   if(!life){scene="welcome";return renderWelcome();}
-  const p=life.profile, s=life.simulation;
-  return '<main class="play-layout">'+
-    '<aside class="game-sidebar"><div class="mini-person">'+portraitSvg(p,"tiny")+
-    '<div><strong>'+safe(life.name)+'</strong><span>'+life.age+' '+safe(u("age"))+'</span></div></div>'+
-    '<nav class="side-navigation" aria-label="'+safe(u("menu"))+'">'+tabs()+'</nav>'+
-    button(u("newLife"),"new-life","outline sidebar-new")+'</aside>'+
-    '<section class="game-content"><header class="game-heading"><div><span class="subtle-label">'+safe(u("life"))+'</span>'+
-    '<h1>'+safe(life.name)+'</h1><p>'+safe(p.city)+', '+safe(countryName(p.country))+' · '+life.age+' '+safe(u("age"))+'</p></div>'+
-    '<span class="age-pill">'+life.age+'</span></header>'+
-    (tab==="story"?renderStory():tab==="actions"?renderActions():
-      tab==="people"?renderPeople():tab==="career"?renderCareer():renderFinances())+'</section>'+
-    '<aside class="game-inspector">'+renderVitals()+
-    '<div class="inspector-card"><span class="subtle-label">'+safe(u("balance"))+'</span><strong>'+safe(cash(s.balance))+'</strong>'+
-    '<p>'+safe(u("debt"))+': '+safe(cash(s.debt))+'</p></div></aside>'+
-    '<nav class="mobile-tabs" aria-label="'+safe(u("menu"))+'">'+tabs()+'</nav></main>';
+  const p=life.profile,s=life.simulation,stage=lifeStage(life.age);
+  const phase=stage==='baby'?(language==='pt-BR'?'Bebê':'Baby'):
+    stage==='child'?(language==='pt-BR'?'Infância':'Childhood'):
+    stage==='teen'?(language==='pt-BR'?'Adolescência':'Teenager'):
+    stage==='adult'?(language==='pt-BR'?'Vida adulta':'Adulthood'):
+    (language==='pt-BR'?'Terceira idade':'Senior');
+  return '<main class="game-layout" data-screen="playing">'+
+    '<header class="game-status">'+
+     '<button type="button" class="game-identity" data-tab="story" aria-label="'+safe(u("story"))+'">'+
+     '<span class="identity-portrait">'+portraitLife(p,life.age,"tiny")+'</span>'+
+     '<span class="identity-copy"><strong>'+safe(life.name)+'</strong>'+
+     '<span>'+safe(p.city)+', '+safe(countryName(p.country))+' · '+safe(ageText(life.age))+'</span></span></button>'+
+     '<div class="game-status-money"><small>'+safe(u("balance"))+'</small><strong>'+safe(cash(s.balance))+'</strong></div>'+ 
+     '<button type="button" class="game-language" data-do="language" aria-label="'+safe(u("languages"))+'">'+(language==='pt-BR'?'EN':'PT')+'</button>'+
+     '<button type="button" data-do="toggle-menu" class="game-menu" title="'+safe(u("newLife"))+'" aria-label="'+safe(u("newLife"))+'">☰</button>'+
+    '</header>'+
+    '<div class="game-content-layout"><section class="game-main">'+
+      '<div class="current-phase"><span class="subtle-label">'+safe(language==='pt-BR'?'SUA HISTÓRIA':'YOUR STORY')+'</span>'+
+      '<span>'+safe(phase)+'</span></div>'+
+      (tab==='story'?renderStory():tab==='actions'?renderActions():
+        tab==='people'?renderPeople():tab==='career'?renderCareer():renderFinances())+
+      '<div class="mobile-vitals">'+renderVitals()+'</div></section>'+
+      '<aside class="game-side">'+renderVitals()+
+        '<div class="inspector-card side-profile">'+portraitLife(p,life.age,"medium")+
+        '<strong>'+safe(life.name)+'</strong><span>'+safe(ageText(life.age))+'</span></div></aside>'+
+    '</div>'+gameDock()+(menuOpen?renderGameMenu():'')+'</main>';
 }
+
 function renderVitals(): string {
   if (!life)return '';
   const icons:Record<StatKey,string>={happiness:"♡",health:"+",smarts:"✧",looks:"◈"};
@@ -429,27 +463,48 @@ function renderVitals(): string {
     '<div class="vital-label"><span>'+icons[k]+' '+safe(u(k))+'</span><b>'+life!.stats[k]+'%</b></div>'+
     '<div class="bar"><span style="width:'+clamp(life!.stats[k])+'%"></span></div></div>').join('')+'</section>';
 }
-function renderStory(): string {
+/** Timeline is a chronological record, not a random event card with no history. */
+function timelineEntries():string {
+  if(!life)return '';
+  const entries=life.history.slice(-100).reverse();
+  const item=(line:string)=>{
+    const parsed=/^(\d{1,3}):\s*(.*)$/.exec(line);
+    const age=parsed?Number(parsed[1]):0,text=parsed?parsed[2]:line;
+    const icon=/escol|estud|schol|faculdade|educa|curso|gradua|univer|aprend/i.test(text)?'book':
+      /trabal|empreg|carreira|job|work|profiss/i.test(text)?'briefcase':
+      /dinheiro|saldo|receb|dívida|invest|income|debt|cash|financ/i.test(text)?'wallet':
+      /saúde|health|médic|doença|hospital/i.test(text)?'medkit':
+      /amig|famíl|relacion|casou|namor|child|partner|friend/i.test(text)?'heart':'star';
+    return '<li class="life-entry"><span class="entry-glyph">'+iconSvg(icon,24)+'</span>'+
+      '<div class="entry-content"><span class="entry-age">'+safe(u("age"))+': '+age+'</span>'+
+      '<p>'+safe(text)+'</p></div></li>';
+  };
+  return '<section class="life-journal"><div class="journal-heading"><h2>'+safe(u("timeline"))+'</h2>'+
+    '<span>'+entries.length+' '+safe(language==='pt-BR'?'registros':'entries')+'</span></div>'+
+    (entries.length?'<ol>'+entries.map(item).join('')+'</ol>':'<p>'+safe(u("noTimeline"))+'</p>')+'</section>';
+}
+function renderStory():string {
   if(!life)return '';
   const event=life.pendingEvent;
-  const story=event?'<article class="story-event">'+eventScene(event.id,life.profile,language)+'<span class="story-label">'+safe(u("event"))+' · '+life.age+' '+safe(u("age"))+'</span>'+
-    '<h2>'+safe(event.title)+'</h2><p>'+safe(event.description)+'</p>'+
-    '<div class="event-choices">'+event.choices.map((c,i)=>'<button type="button" data-choice="'+i+
-      '" class="choice"><span>'+safe(c.label)+'</span><span class="choice-index">'+(i+1)+'</span></button>').join('')+'</div></article>':
-    life.simulation.ended?'<article class="story-event end-event"><span class="story-label">'+safe(u("ended"))+
-      '</span><h2>'+safe(u("endedText"))+'</h2>'+button(u("newLife"),"new-life","primary")+'</article>':
-    '<article class="story-event waiting"><span class="story-label">'+safe(u("birthdayLabel"))+'</span>'+
-    '<h2>'+safe(u("awaiting"))+'</h2><p>'+safe(u("tagline"))+'</p>'+
-    button(u("ageUp"),"age-up","primary age-button")+'</article>';
-  const history=life.history.slice(-16).reverse().map((line,i)=>'<li>'+
-    '<span class="timeline-dot"></span><span>'+safe(line)+'</span></li>').join('');
-  return '<div class="story-layout"><div class="story-column"><section class="personal-story">'+
-    '<div class="portrait-block">'+portraitSvg(life.profile,"medium")+'</div>'+
-    '<div><span class="subtle-label">'+safe(u("born"))+'</span><p>'+safe(life.profile.city)+', '+safe(countryName(life.profile.country))+
-    '</p><strong>'+safe(u("birthday"))+' '+life.profile.birthday+'/'+life.profile.birthMonth+'</strong></div></section>'+
-    story+'<section class="timeline"><h2>'+safe(u("timeline"))+'</h2>'+
-    (history?'<ol>'+history+'</ol>':'<p>'+safe(u("noTimeline"))+'</p>')+'</section></div></div>';
+  const eventHtml=event?'<section class="story-event decision-card">'+
+      eventScene(event.id,life.profile,language,life.age,event.category)+
+      '<div class="decision-body"><span class="story-label">'+safe(u("event"))+' · '+safe(ageText(life.age))+'</span>'+
+      '<h2>'+safe(event.title)+'</h2><p>'+safe(event.description)+'</p>'+
+      '<div class="event-choices">'+event.choices.map((c,i)=>'<button type="button" data-choice="'+i+
+      '" class="choice"><span>'+safe(c.label)+'</span><span class="choice-index">'+(i+1)+'</span></button>').join('')+
+      '</div></div></section>':
+    life.simulation.ended?'<section class="story-event end-event"><h2>'+safe(u("ended"))+'</h2><p>'+safe(u("endedText"))+'</p>'+
+     button(u("newLife"),"new-life","primary")+'</section>':
+    '<div class="age-ready"><span class="ready-spark">✦</span>'+
+     '<span>'+safe(language==='pt-BR'?'Um novo ano espera por você. Use + Idade no centro da barra inferior.':
+      'A new year is waiting. Press + Age in the center below.')+'</span></div>';
+  return '<section class="story-layout game-feed">'+
+    '<div class="story-intro"><div><strong>'+safe(language==='pt-BR'?'Diário de vida':'Life journal')+'</strong>'+
+    '<span>'+safe(u("year"))+' '+(life.birthYear+life.age)+'</span></div>'+
+    '<button type="button" data-tab="actions" class="subtle-link">'+safe(u("actions"))+'</button></div>'+
+    eventHtml+timelineEntries()+'</section>';
 }
+
 const actionTypes: Action[]=['study','job','socialize','care','budget','invest','home','child','retire'];
 function canAction(action: Action): boolean {
   if (!life || life.simulation.ended || life.pendingEvent || life.simulation.lastActionAge===life.age)return false;
@@ -477,13 +532,26 @@ function progress(label: string, amount: number): string {
 function renderPeople(): string {
   if(!life)return '';
   const s=life.simulation;
-  return '<section class="content-panel"><div class="panel-heading"><h2>'+safe(u("people"))+'</h2><p>'+safe(u("relationship"))+': '+safe(u(s.relationship))+'</p></div>'+
-    '<div class="relation-grid">'+progress(u("family"),s.family)+progress(u("friends"),s.friends)+
-    (s.relationship!=="single"?progress(u("partner"),s.partner):'')+'</div>'+
-    '<h3>'+safe(u("parents"))+'</h3><div class="family-list">'+life.familyMembers.map(p=>
-      '<div><span class="family-initial">'+safe(p.name.charAt(0))+'</span><span><strong>'+safe(p.name)+
-      '</strong><small>'+safe(u(p.kind))+' · '+(p.birthAge+life!.age)+' '+safe(u("age"))+'</small></span></div>').join('')+'</div>'+
-    '<div class="data-list">'+pair(u("children"),String(s.children))+'</div><div class="context-action activity-grid">'+actionButton("socialize")+actionButton("child")+'</div></section>';
+  const social=life.social.people;
+  const bondRow=(p:typeof social[number])=>{
+    const age=personAge(p,life!.age);
+    const canVisit=p.alive&&!life!.pendingEvent&&!s.ended&&s.lastActionAge!==life!.age;
+    return '<article class="person-card"><div class="person-art">'+portraitLife(p.profile,age,"tiny")+'</div>'+
+      '<div class="person-details"><strong>'+safe(p.profile.name)+'</strong>'+
+      '<span>'+safe(personLabel(p.role,language))+' · '+safe(ageText(age))+
+      (p.alive?'':(language==="pt-BR"?" · Falecido":" · Deceased"))+'</span>'+
+      '<div class="person-bond"><span style="width:'+p.closeness+'%"></span></div>'+
+      '<small>'+safe(language==="pt-BR"?"Vínculo":"Bond")+': '+p.closeness+'%</small></div>'+
+      '<button type="button" data-person="'+safe(p.id)+'"'+(canVisit?'':' disabled')+
+       ' class="person-visit">'+safe(language==="pt-BR"?"Conversar":"Spend time")+'</button></article>';
+  };
+  return '<section class="content-panel people-panel"><div class="panel-heading"><h2>'+safe(u("people"))+'</h2>'+
+   '<p>'+safe(u("relationship"))+': '+safe(u(s.relationship))+' · '+safe(language==="pt-BR"?"Cada pessoa tem uma história e um vínculo próprio.":"Every person has their own story and bond.")+'</p></div>'+
+   '<div class="relation-grid">'+progress(u("family"),s.family)+progress(u("friends"),s.friends)+
+   (s.relationship!=="single"?progress(u("partner"),s.partner):'')+'</div>'+
+   '<div class="people-list">'+social.map(bondRow).join('')+'</div>'+
+   '<div class="data-list">'+pair(u("children"),String(s.children))+'</div>'+
+   '<div class="context-action activity-grid">'+actionButton("child")+'</div></section>';
 }
 function pair(label: string,value:string): string {return '<div class="data-row"><span>'+safe(label)+'</span><strong>'+safe(value)+'</strong></div>';}
 function renderCareer(): string {
@@ -528,18 +596,44 @@ function activeEventForLanguage(): void {
   if(!life?.pendingEvent)return;
   const id=life.pendingEvent.id;
   if(id==="quiet-year"){life.pendingEvent=quietEvent();return;}
-  const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language)] as LifeEvent[]).find(e=>e.id===id);
+  const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language),...extendedEvents(language)] as LifeEvent[]).find(e=>e.id===id);
   if(localized)life.pendingEvent=localized;
 }
+function syncLifePeople():void {
+ if(!life)return;
+ const result=syncSocial(life.social,life.profile,life.age,life.simulation.relationship,life.simulation.children,life.simulation.partner);
+ life.social=result.social;
+ for(const note of result.notes){
+   const words=note==='partner-introduced'?
+     (language==='pt-BR'?'Você conheceu uma pessoa especial.':'You met someone special.'):
+     note==='child-added'?
+     (language==='pt-BR'?'Um novo membro entrou para a família.':'A new member joined the family.'):
+     (language==='pt-BR'?'Uma pessoa da família faleceu.':'A family member passed away.');
+   life.history.push(life.age+': '+words);
+ }
+}
+function visitPerson(id:string):void {
+ if(!life||life.pendingEvent||life.simulation.ended)return;
+ const person=life.social.people.find(p=>p.id===id&&p.alive);
+ if(!person)return;
+ const result=takeAction(life.simulation,life.stats,life.age,'socialize');
+ if(!result.ok)return;
+ life.simulation=result.state;life.stats=result.stats;
+ life.social=spendSocialTime(life.social,id,life.age);
+ life.history.push(life.age+': '+(language==='pt-BR'?'Você passou um tempo com ':'You spent time with ')+person.profile.name+'.');
+ syncLifePeople();saveLife();render();
+}
+
 function ageUp(): void {
   if (!life || life.pendingEvent || life.simulation.ended)return;
   const age=life.age+1;
   const transition=passYear(life.simulation,life.stats,age);
   if(!transition.ok)return;
   life.age=age;life.simulation=transition.state;life.stats=transition.stats;
+  syncLifePeople();
   transition.notes.forEach(n=>life!.history.push(age+": "+caption(n)));
   if (!transition.state.ended) {
-    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language)] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
+    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language),...extendedEvents(language).filter(e=>extendedAllowed(e,life!.simulation))] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
     life.pendingEvent=selectEvent(eligible,age,life.eventLedger,life.lastEventId)??quietEvent();
   }
   saveLife();tab="story";render();
@@ -547,9 +641,10 @@ function ageUp(): void {
 function choose(index:number): void {
   if (!life?.pendingEvent)return;
   const event=life.pendingEvent;const choice=event.choices[index];if(!choice)return;
-  const result=applyNarrativeChoice(life.simulation,life.stats,life.age,event.id,index,choice.effects);
+  const result=applyNarrativeChoice(life.simulation,life.stats,life.age,event.id,index,choice.effects,choice.world);
   if(!result.ok)return;
   life.simulation=result.state;life.stats=result.stats;
+  syncLifePeople();
   life.history.push(life.age+": "+choice.result);
   for(const n of result.notes)life.history.push(life.age+": "+caption(n));
   if(event.id!=="quiet-year"){
@@ -564,6 +659,7 @@ function act(action:Action): void {
   const result=takeAction(life.simulation,life.stats,life.age,action);
   if(!result.ok)return;
   life.simulation=result.state;life.stats=result.stats;
+  syncLifePeople();
   life.history.push(life.age+": "+u(action));
   for(const n of result.notes)life.history.push(life.age+": "+caption(n));
   saveLife();render();
@@ -573,17 +669,72 @@ function changeLanguage(): void {
   try{localStorage.setItem(LANG_KEY,language);}catch{}
   activeEventForLanguage();render();
 }
+function renderGameMenu():string {
+ return '<div class="game-menu-backdrop"><section class="game-menu-panel" role="dialog" aria-modal="true" aria-label="'+
+  safe(language==='pt-BR'?'Menu da vida':'Life menu')+'">'+
+  '<div class="menu-title"><div><span class="subtle-label">ZOID LIFE</span><h2>'+
+  safe(language==='pt-BR'?'Sua vida está salva':'Your life is saved')+'</h2></div>'+
+  '<button type="button" data-do="close-menu" class="menu-close" aria-label="'+safe(u("back"))+'">×</button></div>'+
+  '<p>'+safe(language==='pt-BR'?'Sem cadastro: o jogo salva neste navegador. Faça uma cópia para jogar em outro dispositivo.':
+  'No account needed: this browser saves your progress. Export a copy for another device.')+'</p>'+
+  '<div class="menu-buttons">'+
+   button(language==='pt-BR'?'Baixar meu save (.json)':'Download my save (.json)','export-save','secondary fill')+
+   button(language==='pt-BR'?'Importar um save':'Import a save','import-save','outline fill')+
+   button(language==='pt-BR'?'Voltar à escolha de personagens':'Back to character selection','home','outline fill')+
+   button(language==='pt-BR'?'Começar outra vida':'Start a new life','new-life','outline fill')+'</div>'+
+   '<input id="life-save-file" type="file" accept=".json,application/json" hidden />'+
+   (menuError?'<p class="menu-error" role="alert">'+safe(menuError)+'</p>':'')+
+   '<small>'+safe(language==='pt-BR'?'Importar substitui a vida atual somente depois que o arquivo for validado.':
+    'Import replaces the current life only after the file is validated.')+'</small>'+
+ '</section></div>';
+}
+function downloadLife():void {
+ if(!life)return;
+ const data=serializeLife(life);
+ const url=URL.createObjectURL(new Blob([data],{type:'application/json;charset=utf-8'}));
+ const a=document.createElement('a');
+ a.href=url;a.download=saveFilename(life.name);
+ document.body.appendChild(a);a.click();a.remove();
+ window.setTimeout(()=>URL.revokeObjectURL(url),1200);
+}
+async function importLife(file:File):Promise<void> {
+ try {
+  if(file.size>1_000_000)throw Error('too-large');
+  const parsed=validateLifeSave(await file.text());
+  if(!parsed.ok)throw Error(parsed.error);
+  const original=localStorage.getItem(STORAGE_KEY);
+  try {
+   localStorage.setItem(STORAGE_KEY,JSON.stringify(parsed.value));
+   const restored=loadLife();
+   if(!restored)throw Error('invalid-life');
+   life=restored;tab='story';scene='playing';menuOpen=false;menuError='';render();
+  }catch(error){
+   if(original===null)localStorage.removeItem(STORAGE_KEY);
+   else localStorage.setItem(STORAGE_KEY,original);
+   throw error;
+  }
+ }catch{
+  menuError=language==='pt-BR'?'O arquivo não é um save válido do Zoid Life. Sua vida atual foi preservada.':
+    'This is not a valid Zoid Life save. Your existing life was kept.';
+  menuOpen=true;render();
+ }
+}
+
 function newLife(): void {
   if(life && !window.confirm(u("resetTitle")))return;
   life=null;try{localStorage.removeItem(STORAGE_KEY);}catch{}
-  candidates=randomCandidates(3);scene="selection";render();
+  candidates=randomCandidates(3);scene="welcome";menuOpen=false;render();
 }
 function handleAction(value:string):void {
   if(value==="language"){changeLanguage();return;}
-  if(value==="home"){scene="welcome";render();return;}
+  if(value==="toggle-menu"){menuOpen=!menuOpen;menuError="";render();return;}
+  if(value==="close-menu"){menuOpen=false;menuError="";render();return;}
+  if(value==="export-save"){downloadLife();return;}
+  if(value==="import-save"){appEl?.querySelector<HTMLInputElement>("#life-save-file")?.click();return;}
+  if(value==="home"){scene="welcome";menuOpen=false;render();return;}
   if(value==="new-life"){newLife();return;}
-  if(value==="selection"){scene="selection";render();return;}
-  if(value==="reroll"){candidates=randomCandidates(3);render();return;}
+  if(value==="selection"){scene="welcome";render();return;}
+  if(value==="reroll"){candidates=randomCandidates(3);scene="welcome";render();return;}
   if(value==="custom"){custom={...randomCharacter(),name:""};customStats={happiness:70,health:80,smarts:55,looks:60};scene="custom";render();return;}
   if(value==="continue"){scene="playing";tab="story";render();return;}
   if(value==="age-up"){ageUp();return;}
@@ -596,6 +747,8 @@ function handleAction(value:string):void {
 const appEl=document.querySelector<HTMLDivElement>("#app");
 appEl?.addEventListener("click",e=>{
   const target=e.target as HTMLElement;
+  const person=target.closest<HTMLButtonElement>("[data-person]");
+  if(person){visitPerson(person.dataset.person||'');return;}
   const nav=target.closest<HTMLButtonElement>("[data-tab]");
   if(nav){tab=nav.dataset.tab as Tab;render();return;}
   const choice=target.closest<HTMLButtonElement>("[data-choice]");
@@ -619,6 +772,13 @@ appEl?.addEventListener("input",e=>{
   }
 });
 appEl?.addEventListener("change",e=>{
+  const fileInput=e.target as HTMLInputElement;
+  if(fileInput.id==="life-save-file"){
+    const chosen=fileInput.files?.[0];
+    if(chosen)void importLife(chosen);
+    return;
+  }
+
   if(scene!=="custom")return;
   const input=e.target as HTMLInputElement|HTMLSelectElement;
   const name=input.dataset.custom; if(!name)return;
@@ -642,6 +802,9 @@ appEl?.addEventListener("submit",e=>{
   if(name.length<2){const alert=appEl.querySelector("#form-error");if(alert)alert.textContent=u("nameError");return;}
   const result=normalizeProfile({...custom,name,birthday:Number(data.get("birthday")),birthMonth:Number(data.get("birthMonth"))},name);
   createLife(result,customStats);
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&menuOpen){menuOpen=false;menuError="";render();}
 });
 /** Visible app boot state, removed once the game model is ready. */
 appEl!.innerHTML='<div class="boot-screen"><span class="boot-mark">Z</span><strong>ZOID LIFE</strong><div class="boot-progress"></div></div>';
