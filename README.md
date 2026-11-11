@@ -1,18 +1,19 @@
 # Zoid Life
 
-Independent, browser-based life simulator for the NOVA STEAM VERDE collection.
+Independent, browser-based life simulator in the NOVA STEAM VERDE collection.
 
-### Play now
-- Blue/white game UI: three baby characters directly on entry, or a fully custom baby.
-- Original procedural pixel characters that evolve through life while maintaining consistent traits.
-- Story journal, contextual scene illustrations, central + Age button, and 4 game tabs.
-- Named family, friends, partners, children, schooling, work, property, debts and health.
-- 43 original age-aware bilingual event templates with persistent world consequences and replay cooldown.
-- No registration. Browser-local autosave (with compatibility migration).
+## Play
+- Loading screen followed by **three generated babies** immediately, or a completely free custom character.
+- Original modular, age-specific pixel avatars from baby through senior, preserving identity.
+- Central + Age button, illustrated narrative feed, 4 navigational game tabs, clear status header.
+- 43 original age-aware bilingual scenario templates, contextual criteria, event cooldown and persistent consequences.
+- Named parents, partners, children and relationships, school, career, money, debt, investments, property, health.
+- Portable **JSON life export and import** with basic validation, as well as automatic local browser saves.
+- No login or payment, works in pt-BR and English.
 
-### Local build
+## Development
 
-Node.js 22+ recommended:
+Node 22+:
 
     npm install
     npm test
@@ -20,22 +21,25 @@ Node.js 22+ recommended:
     npx playwright install chromium
     npm run test:e2e
 
-### Source
-- src/main.ts: game presentation, interactive choices, autosave
-- src/life-art.ts: original age-specific modular pixel avatars
-- src/characters.ts: character identity and customization
-- src/social.ts: persistent relatives, partners and children
-- src/simulation.ts: life states, financial and career progress
-- src/event-engine.ts: weighted events, cooldown and history
-- src/events-plus.ts, src/events-extended.ts: original localized story library
-- src/event-scenes.ts: original contextual visual scenes
-- tests/: unit, stress and Chromium browser acceptance
-- docs/RELEASE_CHECKLIST.md: release gates and Cloudflare branch strategy
-- docs/REA_ANALYSIS.md: evidence-based limitations of offline package inspection
+## Structure
+- src/main.ts — responsive UI, story orchestration, save and menu handling
+- src/characters.ts — character identity and profile choices
+- src/life-art.ts — pixel avatars across life stages
+- src/social.ts — relatives, partners, children and bonds
+- src/simulation.ts — finances, school, relationships and life progress
+- src/events-plus.ts / src/events-extended.ts — authored localized event libraries
+- src/event-engine.ts — repeat logic, age gating and history
+- src/event-scenes.ts — original event illustrations
+- src/save-io.ts — safe save import validation and filenames
+- tests — unit, 500-life stress runs and Chromium smoke tests
+- docs/RELEASE_CHECKLIST.md — release gates, production branch notes
+- docs/REA_ANALYSIS.md — APK inspection evidence and limitations
 
-### Release
-Main is the reviewed source. Feature branches deploy to previews first. Cloudflare currently uses feat/initial-web-foundation as its production release branch. Until that build configuration is deliberately changed, promote a tested main Git tree to the existing production branch **once per approved release**, without force updates. Confirm deployed commit in Cloudflare.
+## Cloudflare release
+Main is the reviewed source of truth; feature branches receive automated previews.
 
-Preview and production are independent. A green GitHub Actions check does not itself prove the public site was updated.
+The currently configured **production branch in Cloudflare** is feat/initial-web-foundation. Leave it as configured to avoid another branch change; promote the tested main tree to that branch using a non-force release commit after passing CI and verifying the preview. Confirm the production build/version ID. A successful GitHub CI does not prove active deployment.
 
-This is an independent original simulation; no third-party source code, screenshots, text or graphical assets are shipped.
+Preview vs production URLs are different. Browser saves are stored locally, so exporting a save before clearing site data is strongly recommended.
+
+No third-party game code, text, artwork, sprites or audio is distributed.

@@ -5,6 +5,7 @@ import { extendedEvents, extendedAllowed } from "./events-extended";
 import { selectEvent, recordEvent, migrateLedger, type EventLedger } from "./event-engine";
 import { eventScene, iconSvg } from "./event-scenes";
 import { portraitLife, lifeStage } from "./life-art";
+import { validateLifeSave, serializeLife, saveFilename } from "./save-io";
 import { initialSocial, normalizeSocial, syncSocial, spendSocialTime, personAge, personLabel, type SocialState } from "./social";
 
 import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, type Simulation, type Action, type WorldImpact } from "./simulation";
@@ -146,6 +147,8 @@ let language: Language = localStorage.getItem(LANG_KEY) === "en" ? "en" : "pt-BR
 let life: Life | null = loadLife();
 let scene: Scene = "welcome";
 let tab: Tab = "story";
+let menuOpen=false;
+let menuError="";
 let candidates = randomCandidates(3);
 let custom = { ...randomCharacter(), name: "" };
 let customStats: Stats = {happiness: 70, health: 80, smarts: 55, looks: 60};
@@ -438,7 +441,7 @@ function renderPlay(): string {
      '<span>'+safe(p.city)+', '+safe(countryName(p.country))+' · '+safe(ageText(life.age))+'</span></span></button>'+
      '<div class="game-status-money"><small>'+safe(u("balance"))+'</small><strong>'+safe(cash(s.balance))+'</strong></div>'+ 
      '<button type="button" class="game-language" data-do="language" aria-label="'+safe(u("languages"))+'">'+(language==='pt-BR'?'EN':'PT')+'</button>'+
-     '<button type="button" data-do="new-life" class="game-menu" title="'+safe(u("newLife"))+'" aria-label="'+safe(u("newLife"))+'">☰</button>'+
+     '<button type="button" data-do="toggle-menu" class="game-menu" title="'+safe(u("newLife"))+'" aria-label="'+safe(u("newLife"))+'">☰</button>'+
     '</header>'+
     '<div class="game-content-layout"><section class="game-main">'+
       '<div class="current-phase"><span class="subtle-label">'+safe(language==='pt-BR'?'SUA HISTÓRIA':'YOUR STORY')+'</span>'+
@@ -449,7 +452,7 @@ function renderPlay(): string {
       '<aside class="game-side">'+renderVitals()+
         '<div class="inspector-card side-profile">'+portraitLife(p,life.age,"medium")+
         '<strong>'+safe(life.name)+'</strong><span>'+safe(ageText(life.age))+'</span></div></aside>'+
-    '</div>'+gameDock()+'</main>';
+    '</div>'+gameDock()+(menuOpen?renderGameMenu():'')+'</main>';
 }
 
 function renderVitals(): string {
@@ -666,14 +669,69 @@ function changeLanguage(): void {
   try{localStorage.setItem(LANG_KEY,language);}catch{}
   activeEventForLanguage();render();
 }
+function renderGameMenu():string {
+ return '<div class="game-menu-backdrop"><section class="game-menu-panel" role="dialog" aria-modal="true" aria-label="'+
+  safe(language==='pt-BR'?'Menu da vida':'Life menu')+'">'+
+  '<div class="menu-title"><div><span class="subtle-label">ZOID LIFE</span><h2>'+
+  safe(language==='pt-BR'?'Sua vida está salva':'Your life is saved')+'</h2></div>'+
+  '<button type="button" data-do="close-menu" class="menu-close" aria-label="'+safe(u("back"))+'">×</button></div>'+
+  '<p>'+safe(language==='pt-BR'?'Sem cadastro: o jogo salva neste navegador. Faça uma cópia para jogar em outro dispositivo.':
+  'No account needed: this browser saves your progress. Export a copy for another device.')+'</p>'+
+  '<div class="menu-buttons">'+
+   button(language==='pt-BR'?'Baixar meu save (.json)':'Download my save (.json)','export-save','secondary fill')+
+   button(language==='pt-BR'?'Importar um save':'Import a save','import-save','outline fill')+
+   button(language==='pt-BR'?'Voltar à escolha de personagens':'Back to character selection','home','outline fill')+
+   button(language==='pt-BR'?'Começar outra vida':'Start a new life','new-life','outline fill')+'</div>'+
+   '<input id="life-save-file" type="file" accept=".json,application/json" hidden />'+
+   (menuError?'<p class="menu-error" role="alert">'+safe(menuError)+'</p>':'')+
+   '<small>'+safe(language==='pt-BR'?'Importar substitui a vida atual somente depois que o arquivo for validado.':
+    'Import replaces the current life only after the file is validated.')+'</small>'+
+ '</section></div>';
+}
+function downloadLife():void {
+ if(!life)return;
+ const data=serializeLife(life);
+ const url=URL.createObjectURL(new Blob([data],{type:'application/json;charset=utf-8'}));
+ const a=document.createElement('a');
+ a.href=url;a.download=saveFilename(life.name);
+ document.body.appendChild(a);a.click();a.remove();
+ window.setTimeout(()=>URL.revokeObjectURL(url),1200);
+}
+async function importLife(file:File):Promise<void> {
+ try {
+  if(file.size>1_000_000)throw Error('too-large');
+  const parsed=validateLifeSave(await file.text());
+  if(!parsed.ok)throw Error(parsed.error);
+  const original=localStorage.getItem(STORAGE_KEY);
+  try {
+   localStorage.setItem(STORAGE_KEY,JSON.stringify(parsed.value));
+   const restored=loadLife();
+   if(!restored)throw Error('invalid-life');
+   life=restored;tab='story';scene='playing';menuOpen=false;menuError='';render();
+  }catch(error){
+   if(original===null)localStorage.removeItem(STORAGE_KEY);
+   else localStorage.setItem(STORAGE_KEY,original);
+   throw error;
+  }
+ }catch{
+  menuError=language==='pt-BR'?'O arquivo não é um save válido do Zoid Life. Sua vida atual foi preservada.':
+    'This is not a valid Zoid Life save. Your existing life was kept.';
+  menuOpen=true;render();
+ }
+}
+
 function newLife(): void {
   if(life && !window.confirm(u("resetTitle")))return;
   life=null;try{localStorage.removeItem(STORAGE_KEY);}catch{}
-  candidates=randomCandidates(3);scene="welcome";render();
+  candidates=randomCandidates(3);scene="welcome";menuOpen=false;render();
 }
 function handleAction(value:string):void {
   if(value==="language"){changeLanguage();return;}
-  if(value==="home"){scene="welcome";render();return;}
+  if(value==="toggle-menu"){menuOpen=!menuOpen;menuError="";render();return;}
+  if(value==="close-menu"){menuOpen=false;menuError="";render();return;}
+  if(value==="export-save"){downloadLife();return;}
+  if(value==="import-save"){appEl?.querySelector<HTMLInputElement>("#life-save-file")?.click();return;}
+  if(value==="home"){scene="welcome";menuOpen=false;render();return;}
   if(value==="new-life"){newLife();return;}
   if(value==="selection"){scene="welcome";render();return;}
   if(value==="reroll"){candidates=randomCandidates(3);scene="welcome";render();return;}
@@ -714,6 +772,13 @@ appEl?.addEventListener("input",e=>{
   }
 });
 appEl?.addEventListener("change",e=>{
+  const input=e.target as HTMLInputElement;
+  if(input.id==="life-save-file"){
+    const chosen=input.files?.[0];
+    if(chosen)void importLife(chosen);
+    return;
+  }
+
   if(scene!=="custom")return;
   const input=e.target as HTMLInputElement|HTMLSelectElement;
   const name=input.dataset.custom; if(!name)return;
@@ -737,6 +802,9 @@ appEl?.addEventListener("submit",e=>{
   if(name.length<2){const alert=appEl.querySelector("#form-error");if(alert)alert.textContent=u("nameError");return;}
   const result=normalizeProfile({...custom,name,birthday:Number(data.get("birthday")),birthMonth:Number(data.get("birthMonth"))},name);
   createLife(result,customStats);
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&menuOpen){menuOpen=false;menuError="";render();}
 });
 /** Visible app boot state, removed once the game model is ready. */
 appEl!.innerHTML='<div class="boot-screen"><span class="boot-mark">Z</span><strong>ZOID LIFE</strong><div class="boot-progress"></div></div>';

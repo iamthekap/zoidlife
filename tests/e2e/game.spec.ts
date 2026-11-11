@@ -198,3 +198,33 @@ test('a pending event changes language without losing its persistent choices',as
  await page.locator('[data-choice="1"]').click();
  await expect(page.locator('.dock-age')).toBeEnabled();
 });
+
+test('the in-game menu never resets a life without confirmation',async ({page})=>{
+ await chooseBaby(page);
+ await advance(page,2);
+ await page.locator('.game-menu').click();
+ await expect(page.getByRole('dialog')).toBeVisible();
+ await expect(page.locator('.identity-copy')).toContainText('2 anos');
+ await page.locator('[data-do="close-menu"]').click();
+ await expect(page.getByRole('dialog')).toHaveCount(0);
+ await expect(page.locator('.identity-copy')).toContainText('2 anos');
+});
+test('download a save and import a validated offline life safely',async ({page})=>{
+ await chooseBaby(page);
+ await page.locator('.game-menu').click();
+ const downloadPromise=page.waitForEvent('download');
+ await page.locator('[data-do="export-save"]').click();
+ const download=await downloadPromise;
+ expect(download.suggestedFilename()).toMatch(/^zoid-life-.*\.json$/);
+ const input=page.locator('#life-save-file');
+ const file={name:'vida.json',mimeType:'application/json',
+  buffer:Buffer.from(JSON.stringify({name:'Vida Importada',age:19,birthYear:2007,
+   stats:{happiness:69,health:83,smarts:63,looks:50},history:['0: Meu nascimento.'],seenEventIds:[],pendingEvent:null}))};
+ await input.setInputFiles(file);
+ await expect(page.locator('.identity-copy strong')).toHaveText('Vida Importada');
+ await expect(page.locator('.identity-portrait .stage-adult')).toBeVisible();
+ await page.locator('.game-menu').click();
+ await page.locator('#life-save-file').setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from('{invalid')});
+ await expect(page.getByRole('alert')).toContainText('preservada');
+ await expect(page.locator('.identity-copy strong')).toHaveText('Vida Importada');
+});
