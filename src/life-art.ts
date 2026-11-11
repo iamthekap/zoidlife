@@ -241,27 +241,22 @@ export function portraitLife(p:CharacterProfile,age:number,size='card'):string {
  // Stylized square block backdrop, changing for phases without altering identity.
  draw.push(r(15,25,115,124,backdrop,' opacity=".8"'));
  for(let i=0;i<14;i++)draw.push(r(13+((i*37)%116),40+((i*19)%107),3,3,'#ffffff',' opacity=".24"'));
- const baby=stage==='baby',child=stage==='child',teen=stage==='teen';
- const headWidth=baby?67:child?61:teen?56:52;
- const headHeight=baby?70:child?64:teen?61:60;
- const headX=Math.floor((144-headWidth)/2),headY=baby?34:child?32:31;
+ const child=stage==='child',teen=stage==='teen';
+ const headWidth=child?61:teen?56:52;
+ const headHeight=child?64:teen?61:60;
+ const headX=Math.floor((144-headWidth)/2),headY=child?32:31;
  // Back hair drawn before body/face so shoulder length stays visible.
  if(p.hair==='long'||p.hair==='curls'){
-   const hc=hairs[p.hairColor],extra=baby?25:child?49:69;
+   const hc=hairs[p.hairColor],extra=child?49:69;
    draw.push(r(headX-10,headY+14,headWidth+20,headHeight+extra,hc));
  }
  wardrobe(draw,stage,seed,shade);
  draw.push(r(61,100,22,22,skin));
  face(draw,p,headX,headY,headWidth,headHeight,stage,seed);
  hairPixels(draw,p,headX,headY,headWidth,stage,seed);
- // Infant hands rest against the onesie, adult hands are lowered.
- if(stage==='baby'){
-   draw.push(r(31,129,14,14,skin),r(100,129,14,14,skin));
-   draw.push(r(35,140,13,9,shade),r(97,140,13,9,shade));
- }else{
-   draw.push(r(28,157,13,20,skin),r(103,157,13,20,skin));
-   if(stage==='child'){draw.push(r(31,146,11,14,skin),r(101,146,11,14,skin));}
- }
+ // Children and adults use the upright body and lowered hands.
+ draw.push(r(28,157,13,20,skin),r(103,157,13,20,skin));
+ if(stage==='child'){draw.push(r(31,146,11,14,skin),r(101,146,11,14,skin));}
  const classes=['portrait','portrait-'+(size==='scene'?'scene':size),'stage-'+stage].join(' ');
  return '<svg class="'+classes+'" viewBox="0 0 144 176" xmlns="http://www.w3.org/2000/svg" '+
    'role="img" aria-label="Zoid Life avatar '+stage+'" shape-rendering="crispEdges">'+draw.join('')+'</svg>';
