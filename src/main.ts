@@ -353,7 +353,7 @@ function render(): void {
   const shell='<div class="app-shell">'+header+
    (scene==="welcome"?renderWelcome():scene==="selection"?renderSelection():
      scene==="custom"?renderCustom():renderPlay())+
-   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.5.0 · PT / EN</span></footer></div>';
+   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.5.2 · PT / EN</span></footer></div>';
   app.innerHTML=shell;
 }
 function renderWelcome(): string {
@@ -375,7 +375,7 @@ function renderWelcome(): string {
     button(language==="pt-BR"?"+ Criar meu personagem":"+ Create my own","custom","outline")+'</div>'+
     (hasSave?'<div class="continue-life">'+button(u("continue"),"continue","primary")+
       '<span>'+safe(life!.name)+' · '+safe(ageText(life!.age))+'</span></div>':'')+'</section>'+
-    '<div class="entry-footer"><span>'+safe(u("noLogin"))+'</span><span>BLUE EDITION · 0.5</span></div></main>';
+    '<div class="entry-footer"><span>'+safe(u("noLogin"))+'</span><span>BLUE EDITION · 0.5.2</span></div></main>';
 }
 function renderSelection(): string { return renderWelcome(); }
 function option(value: string,label: string, selected: boolean): string {
