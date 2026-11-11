@@ -545,14 +545,21 @@ function renderPeople(): string {
   const bondRow=(p:typeof social[number])=>{
     const age=personAge(p,life!.age);
     const canVisit=p.alive&&!life!.pendingEvent&&!s.ended&&canTakeAction(s,life!.age,"socialize");
+    const canGift=canVisit&&life!.age>=8&&s.balance>=200;
+    const canHelp=canVisit&&life!.age>=12;
     return '<article class="person-card"><div class="person-art">'+portraitLife(p.profile,age,"tiny")+'</div>'+
       '<div class="person-details"><strong>'+safe(p.profile.name)+'</strong>'+
       '<span>'+safe(personLabel(p.role,language))+' · '+safe(ageText(age))+
       (p.alive?'':(language==="pt-BR"?" · Falecido":" · Deceased"))+'</span>'+
       '<div class="person-bond"><span style="width:'+p.closeness+'%"></span></div>'+
       '<small>'+safe(language==="pt-BR"?"Vínculo":"Bond")+': '+p.closeness+'%</small></div>'+
-      '<button type="button" data-person="'+safe(p.id)+'"'+(canVisit?'':' disabled')+
-       ' class="person-visit">'+safe(language==="pt-BR"?"Conversar":"Spend time")+'</button></article>';
+      '<div class="person-actions">'+
+       '<button type="button" data-person="'+safe(p.id)+'" data-kind="talk"'+(canVisit?'':' disabled')+
+       ' class="person-visit">'+safe(language==="pt-BR"?"Conversar":"Talk")+'</button>'+
+       '<button type="button" data-person="'+safe(p.id)+'" data-kind="gift"'+(canGift?'':' disabled')+
+       ' class="person-visit">'+safe(language==="pt-BR"?"Presentear":"Gift")+'</button>'+
+       '<button type="button" data-person="'+safe(p.id)+'" data-kind="help"'+(canHelp?'':' disabled')+
+       ' class="person-visit">'+safe(language==="pt-BR"?"Ajudar":"Help")+'</button></div></article>';
   };
   return '<section class="content-panel people-panel"><div class="panel-heading"><h2>'+safe(u("people"))+'</h2>'+
    '<p>'+safe(u("relationship"))+': '+safe(u(s.relationship))+' · '+safe(language==="pt-BR"?"Cada pessoa tem uma história e um vínculo próprio.":"Every person has their own story and bond.")+'</p></div>'+
@@ -629,10 +636,12 @@ function activeEventForLanguage(): void {
 }
 function syncLifePeople():void {
  if(!life)return;
- const result=syncSocial(life.social,life.profile,life.age,life.simulation.relationship,life.simulation.children,life.simulation.partner);
+ const result=syncSocial(life.social,life.profile,life.age,life.simulation.relationship,life.simulation.children,life.simulation.partner,life.simulation.friends);
  life.social=result.social;
  for(const note of result.notes){
-   const words=note==='partner-introduced'?
+   const words=note==='friend-introduced'?
+     (language==='pt-BR'?'Você fez uma nova amizade.':'You made a new friend.'):
+     note==='partner-introduced'?
      (language==='pt-BR'?'Você conheceu uma pessoa especial.':'You met someone special.'):
      note==='child-added'?
      (language==='pt-BR'?'Um novo membro entrou para a família.':'A new member joined the family.'):
@@ -640,15 +649,34 @@ function syncLifePeople():void {
    life.history.push(life.age+': '+words);
  }
 }
-function visitPerson(id:string):void {
+function visitPerson(id:string,kind='talk'):void {
  if(!life||life.pendingEvent||life.simulation.ended)return;
  const person=life.social.people.find(p=>p.id===id&&p.alive);
  if(!person)return;
+ const mode=kind==='gift'||kind==='help'?kind:'talk';
+ if(mode==='gift'&&(life.age<8||life.simulation.balance<200))return;
+ if(mode==='help'&&life.age<12)return;
  const result=takeAction(life.simulation,life.stats,life.age,'socialize');
  if(!result.ok)return;
  life.simulation=result.state;life.stats=result.stats;
- life.social=spendSocialTime(life.social,id,life.age);
- life.history.push(life.age+': '+(language==='pt-BR'?'Você passou um tempo com ':'You spent time with ')+person.profile.name+'.');
+ let bond=12;
+ if(mode==='gift'){
+   life.simulation.balance-=200;
+   bond=22;life.stats.happiness=clamp(life.stats.happiness+2);
+ }else if(mode==='help'){
+   bond=17;life.stats.health=clamp(life.stats.health-2);
+   life.stats.happiness=clamp(life.stats.happiness+3);
+ }
+ if(mode!=='talk'){
+   if(person.role==='partner')life.simulation.partner=clamp(life.simulation.partner+8);
+   else if(person.role==='friend')life.simulation.friends=clamp(life.simulation.friends+6);
+   else life.simulation.family=clamp(life.simulation.family+5);
+ }
+ life.social=spendSocialTime(life.social,id,life.age,bond);
+ const verb=mode==='gift'?(language==='pt-BR'?'Você presenteou ':'You gave a gift to '):
+   mode==='help'?(language==='pt-BR'?'Você ajudou ':'You helped '):
+   (language==='pt-BR'?'Você conversou com ':'You talked with ');
+ life.history.push(life.age+': '+verb+person.profile.name+'.');
  syncLifePeople();saveLife();render();
 }
 
@@ -788,7 +816,7 @@ const appEl=document.querySelector<HTMLDivElement>("#app");
 appEl?.addEventListener("click",e=>{
   const target=e.target as HTMLElement;
   const person=target.closest<HTMLButtonElement>("[data-person]");
-  if(person){visitPerson(person.dataset.person||'');return;}
+  if(person){visitPerson(person.dataset.person||'',person.dataset.kind||'talk');return;}
   const career=target.closest<HTMLButtonElement>("[data-career]");
   if(career){applyToCareer(career.dataset.career||'');return;}
   const nav=target.closest<HTMLButtonElement>("[data-tab]");

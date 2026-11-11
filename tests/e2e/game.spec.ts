@@ -384,3 +384,25 @@ test('career board requires qualifications, changes salary and persists job sele
  await expect(page.locator('.career-vacancy.current')).toContainText('Desenvolvedor');
  await expect(page.locator('[data-career="developer"]')).toBeDisabled();
 });
+
+test('family interactions persist chosen bond and gift cost while limiting yearly interaction',async ({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=20;s.simulation.balance=1200;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('.person-card')).toHaveCount(2);
+ const first=page.locator('.person-card').first();
+ await expect(first.locator('[data-kind="gift"]')).toBeEnabled();
+ await first.locator('[data-kind="gift"]').click();
+ const s=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(s.simulation.balance).toBe(1000);
+ expect(s.simulation.actionLedger.socialize).toBe(20);
+ await expect(page.locator('.person-card').first().locator('[data-kind="talk"]')).toBeDisabled();
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('.person-card').first().locator('[data-kind="gift"]')).toBeDisabled();
+});

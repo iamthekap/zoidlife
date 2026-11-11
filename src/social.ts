@@ -81,7 +81,7 @@ function makeChild(s:SocialState,player:CharacterProfile,playerAge:number,index:
 }
 /** Create/destroy named people only when the persistent simulation changes. */
 export function syncSocial(state:SocialState,player:CharacterProfile,playerAge:number,
-  relationship:'single'|'dating'|'married',children:number,partnerBond:number):SocialUpdate {
+  relationship:'single'|'dating'|'married',children:number,partnerBond:number,friendsBond=0):SocialUpdate {
  const next=state.people.map(p=>({...p})),notes:string[]=[];
  if(relationship!=='single'&&!next.some(p=>p.role==='partner'&&p.alive)){
    const partner= sameRegion(randomCharacter(),player);
@@ -98,6 +98,20 @@ export function syncSocial(state:SocialState,player:CharacterProfile,playerAge:n
    next.push(makeChild({schema:1,people:next},player,playerAge,i));
    notes.push('child-added');
  }
+ // Social choices turn global friendship into actual, named people over time.
+ // Three milestones can introduce up to three distinct friends.
+ if(playerAge>=6){
+   const target=[40,65,85].filter(threshold=>friendsBond>=threshold).length;
+   let count=next.filter(p=>p.role==='friend'&&p.alive).length;
+   while(count<target&&next.length<58){
+     const sample=sameRegion(randomCharacter(),player);
+     const id='friend-'+playerAge+'-'+count;
+     if(next.some(p=>p.id===id))break;
+     next.push({id,role:'friend',profile:sample,bornAtPlayerAge:count%3-1,
+       closeness:clamp(Math.max(35,Math.round(friendsBond*.72))),alive:true,lastSharedAge:-1});
+     notes.push('friend-introduced');count++;
+   }
+ }
  for(const p of next){
    if(p.role==='partner'&&relationship!=='single')p.closeness=clamp(partnerBond);
    if((p.role==='mother'||p.role==='father')&&p.alive&&personAge(p,playerAge)>=103){
@@ -106,7 +120,7 @@ export function syncSocial(state:SocialState,player:CharacterProfile,playerAge:n
  }
  return {social:{schema:1,people:next},notes};
 }
-export function spendSocialTime(state:SocialState,id:string,playerAge:number):SocialState {
+export function spendSocialTime(state:SocialState,id:string,playerAge:number,amount=12):SocialState {
  return {schema:1,people:state.people.map(person=>person.id===id&&person.alive
-   ?{...person,closeness:clamp(person.closeness+12),lastSharedAge:playerAge}:person)};
+   ?{...person,closeness:clamp(person.closeness+amount),lastSharedAge:playerAge}:person)};
 }

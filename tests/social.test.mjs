@@ -75,3 +75,26 @@ test('after a breakup a later relationship introduces a different partner',()=>{
  assert.equal(next.social.people.filter(p=>p.role==='partner').length,1);
  assert.equal(next.social.people.filter(p=>p.role==='friend').length,1);
 });
+
+test('friendship milestones create persistent named friends with consistent local identity',()=>{
+ const fresh=initialSocial(player);
+ const first=syncSocial(fresh,player,12,'single',0,0,42);
+ const friends=first.social.people.filter(p=>p.role==='friend');
+ assert.equal(friends.length,1);
+ assert.equal(friends[0].profile.city,player.city);
+ assert.equal(friends[0].profile.country,player.country);
+ assert.equal(first.notes.includes('friend-introduced'),true);
+ const again=syncSocial(first.social,player,13,'single',0,0,42);
+ assert.equal(again.social.people.filter(p=>p.role==='friend').length,1);
+ const advanced=syncSocial(again.social,player,20,'single',0,0,90);
+ assert.equal(advanced.social.people.filter(p=>p.role==='friend').length,3);
+ assert.equal(new Set(advanced.social.people.map(p=>p.id)).size,advanced.social.people.length);
+});
+test('different social actions change one person without replacing anybody else',()=>{
+ const initial=initialSocial(player);
+ const first=initial.people[0],other=initial.people[1];
+ const gifted=spendSocialTime(initial,first.id,10,22);
+ assert.equal(gifted.people[0].closeness,Math.min(100,first.closeness+22));
+ assert.equal(gifted.people[1].closeness,other.closeness);
+ assert.equal(gifted.people[0].lastSharedAge,10);
+});
