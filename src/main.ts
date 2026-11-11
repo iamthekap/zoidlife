@@ -8,7 +8,7 @@ import { portraitLife, lifeStage } from "./life-art";
 import { validateLifeSave, serializeLife, saveFilename } from "./save-io";
 import { initialSocial, normalizeSocial, syncSocial, spendSocialTime, personAge, personLabel, type SocialState } from "./social";
 
-import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, type Simulation, type Action, type WorldImpact } from "./simulation";
+import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, type Simulation, type Action, type WorldImpact, canTakeAction } from "./simulation";
 
 type Language = "pt-BR" | "en";
 type StatKey = "happiness" | "health" | "smarts" | "looks";
@@ -304,6 +304,10 @@ function makeFamily(name: string): Life['familyMembers'] {
     {name:"Daniel "+last,kind:"father",birthAge:29+Math.floor(Math.random()*13)}];
 }
 function createLife(profile: CharacterProfile, stats: Stats): void {
+  // Prevent accidental overwrites when someone picks a new baby or submits the editor.
+  if(life && !window.confirm(language==='pt-BR'?
+    'Começar uma nova vida vai substituir o progresso salvo neste navegador. Exporte seu save no menu antes, se quiser guardá-lo. Continuar?':
+    'A new life will replace this browser save. Export it from the menu first if you want to keep it. Continue?'))return;
   const normalized=normalizeProfile(profile,profile.name);
   life={ name:normalized.name, profile:normalized, familyMembers:makeFamily(normalized.name),
     social:initialSocial(normalized),
@@ -507,7 +511,7 @@ function renderStory():string {
 
 const actionTypes: Action[]=['study','job','socialize','care','budget','invest','home','child','retire'];
 function canAction(action: Action): boolean {
-  if (!life || life.simulation.ended || life.pendingEvent || life.simulation.lastActionAge===life.age)return false;
+  if (!life || life.simulation.ended || life.pendingEvent || !canTakeAction(life.simulation,life.age,action))return false;
   return action==='study'?life.age>=6:action==='job'?life.age>=16&&life.age<65:
     action==='budget'?life.age>=16:action==='invest'?life.age>=18&&life.simulation.balance>=1000:
     action==='home'?life.age>=21&&!life.simulation.homeOwned&&life.simulation.balance>=25000:
@@ -515,13 +519,15 @@ function canAction(action: Action): boolean {
     action==='retire'?life.age>=60&&!['none','retired'].includes(life.simulation.job):true;
 }
 function actionButton(action: Action): string {
+ const used=Boolean(life && life.simulation.actionLedger?.[action]===life.age);
  return '<button type="button" data-action="'+action+'" class="activity-card"'+(canAction(action)?'':' disabled')+'>'+
-   '<strong>'+safe(u(action))+'</strong><span>'+safe(u(action+'Info'))+'</span>'+
+   '<strong>'+safe(u(action))+'</strong><span>'+safe(used?
+     (language==='pt-BR'?'Realizada neste ano':'Done this year'):u(action+'Info'))+'</span>'+
    '<i aria-hidden="true">›</i></button>';
 }
 function renderActions(): string {
   if(!life)return '';
-  const note=life.pendingEvent?u("blockedEvent"):life.simulation.lastActionAge===life.age?u("actionDone"):u("actionOnce");
+  const note=life.pendingEvent?u("blockedEvent"):(language==="pt-BR"?"Você pode fazer atividades diferentes no mesmo ano. Cada uma pode ser realizada uma vez por ano.":"Do different activities in the same year. Each activity is available once per year.");
   return '<section class="content-panel"><div class="panel-heading"><h2>'+safe(u("actions"))+'</h2><p>'+safe(note)+'</p></div>'+
     '<div class="activity-grid">'+actionTypes.map(actionButton).join('')+'</div></section>';
 }
@@ -535,7 +541,7 @@ function renderPeople(): string {
   const social=life.social.people;
   const bondRow=(p:typeof social[number])=>{
     const age=personAge(p,life!.age);
-    const canVisit=p.alive&&!life!.pendingEvent&&!s.ended&&s.lastActionAge!==life!.age;
+    const canVisit=p.alive&&!life!.pendingEvent&&!s.ended&&canTakeAction(s,life!.age,"socialize");
     return '<article class="person-card"><div class="person-art">'+portraitLife(p.profile,age,"tiny")+'</div>'+
       '<div class="person-details"><strong>'+safe(p.profile.name)+'</strong>'+
       '<span>'+safe(personLabel(p.role,language))+' · '+safe(ageText(age))+

@@ -13,7 +13,7 @@ test('age gates study and jobs', () => {
   assert.equal(takeAction(createSimulation(),base,12,'job').ok,false);
   assert.equal(takeAction(createSimulation(),base,16,'job').state.job,'parttime');
 });
-test('the player has one voluntary action per year', () => {
+test('the same voluntary activity can happen once per year', () => {
   const studied = takeAction(createSimulation(),base,12,'study');
   assert.equal(studied.state.credits,2);
   assert.equal(takeAction(studied.state,studied.stats,12,'study').ok,false);

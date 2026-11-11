@@ -228,3 +228,42 @@ test('download a save and import a validated offline life safely',async ({page})
  await expect(page.getByRole('alert')).toContainText('preservada');
  await expect(page.locator('.identity-copy strong')).toHaveText('Vida Importada');
 });
+
+test('several distinct actions are allowed in one year without duplicate rewards',async ({page})=>{
+ await chooseBaby(page);
+ await advance(page,6);
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ const study=page.locator('[data-action="study"]'),care=page.locator('[data-action="care"]');
+ await expect(study).toBeEnabled();
+ await expect(care).toBeEnabled();
+ await study.click();
+ await expect(study).toBeDisabled();
+ await expect(study).toContainText('Realizada neste ano');
+ await expect(care).toBeEnabled();
+ await care.click();
+ await expect(care).toBeDisabled();
+ const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(stored.simulation.actionLedger.study).toBe(6);
+ expect(stored.simulation.actionLedger.care).toBe(6);
+ await page.reload();
+ await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await expect(page.locator('[data-action="study"]')).toBeDisabled();
+ await page.locator('.dock-age').click();
+ await page.locator('[data-choice="0"]').click();
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await expect(page.locator('[data-action="study"]')).toBeEnabled();
+ await expect(page.locator('[data-action="care"]')).toBeEnabled();
+});
+test('starting another life does not overwrite the saved game without confirmation',async ({page})=>{
+ await chooseBaby(page);
+ const first=await page.locator('.identity-copy strong').textContent();
+ await page.locator('.game-menu').click();
+ await page.locator('[data-do="home"]').click();
+ await expect(page.locator('.newborn-card')).toHaveCount(3);
+ page.once('dialog',dialog=>dialog.dismiss());
+ await page.locator('[data-do="preset-1"]').click();
+ await expect(page.locator('.newborn-card')).toHaveCount(3);
+ await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.identity-copy strong')).toHaveText(first||'');
+});
