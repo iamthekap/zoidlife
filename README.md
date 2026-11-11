@@ -6,7 +6,7 @@ Independent, browser-based life simulator in the NOVA STEAM VERDE collection.
 - Loading screen followed by **three generated babies** immediately, or a completely free custom character.
 - Original modular, age-specific pixel avatars from baby through senior, preserving identity.
 - Central + Age button, illustrated narrative feed, 4 navigational game tabs, clear status header.
-- 43 original age-aware bilingual scenario templates, contextual criteria, event cooldown and persistent consequences.
+- 58 original age-aware bilingual scenario templates, contextual criteria, event cooldown and persistent consequences.
 - Named parents, partners, children and relationships, school, career, money, debt, investments, property, health.
 - Portable **JSON life export and import** with basic validation, as well as automatic local browser saves.
 - No login or payment, works in pt-BR and English.

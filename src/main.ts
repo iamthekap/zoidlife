@@ -2,6 +2,7 @@ import "./style.css";
 import { randomCandidates, randomCharacter, normalizeProfile, portraitSvg, CITIES, COUNTRIES, GENDERS, SKINS, HAIRS, HAIR_COLORS, EYES, type Country, type CharacterProfile } from "./characters";
 import { extraEvents, eventAllowed } from "./events-plus";
 import { extendedEvents, extendedAllowed } from "./events-extended";
+import { advancedEvents } from "./events-advanced";
 import { selectEvent, recordEvent, migrateLedger, type EventLedger } from "./event-engine";
 import { eventScene, iconSvg } from "./event-scenes";
 import { portraitLife, lifeStage } from "./life-art";
@@ -357,7 +358,7 @@ function render(): void {
   const shell='<div class="app-shell">'+header+
    (scene==="welcome"?renderWelcome():scene==="selection"?renderSelection():
      scene==="custom"?renderCustom():renderPlay())+
-   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.6.0 · PT / EN</span></footer></div>';
+   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.7.0 · PT / EN</span></footer></div>';
   app.innerHTML=shell;
 }
 function renderWelcome(): string {
@@ -379,7 +380,7 @@ function renderWelcome(): string {
     button(language==="pt-BR"?"+ Criar meu personagem":"+ Create my own","custom","outline")+'</div>'+
     (hasSave?'<div class="continue-life">'+button(u("continue"),"continue","primary")+
       '<span>'+safe(life!.name)+' · '+safe(ageText(life!.age))+'</span></div>':'')+'</section>'+
-    '<div class="entry-footer"><span>'+safe(u("noLogin"))+'</span><span>BLUE & RED EDITION · 0.6.0</span></div></main>';
+    '<div class="entry-footer"><span>'+safe(u("noLogin"))+'</span><span>BLUE & RED EDITION · 0.7.0</span></div></main>';
 }
 function renderSelection(): string { return renderWelcome(); }
 function option(value: string,label: string, selected: boolean): string {
@@ -669,7 +670,7 @@ function activeEventForLanguage(): void {
   if(!life?.pendingEvent)return;
   const id=life.pendingEvent.id;
   if(id==="quiet-year"){life.pendingEvent=quietEvent();return;}
-  const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language),...extendedEvents(language)] as LifeEvent[]).find(e=>e.id===id);
+  const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language),...extendedEvents(language),...advancedEvents(language)] as LifeEvent[]).find(e=>e.id===id);
   if(localized)life.pendingEvent=localized;
 }
 function syncLifePeople():void {
@@ -727,7 +728,7 @@ function ageUp(): void {
   syncLifePeople();
   transition.notes.forEach(n=>life!.history.push(age+": "+caption(n)));
   if (!transition.state.ended) {
-    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language),...extendedEvents(language).filter(e=>extendedAllowed(e,life!.simulation))] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
+    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language),...extendedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...advancedEvents(language).filter(e=>extendedAllowed(e,life!.simulation))] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
     life.pendingEvent=selectEvent(eligible,age,life.eventLedger,life.lastEventId)??quietEvent();
   }
   saveLife();tab="story";render();
