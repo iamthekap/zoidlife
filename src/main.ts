@@ -772,9 +772,9 @@ appEl?.addEventListener("input",e=>{
   }
 });
 appEl?.addEventListener("change",e=>{
-  const input=e.target as HTMLInputElement;
-  if(input.id==="life-save-file"){
-    const chosen=input.files?.[0];
+  const fileInput=e.target as HTMLInputElement;
+  if(fileInput.id==="life-save-file"){
+    const chosen=fileInput.files?.[0];
     if(chosen)void importLife(chosen);
     return;
   }
