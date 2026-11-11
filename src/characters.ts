@@ -47,11 +47,27 @@ export function randomCharacter(): CharacterProfile {
     birthday: 1 + Math.floor(Math.random()*28), birthMonth: 1 + Math.floor(Math.random()*12) };
 }
 export function randomCandidates(count = 3): CharacterProfile[] {
-  const names = new Set<string>();
-  const result: CharacterProfile[] = [];
-  while(result.length < Math.min(8, Math.max(1, count))) {
-    const candidate = randomCharacter();
-    if (!names.has(candidate.name)) { names.add(candidate.name); result.push(candidate); }
+  const total=Math.min(8,Math.max(1,Math.floor(Number.isFinite(count)?count:3)));
+  const names=new Set<string>();
+  const result:CharacterProfile[]=[];
+  // Every trio begins with three different skin tones and hairstyles;
+  // player appearance, gender, city and eye color remain independently generated.
+  const shuffle=<T>(arr:readonly T[]):T[]=>{
+    const copy=[...arr];
+    for(let i=copy.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));[copy[i],copy[j]]=[copy[j],copy[i]];
+    }
+    return copy;
+  };
+  const skinOrder=shuffle(SKINS),hairOrder=shuffle(HAIRS),colors=shuffle(HAIR_COLORS);
+  for(let i=0;i<total;i++){
+    let candidate=randomCharacter();
+    for(let tries=0;names.has(candidate.name)&&tries<50;tries++)candidate=randomCharacter();
+    if(names.has(candidate.name))candidate={...candidate,name:candidate.name+' '+(i+1)};
+    const profile={...candidate,skin:skinOrder[i%skinOrder.length],
+      hair:hairOrder[i%hairOrder.length],hairColor:colors[i%colors.length]};
+    names.add(profile.name);
+    result.push(profile);
   }
   return result;
 }

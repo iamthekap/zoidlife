@@ -342,3 +342,22 @@ test('a legacy adult life shows phase scenes without changing saved genetic trai
  expect(after.profile).toEqual(before.profile);
  await expect.poll(async()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
 });
+
+test('new pixel art silhouettes preserve visible genetics and phase differences',async ({page})=>{
+ await page.goto('/');
+ await expect(page.locator('.newborn-art svg[data-style="clean-pixel-simulation-v2"]')).toHaveCount(3);
+ const styles=await page.locator('.newborn-card').evaluateAll(cards=>cards.map(c=>c.querySelector('svg')?.outerHTML||''));
+ expect(new Set(styles).size).toBe(3);
+ const hues=await page.locator('.newborn-card').evaluateAll(cards=>cards.map(c=>{
+   const svg=c.querySelector('svg')!;
+   const face=svg.querySelector('[data-part="infant-face"]');
+   return Array.from(face?.querySelectorAll('rect')||[]).map(x=>x.getAttribute('fill')).find(x=>['#f6d3b4','#e5b487','#ba8362','#916048'].includes(x||''));
+ }));
+ expect(new Set(hues).size).toBe(3);
+ await page.locator('[data-do="preset-0"]').click();
+ await expect(page.locator('.identity-portrait svg[data-style="clean-pixel-simulation-v2"]')).toBeVisible();
+ await advance(page,3);
+ await expect(page.locator('.identity-portrait .stage-child')).toBeVisible();
+ await expect(page.locator('.storyboard-baby svg[data-style="clean-pixel-simulation-v2"]')).toBeVisible();
+ await expect(page.locator('.storyboard-child .stage-child')).toBeVisible();
+});

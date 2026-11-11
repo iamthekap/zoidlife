@@ -24,8 +24,9 @@ test('one baby portrait is a full-body seated character',()=>{
  const svg=portraitLife(character,0,'card');
  assert.ok(svg.includes('viewBox="0 0 144 176"'));
  assert.ok(svg.includes('stage-baby'));
- assert.ok(svg.includes('y="159"'));
- assert.ok(svg.includes('y="126"'));
+ assert.ok(svg.includes('data-style="clean-pixel-simulation-v2"'));
+ assert.ok(svg.includes('data-part="seated-onesie"'));
+ assert.ok(svg.includes('data-part="infant-hands"') || svg.includes('data-part="seated-onesie"'));
 });
 test('distinct features produce distinct yet deterministic sprites',()=>{
  const original=portraitLife(character,0);
