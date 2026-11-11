@@ -6,6 +6,7 @@ import { selectEvent, recordEvent, migrateLedger, type EventLedger } from "./eve
 import { eventScene, iconSvg } from "./event-scenes";
 import { portraitLife, lifeStage } from "./life-art";
 import { renderStoryboardTimeline } from "./storyboard";
+import { makeLifeReport,reportAsText } from "./life-summary";
 import { CAREERS,careerById,careerAvailable,careerLabel,careerRequirements,type OccupationId } from "./careers";
 import { validateLifeSave, serializeLife, saveFilename } from "./save-io";
 import { initialSocial, normalizeSocial, syncSocial, spendSocialTime, personAge, personLabel, type SocialState } from "./social";
@@ -490,6 +491,44 @@ function timelineEntries():string {
     '<span>'+entries.length+' '+safe(language==='pt-BR'?'registros':'entries')+'</span></div>'+
     (entries.length?'<ol>'+entries.map(item).join('')+'</ol>':'<p>'+safe(u("noTimeline"))+'</p>')+'</section>';
 }
+function renderLifeRecap():string{
+ if(!life)return '';
+ const report=makeLifeReport({...life},language);
+ const metric=(label:string,value:string)=>'<div class="recap-metric"><span>'+safe(label)+'</span><strong>'+safe(value)+'</strong></div>';
+ const pt=language==='pt-BR';
+ return '<section class="life-recap" data-recap-age="'+life.age+'">'+
+  '<div class="recap-header"><span class="recap-overline">ZOID LIFE</span>'+
+  '<h2>'+safe(pt?'Uma vida inteira':'A whole lifetime')+'</h2>'+
+  '<p>'+safe(life.name)+' · '+safe(ageText(life.age))+' · '+report.birthYear+'–'+report.endYear+'</p></div>'+
+  '<div class="recap-metrics">'+
+   metric(pt?'Patrimônio líquido':'Net worth',cash(report.netWorth))+
+   metric(pt?'Profissão':'Career',report.profession)+
+   metric(pt?'Escolaridade':'Education',report.education)+
+   metric(pt?'Filhos':'Children',String(report.children))+
+   metric(pt?'Amigos próximos':'Friends',String(report.friends))+
+   metric(pt?'Dívida':'Debt',cash(report.debt))+
+   metric(pt?'Investimentos':'Investments',cash(report.investments))+
+   metric(pt?'Imóveis':'Property',cash(report.property))+
+  '</div>'+
+  (report.achievements.length?'<h3>'+safe(pt?'Conquistas reais':'Real achievements')+'</h3>'+
+   '<ul class="recap-achievements">'+report.achievements.map(x=>'<li>'+safe(x)+'</li>').join('')+'</ul>':'')+
+  '<h3>'+safe(pt?'Acontecimentos marcantes':'Life moments')+'</h3>'+
+  '<ol class="recap-events">'+(report.events.length?report.events.map(x=>'<li>'+safe(x)+'</li>').join(''):
+   '<li>'+safe(pt?'Essa vida ainda não tem acontecimentos registrados.':'No events have been recorded.')+'</li>')+'</ol>'+
+  '<div class="recap-actions">'+button(pt?'Exportar resumo (.txt)':'Download life summary (.txt)','download-recap','secondary')+
+   button(u('newLife'),'new-life','primary')+'</div></section>';
+}
+function downloadLifeRecap():void{
+ if(!life)return;
+ const report=makeLifeReport({...life},language);
+ const data=reportAsText(report,language);
+ const url=URL.createObjectURL(new Blob([data],{type:'text/plain;charset=utf-8'}));
+ const a=document.createElement('a');
+ a.href=url;a.download=saveFilename(life.name).replace(/\.json$/,'.txt');
+ document.body.appendChild(a);a.click();a.remove();
+ window.setTimeout(()=>URL.revokeObjectURL(url),1200);
+}
+
 function renderStory():string {
   if(!life)return '';
   const event=life.pendingEvent;
@@ -500,8 +539,7 @@ function renderStory():string {
       '<div class="event-choices">'+event.choices.map((c,i)=>'<button type="button" data-choice="'+i+
       '" class="choice"><span>'+safe(c.label)+'</span><span class="choice-index">'+(i+1)+'</span></button>').join('')+
       '</div></div></section>':
-    life.simulation.ended?'<section class="story-event end-event"><h2>'+safe(u("ended"))+'</h2><p>'+safe(u("endedText"))+'</p>'+
-     button(u("newLife"),"new-life","primary")+'</section>':
+    life.simulation.ended?renderLifeRecap():
     '<div class="age-ready"><span class="ready-spark">✦</span>'+
      '<span>'+safe(language==='pt-BR'?'Um novo ano espera por você. Use + Idade no centro da barra inferior.':
       'A new year is waiting. Press + Age in the center below.')+'</span></div>';
@@ -798,6 +836,7 @@ function handleAction(value:string):void {
   if(value==="toggle-menu"){menuOpen=!menuOpen;menuError="";render();return;}
   if(value==="close-menu"){menuOpen=false;menuError="";render();return;}
   if(value==="export-save"){downloadLife();return;}
+  if(value==="download-recap"){downloadLifeRecap();return;}
   if(value==="import-save"){appEl?.querySelector<HTMLInputElement>("#life-save-file")?.click();return;}
   if(value==="home"){scene="welcome";menuOpen=false;render();return;}
   if(value==="new-life"){newLife();return;}

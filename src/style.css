@@ -564,3 +564,22 @@ body{background:var(--bg);color:var(--ink);}
 .person-actions .person-visit:nth-child(2){background:#fff0f4;color:#b22b53;border-color:#edb5c3;}
 .person-actions .person-visit:disabled{opacity:.38;}
 @media(max-width:600px){.person-actions{grid-column:2;justify-content:flex-start;max-width:100%;}}
+
+
+/* True ending screen, state-derived summary and export */
+.life-recap{display:grid;gap:14px;background:#fff;border:1px solid #d4e1f0;border-radius:14px;padding:clamp(15px,2.8vw,25px);}
+.recap-header{border-bottom:3px solid #ff0044;padding-bottom:13px;display:grid;gap:6px;}
+.recap-overline{font-size:10px;letter-spacing:1.5px;font-weight:900;color:#e43664;}
+.recap-header h2{font-size:clamp(21px,4vw,32px);color:#245bb0;letter-spacing:-.6px;}
+.recap-header p{font-size:12px;color:#6985a1;overflow-wrap:anywhere;}
+.recap-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}
+.recap-metric{border:1px solid #e1e8f1;border-radius:9px;padding:11px 10px;background:#f8fbfe;display:grid;gap:5px;min-width:0;}
+.recap-metric span{font-size:10px;color:#697d96;}
+.recap-metric strong{font-size:12px;color:#183e79;overflow-wrap:anywhere;}
+.life-recap h3{font-size:14px;color:#234b81;margin-top:4px;}
+.recap-events,.recap-achievements{margin:0;padding-left:18px;display:grid;gap:7px;font-size:12px;color:#546b86;line-height:1.5;}
+.recap-achievements li::marker{color:#ff0044;}
+.recap-events li::marker{color:#3A86FF;}
+.recap-actions{display:flex;gap:9px;flex-wrap:wrap;padding-top:5px;}
+.recap-actions .button{flex:1 1 160px;}
+@media(min-width:850px){.recap-metrics{grid-template-columns:repeat(4,minmax(0,1fr));}}

@@ -1,0 +1,39 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {makeLifeReport,reportAsText} from '../src/life-summary.ts';
+import {createSimulation} from '../src/simulation.ts';
+const stats={happiness:65,health:0,smarts:80,looks:70};
+const input={name:'Samira Ferreira',age:83,birthYear:2000,stats,
+ simulation:{...createSimulation(),ended:true,job:'retired',education:'college',children:1,
+   homeOwned:true,homeValue:200000,debt:28000,balance:47000,investments:5000,experience:33},
+ social:{schema:1,people:[{id:'child-1',role:'child',alive:true},{id:'friend-1',role:'friend',alive:true}]},
+ history:['0: Nasceu em Salvador.','22: Iniciou uma carreira.','26: Teve um filho.','60: Comprou uma casa.']};
+test('end of life compiles only verified state and real history',()=>{
+ const report=makeLifeReport(input,'pt-BR');
+ assert.equal(report.age,83);assert.equal(report.endYear,2083);
+ assert.equal(report.netWorth,224000);
+ assert.equal(report.children,1);assert.equal(report.friends,1);
+ assert.equal(report.events[0],'Comprou uma casa.');
+ assert.ok(report.achievements.includes('Concluiu faculdade'));
+ assert.ok(report.achievements.includes('Criou uma família'));
+ assert.equal(report.profession,'Aposentado(a)');
+});
+test('incomplete lives have no invented milestones',()=>{
+ const s={...input,age:4,simulation:createSimulation(),social:{schema:1,people:[]},history:[]};
+ const report=makeLifeReport(s,'pt-BR');
+ assert.deepEqual(report.events,[]);
+ assert.deepEqual(report.achievements,[]);
+ assert.equal(report.children,0);
+});
+test('English report translates labels without erasing original player stories',()=>{
+ const report=makeLifeReport(input,'en');
+ const output=reportAsText(report,'en');
+ assert.ok(output.includes('LIFE SUMMARY'));
+ assert.ok(output.includes('Net worth'));
+ assert.ok(output.includes('Comprou uma casa.'));
+ assert.ok(output.includes('Samira Ferreira'));
+});
+test('financial debt creates negative net worth when warranted',()=>{
+ const s={...input,simulation:{...createSimulation(),debt:12000,balance:500}};
+ assert.equal(makeLifeReport(s,'pt-BR').netWorth,-11500);
+});

@@ -161,14 +161,14 @@ test('family members have identity, portraits, age and persistent bonds',async (
  await expect(page.locator('.person-card')).toHaveCount(2);
  await expect(page.locator('.person-card .person-art .stage-adult')).toHaveCount(2);
  const before=await page.locator('.person-card').first().locator('.person-details small').textContent();
- await page.locator('.person-card').first().locator('[data-person]').click();
+ await page.locator('.person-card').first().locator('[data-kind="talk"]').click();
  const after=await page.locator('.person-card').first().locator('.person-details small').textContent();
  expect(before).not.toBe(after);
  await page.reload();
  await page.locator('[data-do="continue"]').click();
  await page.locator('.game-dock [data-tab="people"]').click();
  await expect(page.locator('.person-card').first().locator('.person-details small')).toHaveText(after||'');
- await expect(page.locator('.person-card').first().locator('[data-person]')).toBeDisabled();
+ await expect(page.locator('.person-card').first().locator('[data-kind="talk"]')).toBeDisabled();
 });
 
 test('game entry remains within common narrow-to-wide viewport widths',async ({page})=>{
@@ -405,4 +405,29 @@ test('family interactions persist chosen bond and gift cost while limiting yearl
  await page.reload();await page.locator('[data-do="continue"]').click();
  await page.locator('.game-dock [data-tab="people"]').click();
  await expect(page.locator('.person-card').first().locator('[data-kind="gift"]')).toBeDisabled();
+});
+
+test('life ending generates accurate original recap and downloadable text summary',async ({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=88;
+  saved.simulation.ended=true;
+  saved.simulation.education='college';
+  saved.simulation.balance=9000;
+  saved.simulation.debt=1000;
+  saved.simulation.investments=3000;
+  saved.history.push('80: Comprou uma motocicleta.');
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.life-recap')).toBeVisible();
+ await expect(page.locator('.life-recap')).toContainText('Uma vida inteira');
+ await expect(page.locator('.life-recap')).toContainText('Concluiu faculdade');
+ await expect(page.locator('.life-recap')).toContainText('Comprou uma motocicleta.');
+ await expect(page.locator('.life-recap')).toContainText('Patrimônio líquido');
+ const download=page.waitForEvent('download');
+ await page.locator('[data-do="download-recap"]').click();
+ expect((await download).suggestedFilename()).toMatch(/\.txt$/);
+ await expect(page.locator('.dock-age')).toBeDisabled();
 });
