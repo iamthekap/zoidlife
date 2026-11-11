@@ -1,5 +1,5 @@
 /** Original persistent people and family simulation for Zoid Life. */
-import {randomCharacter, normalizeProfile, type CharacterProfile} from './characters';
+import {randomCharacter, normalizeProfile, type CharacterProfile} from './characters.ts';
 export type SocialRole='mother'|'father'|'partner'|'child'|'friend';
 export type SocialPerson={
  id:string; role:SocialRole; profile:CharacterProfile; bornAtPlayerAge:number;
