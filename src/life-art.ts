@@ -39,7 +39,7 @@ const tint=(hex:string,mix=0.3):string=>{
 };
 function hairPixels(draw:string[],p:CharacterProfile,x:number,y:number,w:number,stage:LifeStage,seed:number):void {
  const base=hairs[p.hairColor], light=tint(base,0.22), dark=tint(base,-0.17);
- const h=(a:number,b:number,c:number,d:number,color=base)=>draw.push(r(a,b,c,d,color));
+ const h=(a:number,b:number,c:number,d:number,color:string=base)=>draw.push(r(a,b,c,d,color));
  const baby=stage==='baby';
  const topY=y-(baby?8:14), topW=w+(baby?0:10);
  if(p.hair==='short'){
@@ -73,7 +73,7 @@ function hairPixels(draw:string[],p:CharacterProfile,x:number,y:number,w:number,
 }
 function face(draw:string[],p:CharacterProfile,x:number,y:number,w:number,h:number,stage:LifeStage,seed:number):void {
  const [skin,shade,shadow]=skins[p.skin];
- const rr=(a:number,b:number,c:number,d:number,color:string)=>draw.push(r(a,b,c,d,color));
+ const rr=(a:number,b:number,c:number,d:number,color:string,attrs='')=>draw.push(r(a,b,c,d,color,attrs));
  const baby=stage==='baby', child=stage==='child';
  const eyeY=y+Math.round(h*(baby?.50:.45));
  const eyeDist=Math.round(w*.25);
