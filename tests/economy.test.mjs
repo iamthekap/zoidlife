@@ -37,9 +37,12 @@ test('children require a stable relationship and create recurring financial obli
   assert.equal(year.notes.includes('childcare:2000'),true);
   assert.ok(year.state.balance<30000);
 });
-test('no repeated action within a year, even across different action types',()=>{
+test('different activities can occur in the same year but each is limited once',()=>{
   const s={...createSimulation(),balance:5000};
   const first=takeAction(s,stats,26,'invest');
-  assert.equal(takeAction(first.state,first.stats,26,'care').ok,false);
-  assert.equal(takeAction(first.state,first.stats,27,'care').ok,true);
+  const care=takeAction(first.state,first.stats,26,'care');
+  assert.equal(care.ok,true);
+  assert.equal(takeAction(care.state,care.stats,26,'care').ok,false);
+  assert.equal(takeAction(care.state,care.stats,26,'invest').ok,false);
+  assert.equal(takeAction(care.state,care.stats,27,'care').ok,true);
 });

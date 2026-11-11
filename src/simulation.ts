@@ -8,6 +8,8 @@ export type Simulation = {
   schema: 2; balance: number; debt: number; education: Education; credits: number;
   job: Job; experience: number; family: number; friends: number; partner: number;
   relationship: Relation; lastActionAge: number; lastYearNotes: string[]; ended: boolean;
+  /** Most recent age that each activity was performed. Allows different activities in one year. */
+  actionLedger: Partial<Record<Action,number>>;
   investments: number; homeOwned: boolean; homeValue: number; children: number;
 };
 export type WorldImpact={cash?:number;debt?:number;investments?:number;family?:number;friends?:number;partner?:number;credits?:number;experience?:number;relationship?:Relation};
@@ -18,10 +20,29 @@ export const annualSalary = (s: Simulation): number => ({
   none: 0, parttime: 4200, service: 15000, office: 26000,
   professional: 43000, retired: s.experience >= 5 ? 11000 : 6500,
 })[s.job] + (s.job === 'none' || s.job === 'retired' ? 0 : Math.min(s.experience, 30) * 360);
+export const ALL_ACTIONS: Action[]=['study','job','socialize','care','budget','retire','invest','home','child'];
+function normalizeActionLedger(raw:unknown,lastActionAge:unknown):Partial<Record<Action,number>> {
+  const ledger:Partial<Record<Action,number>>={};
+  if(raw&&typeof raw==='object'&&!Array.isArray(raw)){
+    for(const action of ALL_ACTIONS){
+      const value=(raw as Partial<Record<Action,unknown>>)[action];
+      if(Number.isInteger(value)&&typeof value==='number'&&value>=0&&value<=110)
+        ledger[action]=value;
+    }
+  }else if(Number.isInteger(lastActionAge)&&typeof lastActionAge==='number'&&lastActionAge>=0){
+    // Legacy versions permitted only one activity in a year. Respect that year's lock.
+    for(const action of ALL_ACTIONS)ledger[action]=lastActionAge;
+  }
+  return ledger;
+}
+export function canTakeAction(s:Simulation,age:number,action:Action):boolean {
+  if(s.ended||!Number.isInteger(age)||age<0||age>110||!ALL_ACTIONS.includes(action))return false;
+  return s.actionLedger?.[action]!==age;
+}
 export function createSimulation(): Simulation {
   return { schema: 2, balance: 0, debt: 0, education: 'none', credits: 0, job: 'none',
     experience: 0, family: 70, friends: 30, partner: 0, relationship: 'single',
-    lastActionAge: -1, lastYearNotes: [], ended: false,
+    lastActionAge: -1, actionLedger: {}, lastYearNotes: [], ended: false,
     investments: 0, homeOwned: false, homeValue: 0, children: 0 };
 }
 /** Migrate v1 saves safely without rewriting older life history. */
@@ -39,6 +60,7 @@ export function loadSimulation(raw: unknown): Simulation {
     experience: money(r.experience ?? 0), family: bound(r.family ?? 70), friends: bound(r.friends ?? 30),
     partner: bound(r.partner ?? 0), relationship: relations.includes(r.relationship as Relation) ? r.relationship! : initial.relationship,
     lastActionAge: Number.isInteger(r.lastActionAge) ? r.lastActionAge! : -1,
+    actionLedger: normalizeActionLedger(r.actionLedger,r.lastActionAge),
     lastYearNotes: Array.isArray(r.lastYearNotes) ? r.lastYearNotes.filter((x): x is string => typeof x === 'string').slice(-6) : [],
     ended: r.ended === true,
     investments: money(r.investments ?? 0), homeOwned: r.homeOwned===true,
@@ -120,9 +142,9 @@ export function passYear(raw: Simulation, rawStats: Stats, age: number): Outcome
   s.lastYearNotes = notes;
   return { state: s, stats, notes, ok: true };
 }
-/** One optional deliberate action per age, separate from the narrative event. */
+/** Each voluntary activity can occur once per year, independently of other activities. */
 export function takeAction(raw: Simulation, rawStats: Stats, age: number, action: Action): Outcome {
-  if (raw.ended || raw.lastActionAge === age) return { state: raw, stats: rawStats, notes: [], ok: false };
+  if (!canTakeAction(raw,age,action)) return { state: raw, stats: rawStats, notes: [], ok: false };
   const s = { ...raw, lastYearNotes: [...raw.lastYearNotes] };
   let stats = { ...rawStats };
   const notes: string[] = [];
@@ -172,6 +194,7 @@ export function takeAction(raw: Simulation, rawStats: Stats, age: number, action
     s.job = 'retired'; notes.push('retirement');
   } else return { state: raw, stats: rawStats, notes: [], ok: false };
   s.lastActionAge = age;
+  s.actionLedger = {...raw.actionLedger,[action]:age};
   return { state: s, stats, notes, ok: true };
 }
 /** Persistent effects use original Zoid Life story IDs, not third-party code. */

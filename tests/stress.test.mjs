@@ -26,8 +26,11 @@ test('500 deterministic multi-decade lives preserve financial and stat invariant
       }
       const types=['study','job','socialize','care','budget','invest','home','child','retire'];
       const action=types[Math.floor(rng()*types.length)];
-      const result=takeAction(s,stats,age,action);
-      if(result.ok){s=result.state;stats=result.stats;}
+      const another=types[Math.floor(rng()*types.length)];
+      for(const candidate of [action,another]){
+        const result=takeAction(s,stats,age,candidate);
+        if(result.ok){s=result.state;stats=result.stats;}
+      }
       for(const k of Object.keys(stats))assert.ok(stats[k]>=0&&stats[k]<=100);
       for(const field of ['balance','debt','investments','homeValue','children','family','friends','partner'])
         assert.ok(Number.isFinite(s[field])&&s[field]>=0,field+' at age '+age);
