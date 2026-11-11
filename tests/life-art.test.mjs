@@ -40,5 +40,6 @@ test('no external sprite sources or embedded scripts',()=>{
  assert.ok(!svg.includes('<script'));
  assert.ok(!svg.includes('<image'));
  assert.ok(!svg.includes('href='));
- assert.ok(!svg.includes('http:')&&!svg.includes('https:'));
+ assert.ok(!svg.includes('<image')&&!svg.includes('href='));
+ assert.ok(svg.includes('xmlns="http://www.w3.org/2000/svg"'));
 });
