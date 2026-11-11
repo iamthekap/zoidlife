@@ -4,6 +4,7 @@ import { extraEvents, eventAllowed } from "./events-plus";
 import { selectEvent, recordEvent, migrateLedger, type EventLedger } from "./event-engine";
 import { eventScene, iconSvg } from "./event-scenes";
 import { portraitLife, lifeStage } from "./life-art";
+import { initialSocial, normalizeSocial, syncSocial, spendSocialTime, personAge, personLabel, type SocialState } from "./social";
 
 import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, type Simulation, type Action } from "./simulation";
 
@@ -25,6 +26,7 @@ type Life = {
   simulation: Simulation;
   profile: CharacterProfile;
   familyMembers: {name:string; kind:"mother" | "father"; birthAge:number}[];
+  social: SocialState;
 };
 
 const copy = {
@@ -275,6 +277,8 @@ function loadLife(): Life|null {
     const stats=Object.fromEntries((['happiness','health','smarts','looks'] as StatKey[]).map(k => [k,clamp(Number(r.stats?.[k]??50))])) as Stats;
     const name=r.name.trim().slice(0,52);
     const fallbackFamily=makeFamily(name);
+    const profile=normalizeProfile(r.profile,name);
+    const simulation=loadSimulation(r.simulation);
     return { name,birthYear:Number.isInteger(r.birthYear)?Number(r.birthYear):new Date().getFullYear(),
       age:Math.min(110,Math.max(0,r.age)),stats,
       pendingEvent:r.pendingEvent && typeof r.pendingEvent==='object' ? r.pendingEvent:null,
@@ -282,8 +286,8 @@ function loadLife(): Life|null {
       seenEventIds:Array.isArray(r.seenEventIds)?r.seenEventIds.filter((x):x is string=>typeof x==='string'):[],
       eventLedger:migrateLedger(r.eventLedger,r.seenEventIds),
       lastEventId:typeof r.lastEventId==='string'?r.lastEventId:null,
-      simulation:loadSimulation(r.simulation),
-      profile:normalizeProfile(r.profile,name),
+      simulation,profile,
+      social:normalizeSocial(r.social,profile,r.age,simulation.children,Array.isArray(r.familyMembers)?r.familyMembers:fallbackFamily),
       familyMembers:Array.isArray(r.familyMembers) && r.familyMembers.length>0 ? r.familyMembers : fallbackFamily
     };
   } catch { return null; }
@@ -297,6 +301,7 @@ function makeFamily(name: string): Life['familyMembers'] {
 function createLife(profile: CharacterProfile, stats: Stats): void {
   const normalized=normalizeProfile(profile,profile.name);
   life={ name:normalized.name, profile:normalized, familyMembers:makeFamily(normalized.name),
+    social:initialSocial(normalized),
     birthYear:new Date().getFullYear(),age:0,
     stats:{...stats},pendingEvent:null,history:[u("birthNote")+" "+normalized.city+", "+countryName(normalized.country)+"."],
     seenEventIds:[],eventLedger:{},lastEventId:null,simulation:createSimulation() };
@@ -329,10 +334,12 @@ function brand(): string {
 function render(): void {
   document.documentElement.lang=language;
   const app=document.querySelector<HTMLDivElement>("#app"); if(!app) return;
-  const shell='<div class="app-shell"><header class="topbar">'+brand()+
+  const header=(scene==='playing'||scene==='welcome'||scene==='selection')?'':
+    '<header class="topbar">'+brand()+
    '<div class="header-right"><span class="header-caption">'+safe(u("gameLabel"))+'</span>'+
    '<button class="lang-switch" type="button" data-do="language" aria-label="'+safe(u("languages"))+'">'+
-   (language==="pt-BR"?"EN":"PT")+'</button></div></header>'+
+   (language==="pt-BR"?"EN":"PT")+'</button></div></header>';
+  const shell='<div class="app-shell">'+header+
    (scene==="welcome"?renderWelcome():scene==="selection"?renderSelection():
      scene==="custom"?renderCustom():renderPlay())+
    '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.5.0 · PT / EN</span></footer></div>';
@@ -341,7 +348,8 @@ function render(): void {
 function renderWelcome(): string {
   const hasSave=Boolean(life);
   return '<main class="welcome-screen" data-screen="candidates">'+
-    '<section class="welcome-headline"><div class="eyebrow"><span class="dot"></span>'+safe(u("gameLabel"))+'</div>'+
+    '<section class="welcome-headline"><button type="button" class="welcome-language" data-do="language" aria-label="'+safe(u("languages"))+'">'+(language==='pt-BR'?'EN':'PT')+'</button>'+ 
+    '<div class="eyebrow"><span class="dot"></span>'+safe(u("gameLabel"))+'</div>'+
     '<div class="welcome-logo">ZOID<span>LIFE</span></div>'+
     '<h1>'+safe(language==="pt-BR"?"Quem você vai ser nesta vida?":"Who will you be in this life?")+'</h1>'+
     '<p>'+safe(language==="pt-BR"?"Três novos destinos. Escolha um bebê ou crie seu personagem — sem pagar e sem cadastro.":"Three new beginnings. Choose a baby or create your own — no signup or payment.")+'</p></section>'+
@@ -400,15 +408,15 @@ function gameDock():string {
   if(!life)return '';
   const dockTab=(key:Tab,symbol:string)=>
     '<button type="button" data-tab="'+key+'" class="dock-tab'+(tab===key?' active':'')+
-    '" aria-label="'+safe(u(key))+'"><span aria-hidden="true" class="dock-icon">'+symbol+
+    '" aria-label="'+safe(u(key))+'"><span aria-hidden="true" class="dock-icon">'+iconSvg(symbol,29)+
     '</span><span>'+safe(u(key))+'</span></button>';
   const locked=Boolean(life.pendingEvent||life.simulation.ended);
   const age='<button type="button" data-do="age-up" class="dock-age"'+(locked?' disabled':'')+
    ' aria-label="'+safe(u("ageUp"))+'" title="'+safe(locked?u("advanceBlocked"):u("ageUp"))+'">'+
    '<span class="dock-plus" aria-hidden="true">+</span><span>'+safe(language==='pt-BR'?'Idade':'Age')+'</span></button>';
   return '<nav class="game-dock" aria-label="'+safe(u("menu"))+'">'+
-    dockTab('career','▣')+dockTab('finances','▤')+age+
-    dockTab('people','♡')+dockTab('actions','✦')+'</nav>';
+    dockTab('career','book')+dockTab('finances','wallet')+age+
+    dockTab('people','heart')+dockTab('actions','star')+'</nav>';
 }
 function renderPlay(): string {
   if(!life){scene="welcome";return renderWelcome();}
@@ -424,7 +432,8 @@ function renderPlay(): string {
      '<span class="identity-portrait">'+portraitLife(p,life.age,"tiny")+'</span>'+
      '<span class="identity-copy"><strong>'+safe(life.name)+'</strong>'+
      '<span>'+safe(p.city)+', '+safe(countryName(p.country))+' · '+life.age+' '+safe(u("age"))+'</span></span></button>'+
-     '<div class="game-status-money"><small>'+safe(u("balance"))+'</small><strong>'+safe(cash(s.balance))+'</strong></div>'+
+     '<div class="game-status-money"><small>'+safe(u("balance"))+'</small><strong>'+safe(cash(s.balance))+'</strong></div>'+ 
+     '<button type="button" class="game-language" data-do="language" aria-label="'+safe(u("languages"))+'">'+(language==='pt-BR'?'EN':'PT')+'</button>'+
      '<button type="button" data-do="new-life" class="game-menu" title="'+safe(u("newLife"))+'" aria-label="'+safe(u("newLife"))+'">☰</button>'+
     '</header>'+
     '<div class="game-content-layout"><section class="game-main">'+
@@ -516,13 +525,26 @@ function progress(label: string, amount: number): string {
 function renderPeople(): string {
   if(!life)return '';
   const s=life.simulation;
-  return '<section class="content-panel"><div class="panel-heading"><h2>'+safe(u("people"))+'</h2><p>'+safe(u("relationship"))+': '+safe(u(s.relationship))+'</p></div>'+
-    '<div class="relation-grid">'+progress(u("family"),s.family)+progress(u("friends"),s.friends)+
-    (s.relationship!=="single"?progress(u("partner"),s.partner):'')+'</div>'+
-    '<h3>'+safe(u("parents"))+'</h3><div class="family-list">'+life.familyMembers.map(p=>
-      '<div><span class="family-initial">'+safe(p.name.charAt(0))+'</span><span><strong>'+safe(p.name)+
-      '</strong><small>'+safe(u(p.kind))+' · '+(p.birthAge+life!.age)+' '+safe(u("age"))+'</small></span></div>').join('')+'</div>'+
-    '<div class="data-list">'+pair(u("children"),String(s.children))+'</div><div class="context-action activity-grid">'+actionButton("socialize")+actionButton("child")+'</div></section>';
+  const social=life.social.people;
+  const bondRow=(p:typeof social[number])=>{
+    const age=personAge(p,life!.age);
+    const canVisit=p.alive&&!life!.pendingEvent&&!s.ended&&s.lastActionAge!==life!.age;
+    return '<article class="person-card"><div class="person-art">'+portraitLife(p.profile,age,"tiny")+'</div>'+
+      '<div class="person-details"><strong>'+safe(p.profile.name)+'</strong>'+
+      '<span>'+safe(personLabel(p.role,language))+' · '+age+' '+safe(u("age"))+
+      (p.alive?'':(language==="pt-BR"?" · Falecido":" · Deceased"))+'</span>'+
+      '<div class="person-bond"><span style="width:'+p.closeness+'%"></span></div>'+
+      '<small>'+safe(language==="pt-BR"?"Vínculo":"Bond")+': '+p.closeness+'%</small></div>'+
+      '<button type="button" data-person="'+safe(p.id)+'"'+(canVisit?'':' disabled')+
+       ' class="person-visit">'+safe(language==="pt-BR"?"Conversar":"Spend time")+'</button></article>';
+  };
+  return '<section class="content-panel people-panel"><div class="panel-heading"><h2>'+safe(u("people"))+'</h2>'+
+   '<p>'+safe(u("relationship"))+': '+safe(u(s.relationship))+' · '+safe(language==="pt-BR"?"Cada pessoa tem uma história e um vínculo próprio.":"Every person has their own story and bond.")+'</p></div>'+
+   '<div class="relation-grid">'+progress(u("family"),s.family)+progress(u("friends"),s.friends)+
+   (s.relationship!=="single"?progress(u("partner"),s.partner):'')+'</div>'+
+   '<div class="people-list">'+social.map(bondRow).join('')+'</div>'+
+   '<div class="data-list">'+pair(u("children"),String(s.children))+'</div>'+
+   '<div class="context-action activity-grid">'+actionButton("child")+'</div></section>';
 }
 function pair(label: string,value:string): string {return '<div class="data-row"><span>'+safe(label)+'</span><strong>'+safe(value)+'</strong></div>';}
 function renderCareer(): string {
@@ -570,12 +592,38 @@ function activeEventForLanguage(): void {
   const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language)] as LifeEvent[]).find(e=>e.id===id);
   if(localized)life.pendingEvent=localized;
 }
+function syncLifePeople():void {
+ if(!life)return;
+ const result=syncSocial(life.social,life.profile,life.age,life.simulation.relationship,life.simulation.children,life.simulation.partner);
+ life.social=result.social;
+ for(const note of result.notes){
+   const words=note==='partner-introduced'?
+     (language==='pt-BR'?'Você conheceu uma pessoa especial.':'You met someone special.'):
+     note==='child-added'?
+     (language==='pt-BR'?'Um novo membro entrou para a família.':'A new member joined the family.'):
+     (language==='pt-BR'?'Uma pessoa da família faleceu.':'A family member passed away.');
+   life.history.push(life.age+': '+words);
+ }
+}
+function visitPerson(id:string):void {
+ if(!life||life.pendingEvent||life.simulation.ended)return;
+ const person=life.social.people.find(p=>p.id===id&&p.alive);
+ if(!person)return;
+ const result=takeAction(life.simulation,life.stats,life.age,'socialize');
+ if(!result.ok)return;
+ life.simulation=result.state;life.stats=result.stats;
+ life.social=spendSocialTime(life.social,id,life.age);
+ life.history.push(life.age+': '+(language==='pt-BR'?'Você passou um tempo com ':'You spent time with ')+person.profile.name+'.');
+ syncLifePeople();saveLife();render();
+}
+
 function ageUp(): void {
   if (!life || life.pendingEvent || life.simulation.ended)return;
   const age=life.age+1;
   const transition=passYear(life.simulation,life.stats,age);
   if(!transition.ok)return;
   life.age=age;life.simulation=transition.state;life.stats=transition.stats;
+  syncLifePeople();
   transition.notes.forEach(n=>life!.history.push(age+": "+caption(n)));
   if (!transition.state.ended) {
     const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language)] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
@@ -589,6 +637,7 @@ function choose(index:number): void {
   const result=applyNarrativeChoice(life.simulation,life.stats,life.age,event.id,index,choice.effects);
   if(!result.ok)return;
   life.simulation=result.state;life.stats=result.stats;
+  syncLifePeople();
   life.history.push(life.age+": "+choice.result);
   for(const n of result.notes)life.history.push(life.age+": "+caption(n));
   if(event.id!=="quiet-year"){
@@ -603,6 +652,7 @@ function act(action:Action): void {
   const result=takeAction(life.simulation,life.stats,life.age,action);
   if(!result.ok)return;
   life.simulation=result.state;life.stats=result.stats;
+  syncLifePeople();
   life.history.push(life.age+": "+u(action));
   for(const n of result.notes)life.history.push(life.age+": "+caption(n));
   saveLife();render();
@@ -635,6 +685,8 @@ function handleAction(value:string):void {
 const appEl=document.querySelector<HTMLDivElement>("#app");
 appEl?.addEventListener("click",e=>{
   const target=e.target as HTMLElement;
+  const person=target.closest<HTMLButtonElement>("[data-person]");
+  if(person){visitPerson(person.dataset.person||'');return;}
   const nav=target.closest<HTMLButtonElement>("[data-tab]");
   if(nav){tab=nav.dataset.tab as Tab;render();return;}
   const choice=target.closest<HTMLButtonElement>("[data-choice]");

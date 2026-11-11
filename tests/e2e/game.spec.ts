@@ -154,3 +154,19 @@ test('legacy saved game migrates and can keep progressing',async ({page})=>{
  expect(s.history[0]).toContain('Ano importante');
  expect(s.eventLedger.school.count).toBe(1);
 });
+
+test('family members have identity, portraits, age and persistent bonds',async ({page})=>{
+ await chooseBaby(page);
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('.person-card')).toHaveCount(2);
+ await expect(page.locator('.person-card .person-art .stage-adult')).toHaveCount(2);
+ const before=await page.locator('.person-card').first().locator('.person-details small').textContent();
+ await page.locator('.person-card').first().locator('[data-person]').click();
+ const after=await page.locator('.person-card').first().locator('.person-details small').textContent();
+ expect(before).not.toBe(after);
+ await page.reload();
+ await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('.person-card').first().locator('.person-details small')).toHaveText(after||'');
+ await expect(page.locator('.person-card').first().locator('[data-person]')).toBeDisabled();
+});
