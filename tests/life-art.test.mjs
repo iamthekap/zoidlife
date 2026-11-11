@@ -24,8 +24,8 @@ test('one baby portrait is a full-body seated character',()=>{
  const svg=portraitLife(character,0,'card');
  assert.ok(svg.includes('viewBox="0 0 144 176"'));
  assert.ok(svg.includes('stage-baby'));
- assert.ok(svg.includes('y="163"'));
- assert.ok(svg.includes('y="129"'));
+ assert.ok(svg.includes('y="159"'));
+ assert.ok(svg.includes('y="126"'));
 });
 test('distinct features produce distinct yet deterministic sprites',()=>{
  const original=portraitLife(character,0);
@@ -42,4 +42,28 @@ test('no external sprite sources or embedded scripts',()=>{
  assert.ok(!svg.includes('href='));
  assert.ok(!svg.includes('<image')&&!svg.includes('href='));
  assert.ok(svg.includes('xmlns="http://www.w3.org/2000/svg"'));
+});
+
+test('newborn sprites use a dedicated infant body and never reuse adult beard',()=>{
+ const baby=portraitLife({...character,gender:'man',hair:'long'},0,'card');
+ assert.ok(baby.includes('data-age-visual="infant"'));
+ assert.ok(baby.includes('data-part="seated-onesie"'));
+ assert.ok(baby.includes('data-part="infant-face"'));
+ assert.ok(baby.includes('data-part="infant-hair"'));
+ assert.ok(!baby.includes('data-part="facial-hair"'));
+ assert.ok(!baby.includes('data-part="adult-shirt"'));
+ assert.ok((baby.match(/<rect/g)||[]).length>55);
+ const adolescent=portraitLife({...character,gender:'man'},15);
+ assert.ok(!adolescent.includes('data-part="facial-hair"'));
+ const adult=portraitLife({...character,gender:'man'},30);
+ assert.ok(!adult.includes('data-age-visual="infant"'));
+});
+test('babies inherit colors and hair identity while hair remains infant-style',()=>{
+ const baby=portraitLife(character,0);
+ assert.ok(baby.includes('data-part="infant-hair"'));
+ assert.notEqual(baby,portraitLife({...character,hairColor:'black'},0));
+ assert.notEqual(baby,portraitLife({...character,hair:'curls'},0));
+ assert.notEqual(baby,portraitLife({...character,skin:'deep'},0));
+ assert.notEqual(baby,portraitLife({...character,eyes:'blue'},0));
+ assert.notEqual(baby,portraitLife(character,4));
 });

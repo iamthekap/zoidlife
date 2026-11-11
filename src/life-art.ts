@@ -96,7 +96,7 @@ function face(draw:string[],p:CharacterProfile,x:number,y:number,w:number,h:numb
    for(const dx of [6,w-18]){rr(x+dx,eyeY+10,10,2,shade);rr(x+dx,eyeY+17,8,2,shade);}
  }
  if(stage==='adult' && p.gender==='man' && seed%4<2){
-   rr(x+Math.round(w*.3),y+h-11,Math.round(w*.4),5,shadow);
+   rr(x+Math.round(w*.3),y+h-11,Math.round(w*.4),5,shadow,' data-part="facial-hair"');
  }
  if(stage!=='baby' && (seed%6===0||seed%11===0)){
    const gy=eyeY-3;
@@ -137,8 +137,103 @@ function wardrobe(draw:string[],stage:LifeStage,seed:number,shade:string):void {
  }
  if(stage==='senior')draw.push(r(52,136,37,4,tint(top,.45)));
 }
+
+/**
+ * Dedicated newborn sprite. A baby is NOT an adult portrait scaled down:
+ * an oversized rounder head, wide eyes, button nose, tiny mouth, softer cheeks,
+ * short/sparse newborn hair and a seated romper replace all mature facial details.
+ * Genes still read the exact same saved CharacterProfile as later stages.
+ */
+function infantPortrait(p:CharacterProfile,seed:number,size:string):string {
+ const [skin,shade]=skins[p.skin];
+ const hair=hairs[p.hairColor], iris=eyes[p.eyes];
+ const background=backdrops[(seed>>>7)%backdrops.length];
+ const outfit=shirts[seed%shirts.length],cloth=tint(outfit[0],.43),seam=tint(outfit[1],.39);
+ const darkCheek=tint(shade,.67);
+ const draw:string[]=[];
+ const add=(x:number,y:number,w:number,h:number,color:string,attrs='')=>draw.push(r(x,y,w,h,color,attrs));
+ draw.push('<g data-part="background">');
+ add(0,0,144,176,background);
+ add(8,8,128,160,tint(background,.48));
+ add(16,23,112,118,background,' opacity=".68"');
+ for(let i=0;i<18;i++)add(17+(i*31)%110,18+(i*37)%135,2,2,'#ffffff',' opacity=".40"');
+ draw.push('</g><g data-part="seated-onesie">');
+ // A single, loose baby onesie with bent knees and tiny booties, not adult clothes.
+ add(42,107,60,43,cloth);
+ add(34,117,13,30,cloth);add(98,117,13,30,cloth);
+ add(43,142,60,18,cloth);
+ add(38,149,31,13,seam);add(77,149,30,13,seam);
+ add(36,159,34,12,'#fff8f3');add(76,159,34,12,'#fff8f3');
+ add(37,164,34,4,tint(outfit[0],.68));add(76,164,34,4,tint(outfit[0],.68));
+ add(49,110,48,7,seam);add(52,110,42,5,'#fffaf6');
+ if(seed%3===0){
+  // Rounded cotton bib.
+  add(54,117,38,21,'#fffaf1');
+  add(57,134,32,6,tint(outfit[0],.72));
+  add(71,119,6,6,'#eab5b4');
+ }else if(seed%3===1){
+  add(72,118,4,25,seam);
+  add(73,123,3,3,'#fff8f2');add(73,135,3,3,'#fff8f2');
+ }else{
+  add(53,121,7,5,tint(outfit[0],.65));
+  add(86,121,7,5,tint(outfit[0],.65));
+  add(61,134,24,5,'#fff5ea');
+ }
+ draw.push('</g><g data-part="infant-hands">');
+ add(29,126,15,15,skin);add(100,126,15,15,skin);
+ add(30,131,4,9,shade);add(111,131,4,9,shade);
+ add(36,141,9,7,skin);add(100,141,9,7,skin);
+ draw.push('</g><g data-part="infant-face">');
+ // Square-pixel softened round face: giant cranium + little chin, no jaw stubble.
+ add(45,25,54,78,skin);
+ add(38,31,68,70,skin);
+ add(33,40,78,50,skin);
+ add(38,85,68,13,skin);
+ add(45,96,54,8,skin);
+ add(30,59,9,20,skin);add(106,59,9,20,skin);
+ add(31,65,3,9,tint(shade,.64));add(111,65,3,9,tint(shade,.64));
+ // Deliberately no beard, jaw shadow, eye bags or adult nose lines at this age.
+ add(49,57,13,12,'#fff9f6');add(83,57,13,12,'#fff9f6');
+ add(54,58,6,10,iris);add(86,58,6,10,iris);
+ add(55,59,2,3,'#ffffff');add(87,59,2,3,'#ffffff');
+ add(50,56,13,2,tint(hair,.50));add(82,56,13,2,tint(hair,.50));
+ add(70,76,5,4,tint(shade,.58));
+ add(48,77,10,6,'#e5a6a1',' opacity=".48"');
+ add(88,77,10,6,'#e5a6a1',' opacity=".48"');
+ add(63,88,18,4,'#b9797e');
+ add(66,91,11,2,'#e4a7a6');
+ // Dimple / chubby cheeks, not the shadow blocks of adult beard.
+ add(40,84,5,5,darkCheek,' opacity=".32"');
+ add(100,84,5,5,darkCheek,' opacity=".32"');
+ if(seed%4===0){
+   // A tiny pacifier variant makes the character visibly infant-aged.
+   add(66,84,13,13,'#f5d4ba');add(69,87,7,7,'#e2a2a7');add(71,90,3,7,'#a86680');
+ }
+ draw.push('</g><g data-part="infant-hair">');
+ // Early hair is a tuft/fringe, not the adult's full hairstyle.
+ if(p.hair==='curls'){
+   for(const [x,y] of [[42,28],[51,22],[63,19],[76,20],[87,24],[95,29]]){
+     add(x,y,10,8,hair);add(x+2,y-3,5,5,tint(hair,.18));
+   }
+ }else if(p.hair==='waves'){
+   add(45,28,17,7,hair);add(59,23,18,9,hair);add(76,26,21,7,hair);
+   add(65,21,10,4,tint(hair,.20));add(44,33,7,6,hair);
+ }else if(p.hair==='long'){
+   add(46,23,51,8,hair);add(43,29,12,8,hair);add(92,29,10,8,hair);
+   add(63,20,19,5,tint(hair,.19));
+ }else{
+   add(51,25,40,6,hair);add(62,21,20,6,hair);
+   add(56,27,9,4,tint(hair,.20));
+ }
+ draw.push('</g>');
+ const classes=['portrait','portrait-'+(size==='scene'?'scene':size),'stage-baby'].join(' ');
+ return '<svg class="'+classes+'" viewBox="0 0 144 176" xmlns="http://www.w3.org/2000/svg" '+
+   'role="img" aria-label="Zoid Life newborn" data-age-visual="infant" shape-rendering="crispEdges">'+draw.join('')+'</svg>';
+}
+
 export function portraitLife(p:CharacterProfile,age:number,size='card'):string {
  const stage=lifeStage(age),seed=hash(avatarFingerprint(p));
+ if(stage==='baby')return infantPortrait(p,seed,size);
  const [skin,shade]=skins[p.skin],shirt=shirts[seed%shirts.length];
  const draw:string[]=[];
  const backdrop=backdrops[(seed>>>7)%backdrops.length];
@@ -146,27 +241,22 @@ export function portraitLife(p:CharacterProfile,age:number,size='card'):string {
  // Stylized square block backdrop, changing for phases without altering identity.
  draw.push(r(15,25,115,124,backdrop,' opacity=".8"'));
  for(let i=0;i<14;i++)draw.push(r(13+((i*37)%116),40+((i*19)%107),3,3,'#ffffff',' opacity=".24"'));
- const baby=stage==='baby',child=stage==='child',teen=stage==='teen';
- const headWidth=baby?67:child?61:teen?56:52;
- const headHeight=baby?70:child?64:teen?61:60;
- const headX=Math.floor((144-headWidth)/2),headY=baby?34:child?32:31;
+ const child=stage==='child',teen=stage==='teen';
+ const headWidth=child?61:teen?56:52;
+ const headHeight=child?64:teen?61:60;
+ const headX=Math.floor((144-headWidth)/2),headY=child?32:31;
  // Back hair drawn before body/face so shoulder length stays visible.
  if(p.hair==='long'||p.hair==='curls'){
-   const hc=hairs[p.hairColor],extra=baby?25:child?49:69;
+   const hc=hairs[p.hairColor],extra=child?49:69;
    draw.push(r(headX-10,headY+14,headWidth+20,headHeight+extra,hc));
  }
  wardrobe(draw,stage,seed,shade);
  draw.push(r(61,100,22,22,skin));
  face(draw,p,headX,headY,headWidth,headHeight,stage,seed);
  hairPixels(draw,p,headX,headY,headWidth,stage,seed);
- // Infant hands rest against the onesie, adult hands are lowered.
- if(stage==='baby'){
-   draw.push(r(31,129,14,14,skin),r(100,129,14,14,skin));
-   draw.push(r(35,140,13,9,shade),r(97,140,13,9,shade));
- }else{
-   draw.push(r(28,157,13,20,skin),r(103,157,13,20,skin));
-   if(stage==='child'){draw.push(r(31,146,11,14,skin),r(101,146,11,14,skin));}
- }
+ // Children and adults use the upright body and lowered hands.
+ draw.push(r(28,157,13,20,skin),r(103,157,13,20,skin));
+ if(stage==='child'){draw.push(r(31,146,11,14,skin),r(101,146,11,14,skin));}
  const classes=['portrait','portrait-'+(size==='scene'?'scene':size),'stage-'+stage].join(' ');
  return '<svg class="'+classes+'" viewBox="0 0 144 176" xmlns="http://www.w3.org/2000/svg" '+
    'role="img" aria-label="Zoid Life avatar '+stage+'" shape-rendering="crispEdges">'+draw.join('')+'</svg>';
