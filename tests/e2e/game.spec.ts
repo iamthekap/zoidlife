@@ -1,122 +1,156 @@
 import {test,expect} from '@playwright/test';
-test('start from a randomized character, choose a year event, and restore the life',async ({page})=>{
-  await page.goto('/');
-  await expect(page.getByRole('heading',{name:'Sua próxima vida começa aqui.'})).toBeVisible();
-  await expect(page.locator('input[type="password"]')).toHaveCount(0);
-  await page.getByRole('button',{name:'Escolher personagem'}).click();
-  await expect(page.locator('.candidate-card')).toHaveCount(4);
-  await page.locator('[data-do="preset-0"]').click();
-  await expect(page.locator('.play-layout')).toBeVisible();
-  await expect(page.locator('.age-pill')).toHaveText('0');
-  await page.locator('[data-do="age-up"]').click();
-  await expect(page.locator('.age-pill')).toHaveText('1');
-  await expect(page.locator('[data-choice]')).toHaveCount(3);
+async function chooseBaby(page,index=0){
+ await page.goto('/');
+ await expect(page.locator('.newborn-card')).toHaveCount(3);
+ await page.locator('[data-do="preset-'+index+'"]').click();
+ await expect(page.locator('.game-layout')).toBeVisible();
+}
+async function advance(page,count=1){
+ for(let i=0;i<count;i++){
+  const age=page.locator('.dock-age');
+  await expect(age).toBeEnabled();
+  await age.click();
+  await expect(page.locator('.decision-card')).toBeVisible();
   await page.locator('[data-choice="0"]').click();
-  await expect(page.locator('.timeline li').first()).toBeVisible();
-  await page.reload();
-  await page.locator('[data-do="continue"]').click();
-  await expect(page.locator('.age-pill')).toHaveText('1');
+ }
+}
+test('loading leads directly to three distinct full-body babies without login',async ({page})=>{
+ await page.goto('/');
+ await expect(page.locator('.welcome-logo')).toContainText('ZOID');
+ await expect(page.getByRole('heading',{name:'Quem você vai ser nesta vida?'})).toBeVisible();
+ await expect(page.locator('.newborn-card')).toHaveCount(3);
+ await expect(page.locator('.newborn-art svg.stage-baby')).toHaveCount(3);
+ const sprites=await page.locator('.newborn-art svg').evaluateAll(nodes=>nodes.map(n=>n.outerHTML));
+ expect(new Set(sprites).size).toBe(3);
+ await expect(page.locator('input[type="password"]')).toHaveCount(0);
+ await expect(page.locator('.newborn-tools [data-do="custom"]')).toBeVisible();
+ await page.locator('[data-do="reroll"]').click();
+ await expect(page.locator('.newborn-card')).toHaveCount(3);
 });
-test('full custom character editor works and retains birthplace and identity',async ({page})=>{
-  await page.goto('/');
-  await page.locator('[data-do="custom"]').click();
-  await expect(page.locator('#creator-form')).toBeVisible();
-  await page.locator('input[name="name"]').fill('Marina Oliveira');
-  await page.locator('select[name="country"]').selectOption('US');
-  await page.locator('select[name="city"]').selectOption('Chicago');
-  await page.locator('select[name="gender"]').selectOption('woman');
-  await page.locator('select[name="skin"]').selectOption('deep');
-  await page.locator('select[name="hair"]').selectOption('curls');
-  await page.locator('input[name="smarts"]').evaluate((el:HTMLInputElement)=>{el.value='90';el.dispatchEvent(new Event('input',{bubbles:true}));});
-  await page.getByRole('button',{name:'Iniciar essa vida'}).click();
-  await expect(page.locator('.game-heading h1')).toHaveText('Marina Oliveira');
-  await expect(page.locator('.game-heading p')).toContainText('Chicago');
-  await page.locator('[data-tab="career"]').first().click();
-  await expect(page.locator('.data-list')).toBeVisible();
-  await page.locator('[data-tab="story"]').first().click();
-  await expect(page.locator('.age-pill')).toHaveText('0');
+test('choose a baby, age up with the central bottom button and restore the save',async ({page})=>{
+ await chooseBaby(page);
+ await expect(page.locator('.identity-portrait .stage-baby')).toBeVisible();
+ await expect(page.locator('.game-dock .dock-age')).toBeVisible();
+ await expect(page.locator('.game-dock .dock-tab')).toHaveCount(4);
+ await expect(page.locator('.game-dock')).toHaveCSS('grid-template-columns',/.+/);
+ await expect(page.locator('.dock-age')).toBeEnabled();
+ await page.locator('.dock-age').click();
+ await expect(page.locator('.dock-age')).toBeDisabled();
+ await expect(page.locator('.decision-card .scene-avatar .stage-baby')).toBeVisible();
+ await page.locator('[data-choice="0"]').click();
+ await expect(page.locator('.life-journal .life-entry').first()).toBeVisible();
+ await expect(page.locator('.identity-copy')).toContainText('1 anos');
+ await page.reload();
+ await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.identity-copy')).toContainText('1 anos');
 });
-test('mobile layout fits screen, changes language and navigates without login',async ({page})=>{
-  await page.setViewportSize({width:390,height:844});
-  await page.goto('/');
-  await expect(page.locator('.welcome-layout')).toBeVisible();
-  await expect.poll(async ()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
-  await page.locator('[data-do="language"]').click();
-  await expect(page.getByRole('heading',{name:'Your next life begins here.'})).toBeVisible();
-  await page.locator('[data-do="selection"]').click();
-  await expect(page.locator('.candidate-card')).toHaveCount(4);
-  await page.locator('[data-do="preset-0"]').click();
-  await expect(page.locator('.mobile-tabs .nav-item')).toHaveCount(5);
-  await page.locator('.mobile-tabs [data-tab="actions"]').click();
-  await expect(page.locator('.content-panel h2')).toHaveText('Activities');
-  await expect.poll(async ()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
+test('free character creator retains identity and remains a baby at birth',async ({page})=>{
+ await page.goto('/');
+ await page.locator('[data-do="custom"]').click();
+ await expect(page.locator('#creator-form')).toBeVisible();
+ await expect(page.locator('.creator-preview .stage-baby')).toBeVisible();
+ await page.locator('input[name="name"]').fill('Marina Oliveira');
+ await page.locator('select[name="country"]').selectOption('US');
+ await page.locator('select[name="city"]').selectOption('Chicago');
+ await page.locator('select[name="gender"]').selectOption('woman');
+ await page.locator('select[name="skin"]').selectOption('deep');
+ await page.locator('select[name="hair"]').selectOption('curls');
+ await page.locator('input[name="smarts"]').evaluate((el)=>{
+   el.value='90';el.dispatchEvent(new Event('input',{bubbles:true}));
+ });
+ await page.getByRole('button',{name:'Iniciar essa vida'}).click();
+ await expect(page.locator('.identity-copy strong')).toHaveText('Marina Oliveira');
+ await expect(page.locator('.identity-portrait svg.stage-baby')).toBeVisible();
+ await expect(page.locator('.identity-copy')).toContainText('Chicago');
+ await page.locator('[data-tab="career"]').first().click();
+ await expect(page.locator('.data-list')).toBeVisible();
+ await page.locator('.game-identity').click();
+ await expect(page.locator('.game-feed')).toBeVisible();
 });
-
-test('visual life events have pixel-art protagonist and reusable pictogram props',async ({page})=>{
-  const errors:string[]=[];
-  page.on('pageerror',error=>errors.push(error.message));
-  await page.goto('/');
-  await page.locator('[data-do="selection"]').click();
-  await page.locator('[data-do="preset-0"]').click();
-  await page.locator('[data-do="age-up"]').click();
-  const scene=page.locator('.scene-visual');
-  await expect(scene).toBeVisible();
-  await expect(scene.locator('.scene-avatar .portrait')).toBeVisible();
-  await expect(scene.locator('.scene-props .pixel-icon')).toHaveCount(2);
-  await expect(scene.locator('.scene-avatar rect')).not.toHaveCount(0);
-  await page.locator('[data-choice="0"]').click();
-  await page.locator('[data-tab="finances"]').first().click();
-  await expect(page.getByText('Patrimônio líquido',{exact:true})).toBeVisible();
-  await expect(page.locator('[data-action="home"]').first()).toBeDisabled();
-  await page.locator('[data-tab="people"]').first().click();
-  await expect(page.getByText('Filhos',{exact:true})).toBeVisible();
-  expect(errors).toEqual([]);
+test('age phases change the body while genetic traits persist',async ({page})=>{
+ await chooseBaby(page,1);
+ const baby=await page.locator('.identity-portrait svg').getAttribute('class');
+ await advance(page,3);
+ await expect(page.locator('.identity-portrait .stage-child')).toBeVisible();
+ const state=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(state.age).toBe(3);
+ expect(state.profile.hairColor).toMatch(/black|blonde|brown|red/);
+ expect(baby).toContain('stage-baby');
+ await page.reload();
+ await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.identity-portrait .stage-child')).toBeVisible();
 });
-test('repeatable scheduler and year transitions remain playable for decades',async ({page})=>{
-  test.setTimeout(60_000);
-  const errors:string[]=[];
-  page.on('pageerror',error=>errors.push(error.message));
-  await page.goto('/');
-  await page.locator('[data-do="selection"]').click();
-  await page.locator('[data-do="preset-1"]').click();
-  for(let i=0;i<32;i++){
-    const ageUp=page.locator('[data-do="age-up"]');
-    if(await ageUp.count()){
-      await ageUp.click();
-      const choice=page.locator('[data-choice="0"]');
-      if(await choice.count())await choice.click();
-    }
-  }
-  await expect(page.locator('.age-pill')).toHaveText('32');
-  const ledger=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}').eventLedger);
-  expect(typeof ledger).toBe('object');
-  expect(Object.keys(ledger).length).toBeGreaterThan(4);
-  const save=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
-  expect(save.simulation.balance).toBeGreaterThanOrEqual(0);
-  expect(save.simulation.debt).toBeGreaterThanOrEqual(0);
-  expect(save.stats.health).toBeGreaterThanOrEqual(0);
-  expect(save.stats.health).toBeLessThanOrEqual(100);
-  expect(errors).toEqual([]);
+test('scene illustrations and journal use original pixel visual language',async ({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await chooseBaby(page);
+ await page.locator('.dock-age').click();
+ const scene=page.locator('.scene-visual');
+ await expect(scene).toBeVisible();
+ await expect(scene.locator('.scene-avatar svg.stage-baby')).toBeVisible();
+ await expect(scene.locator('.scene-props .pixel-icon')).toHaveCount(2);
+ await page.locator('[data-choice="0"]').click();
+ await expect(page.locator('.entry-glyph svg')).toHaveCount(2);
+ await page.locator('[data-tab="finances"]').click();
+ await expect(page.getByText('Patrimônio líquido',{exact:true})).toBeVisible();
+ await expect(page.locator('[data-action="home"]').first()).toBeDisabled();
+ await page.locator('[data-tab="people"]').click();
+ await expect(page.getByText('Filhos',{exact:true})).toBeVisible();
+ expect(errors).toEqual([]);
 });
-test('legacy localStorage life opens in the current game and preserves its name',async ({page})=>{
-  await page.goto('/');
-  await page.evaluate(()=>{
-    localStorage.setItem('zoid-life-save-v1',JSON.stringify({
-      name:'Pessoa Original',age:12,birthYear:2014,stats:{happiness:70,health:82,smarts:45,looks:60},
-      pendingEvent:null,seenEventIds:['school'],history:['12: Ano importante.']
-    }));
-  });
-  await page.reload();
-  await page.locator('[data-do="continue"]').click();
-  await expect(page.locator('.game-heading h1')).toHaveText('Pessoa Original');
-  await expect(page.locator('.age-pill')).toHaveText('12');
-  const migration=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
-  // Migrated in memory; persisted when the player makes a choice.
-  await page.locator('[data-do="age-up"]').click();
-  await page.locator('[data-choice="0"]').click();
-  const migrated=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
-  expect(migrated.simulation.schema).toBe(2);
-  expect(migrated.profile.name).toBe('Pessoa Original');
-  expect(migrated.history[0]).toContain('Ano importante');
-  expect(migrated.eventLedger.school.count).toBe(1);
+test('responsive mobile has a centered age button and no horizontal overflow',async ({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ await expect(page.locator('.newborn-card')).toHaveCount(3);
+ await expect.poll(async()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
+ await page.locator('[data-do="language"]').click();
+ await expect(page.getByRole('heading',{name:'Who will you be in this life?'})).toBeVisible();
+ await page.locator('[data-do="preset-0"]').click();
+ await expect(page.locator('.game-dock .dock-tab')).toHaveCount(4);
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await expect(page.locator('.content-panel h2')).toHaveText('Activities');
+ const dock=await page.locator('.game-dock').boundingBox();
+ const age=await page.locator('.game-dock .dock-age').boundingBox();
+ expect(dock&&age).toBeTruthy();
+ if(dock&&age)expect(Math.abs((dock.x+dock.width/2)-(age.x+age.width/2))).toBeLessThan(6);
+ await expect.poll(async()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
+});
+test('desktop shows a balanced central journal and right-side stats',async ({page})=>{
+ await page.setViewportSize({width:1440,height:900});
+ await chooseBaby(page);
+ await expect(page.locator('.game-side')).toBeVisible();
+ await expect(page.locator('.game-dock')).toBeVisible();
+ await expect(page.locator('.game-side .vitals')).toBeVisible();
+ const main=await page.locator('.game-main').boundingBox();
+ const side=await page.locator('.game-side').boundingBox();
+ expect(main&&side&&main.width>side.width).toBeTruthy();
+});
+test('decades of event sequences keep the app responsive and consistent',async ({page})=>{
+ test.setTimeout(90_000);
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await chooseBaby(page);
+ await advance(page,35);
+ await expect(page.locator('.identity-copy')).toContainText('35 anos');
+ const save=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(save.simulation.balance).toBeGreaterThanOrEqual(0);
+ expect(save.simulation.debt).toBeGreaterThanOrEqual(0);
+ expect(save.eventLedger&&Object.keys(save.eventLedger).length).toBeGreaterThan(7);
+ expect(save.stats.health).toBeGreaterThanOrEqual(0);
+ expect(errors).toEqual([]);
+});
+test('legacy saved game migrates and can keep progressing',async ({page})=>{
+ await page.goto('/');
+ await page.evaluate(()=>localStorage.setItem('zoid-life-save-v1',JSON.stringify({
+  name:'Pessoa Original',age:12,birthYear:2014,stats:{happiness:70,health:82,smarts:45,looks:60},
+  pendingEvent:null,seenEventIds:['school'],history:['12: Ano importante.']
+ })));
+ await page.reload();
+ await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.identity-copy strong')).toHaveText('Pessoa Original');
+ await expect(page.locator('.identity-portrait .stage-teen')).toBeVisible();
+ await advance(page,1);
+ const s=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(s.simulation.schema).toBe(2);
+ expect(s.profile.name).toBe('Pessoa Original');
+ expect(s.history[0]).toContain('Ano importante');
+ expect(s.eventLedger.school.count).toBe(1);
 });

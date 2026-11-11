@@ -1,5 +1,6 @@
 /** Reusable Zoid Life visual scenes, originally authored in SVG. No third-party assets. */
-import {portraitSvg,type CharacterProfile} from './characters';
+import type {CharacterProfile} from './characters';
+import {portraitLife} from './life-art';
 type SceneKind = 'family'|'school'|'work'|'money'|'health'|'city'|'friend'|'leisure'|'retirement';
 type Scene = {kind:SceneKind; props:[string,string]; labelPt:string;labelEn:string};
 const SCENES:Record<SceneKind,Scene>={
@@ -52,12 +53,12 @@ export function iconSvg(icon:string,scale=38):string {
     '" width="'+Math.max(16,Math.min(64,Math.round(scale)))+'" height="'+Math.max(16,Math.min(64,Math.round(scale)))+
     '" xmlns="http://www.w3.org/2000/svg" fill="'+color+'" shape-rendering="crispEdges">'+grid+'</svg>';
 }
-export function eventScene(eventId:string,character:CharacterProfile,language:'pt-BR'|'en'):string {
+export function eventScene(eventId:string,character:CharacterProfile,language:'pt-BR'|'en',age=20):string {
   const scene=SCENES[sceneType(eventId)];
   const label=language==='en'?scene.labelEn:scene.labelPt;
   return '<div class="scene-visual scene-'+scene.kind+'" aria-label="'+label+'">'+
     '<div class="scene-decoration" aria-hidden="true"><span class="scene-grid"></span><span class="scene-orbit"></span></div>'+
-    '<div class="scene-avatar">'+portraitSvg(character,'scene')+'</div>'+
+    '<div class="scene-avatar">'+portraitLife(character,age,'scene')+'</div>'+
     '<div class="scene-props"><div>'+iconSvg(scene.props[0],46)+'</div><div>'+iconSvg(scene.props[1],46)+'</div></div>'+
     '<span class="scene-label">'+label+'</span></div>';
 }
