@@ -6,10 +6,11 @@ import { selectEvent, recordEvent, migrateLedger, type EventLedger } from "./eve
 import { eventScene, iconSvg } from "./event-scenes";
 import { portraitLife, lifeStage } from "./life-art";
 import { renderStoryboardTimeline } from "./storyboard";
+import { CAREERS,careerById,careerAvailable,careerLabel,careerRequirements,type OccupationId } from "./careers";
 import { validateLifeSave, serializeLife, saveFilename } from "./save-io";
 import { initialSocial, normalizeSocial, syncSocial, spendSocialTime, personAge, personLabel, type SocialState } from "./social";
 
-import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, type Simulation, type Action, type WorldImpact, canTakeAction } from "./simulation";
+import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, applyCareer, type Simulation, type Action, type WorldImpact, canTakeAction } from "./simulation";
 
 type Language = "pt-BR" | "en";
 type StatKey = "happiness" | "health" | "smarts" | "looks";
@@ -328,6 +329,7 @@ function cash(amount: number): string {
 }
 function caption(s: string): string {
   if(s.startsWith("job:"))return u("newJob")+": "+u(s.slice(4));
+  if(s.startsWith("occupation:")){const role=careerById(s.slice(11));return role?careerLabel(role,language):u("job");}
   if(s.startsWith("income:"))return u("incomeNote")+": "+cash(Number(s.slice(7)));
   if(s.startsWith("expenses:"))return u("expenseNote")+": "+cash(Number(s.slice(9)));
   if(s.startsWith("debt-paid:"))return u("debtPaid")+": "+cash(Number(s.slice(10)));
@@ -564,11 +566,30 @@ function pair(label: string,value:string): string {return '<div class="data-row"
 function renderCareer(): string {
   if(!life)return '';
   const s=life.simulation;
-  return '<section class="content-panel"><div class="panel-heading"><h2>'+safe(u("career"))+'</h2></div>'+
-    '<div class="data-list">'+pair(u("degree"),u(s.education))+pair(u("credits"),String(s.credits))+
-    pair(u("currentJob"),u(s.job))+pair(u("experience"),String(s.experience))+
-    pair(u("income"),cash(annualSalary(s)))+'</div>'+
-    '<div class="activity-grid">'+actionButton("study")+actionButton("job")+'</div></section>';
+  const role=careerById(s.occupation);
+  const jobLabel=role && role.job===s.job ? careerLabel(role,language):u(s.job);
+  const allowed=canAction('job');
+  const vacancies=CAREERS.map(c=>{
+    const active=c.id===s.occupation&&c.job===s.job;
+    const qualified=careerAvailable(s,life!.age,c);
+    const actionable=allowed&&qualified&&!active;
+    return '<article class="career-vacancy'+(active?' current':'')+'" data-career-card="'+c.id+'">'+
+      '<div class="career-vacancy-info"><strong>'+safe(careerLabel(c,language))+'</strong>'+
+      '<span>'+safe(careerRequirements(c,language))+'</span>'+
+      '<small>'+safe(language==='pt-BR'?'Salário anual':'Annual salary')+' · '+safe(cash(c.salary))+'</small></div>'+
+      '<button type="button" data-career="'+c.id+'"'+(actionable?'':' disabled')+
+      ' class="career-apply">'+safe(active?(language==='pt-BR'?'Atual':'Current'):
+        !qualified?(language==='pt-BR'?'Bloqueada':'Locked'):(language==='pt-BR'?'Candidatar-se':'Apply'))+'</button></article>';
+  }).join('');
+  return '<section class="content-panel career-page"><div class="panel-heading"><h2>'+safe(u("career"))+'</h2>'+
+   '<p>'+safe(language==='pt-BR'?'Escolha uma profissão. Cada vaga exige requisitos reais e define sua renda.':
+   'Choose a profession. Each vacancy has requirements and a different salary.')+'</p></div>'+
+   '<div class="data-list">'+pair(u("degree"),u(s.education))+pair(u("credits"),String(s.credits))+
+   pair(u("currentJob"),safe(jobLabel))+pair(u("experience"),String(s.experience))+
+   pair(u("income"),cash(annualSalary(s)))+'</div>'+
+   '<div class="activity-grid">'+actionButton("study")+'</div>'+
+   '<h3 class="career-heading">'+safe(language==='pt-BR'?'Vagas disponíveis e futuras':'Current and future careers')+'</h3>'+
+   '<div class="career-list">'+vacancies+'</div></section>';
 }
 function renderFinances(): string {
   if(!life)return '';
@@ -661,8 +682,20 @@ function choose(index:number): void {
   life.lastEventId=event.id;
   life.pendingEvent=null;saveLife();render();
 }
+function applyToCareer(id:string):void {
+ if(!life||life.pendingEvent||life.simulation.ended||!canAction('job'))return;
+ const role=careerById(id);
+ if(!role||!careerAvailable(life.simulation,life.age,role))return;
+ const result=applyCareer(life.simulation,life.stats,life.age,role.id as OccupationId);
+ if(!result.ok)return;
+ life.simulation=result.state;life.stats=result.stats;
+ life.history.push(life.age+': '+(language==='pt-BR'?'Começou a trabalhar como ':'Started working as ')+careerLabel(role,language)+'.');
+ for(const note of result.notes)life.history.push(life.age+': '+caption(note));
+ saveLife();tab='career';render();
+}
 function act(action:Action): void {
   if(!life || !canAction(action))return;
+  if(action==='job'){tab='career';render();return;}
   const result=takeAction(life.simulation,life.stats,life.age,action);
   if(!result.ok)return;
   life.simulation=result.state;life.stats=result.stats;
@@ -756,6 +789,8 @@ appEl?.addEventListener("click",e=>{
   const target=e.target as HTMLElement;
   const person=target.closest<HTMLButtonElement>("[data-person]");
   if(person){visitPerson(person.dataset.person||'');return;}
+  const career=target.closest<HTMLButtonElement>("[data-career]");
+  if(career){applyToCareer(career.dataset.career||'');return;}
   const nav=target.closest<HTMLButtonElement>("[data-tab]");
   if(nav){tab=nav.dataset.tab as Tab;render();return;}
   const choice=target.closest<HTMLButtonElement>("[data-choice]");

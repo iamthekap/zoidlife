@@ -1,3 +1,4 @@
+import {careerById,careerAvailable,type OccupationId} from './careers.ts';
 /** Original Zoid Life simulation engine; independent of third-party game code or assets. */
 export type Stats = Record<'happiness' | 'health' | 'smarts' | 'looks', number>;
 export type Job = 'none' | 'parttime' | 'service' | 'office' | 'professional' | 'retired';
@@ -6,7 +7,7 @@ export type Relation = 'single' | 'dating' | 'married';
 export type Action = 'study' | 'job' | 'socialize' | 'care' | 'budget' | 'retire' | 'invest' | 'home' | 'child';
 export type Simulation = {
   schema: 2; balance: number; debt: number; education: Education; credits: number;
-  job: Job; experience: number; family: number; friends: number; partner: number;
+  job: Job; occupation:OccupationId|null; experience: number; family: number; friends: number; partner: number;
   relationship: Relation; lastActionAge: number; lastYearNotes: string[]; ended: boolean;
   /** Most recent age that each activity was performed. Allows different activities in one year. */
   actionLedger: Partial<Record<Action,number>>;
@@ -16,10 +17,12 @@ export type WorldImpact={cash?:number;debt?:number;investments?:number;family?:n
 export type Outcome = { state: Simulation; stats: Stats; notes: string[]; ok: boolean };
 const bound = (n: number) => Math.max(0, Math.min(100, Math.round(Number.isFinite(n) ? n : 0)));
 const money = (n: number) => Math.max(0, Math.round(Number.isFinite(n) ? n : 0));
-export const annualSalary = (s: Simulation): number => ({
-  none: 0, parttime: 4200, service: 15000, office: 26000,
-  professional: 43000, retired: s.experience >= 5 ? 11000 : 6500,
-})[s.job] + (s.job === 'none' || s.job === 'retired' ? 0 : Math.min(s.experience, 30) * 360);
+export const annualSalary=(s:Simulation):number=>{
+ const role=careerById(s.occupation);
+ const fallback=({none:0,parttime:4200,service:15000,office:26000,professional:43000,retired:s.experience>=5?11000:6500})[s.job];
+ const amount=role&&role.job===s.job?role.salary:fallback;
+ return amount+(s.job==='none'||s.job==='retired'?0:Math.min(s.experience,30)*360);
+};
 export const ALL_ACTIONS: Action[]=['study','job','socialize','care','budget','retire','invest','home','child'];
 function normalizeActionLedger(raw:unknown,lastActionAge:unknown):Partial<Record<Action,number>> {
   const ledger:Partial<Record<Action,number>>={};
@@ -40,7 +43,7 @@ export function canTakeAction(s:Simulation,age:number,action:Action):boolean {
   return s.actionLedger?.[action]!==age;
 }
 export function createSimulation(): Simulation {
-  return { schema: 2, balance: 0, debt: 0, education: 'none', credits: 0, job: 'none',
+  return { schema: 2, balance: 0, debt: 0, education: 'none', credits: 0, job: 'none', occupation:null,
     experience: 0, family: 70, friends: 30, partner: 0, relationship: 'single',
     lastActionAge: -1, actionLedger: {}, lastYearNotes: [], ended: false,
     investments: 0, homeOwned: false, homeValue: 0, children: 0 };
@@ -57,6 +60,7 @@ export function loadSimulation(raw: unknown): Simulation {
   return { ...initial, balance: money(r.balance ?? 0), debt: money(r.debt ?? 0),
     education: degrees.includes(r.education as Education) ? r.education! : initial.education,
     credits: money(r.credits ?? 0), job: jobs.includes(r.job as Job) ? r.job! : initial.job,
+    occupation:careerById(r.occupation)?.id??null,
     experience: money(r.experience ?? 0), family: bound(r.family ?? 70), friends: bound(r.friends ?? 30),
     partner: bound(r.partner ?? 0), relationship: relations.includes(r.relationship as Relation) ? r.relationship! : initial.relationship,
     lastActionAge: Number.isInteger(r.lastActionAge) ? r.lastActionAge! : -1,
@@ -104,7 +108,7 @@ export function passYear(raw: Simulation, rawStats: Stats, age: number): Outcome
     else notes.push('no-diploma');
   }
   if (age === 65 && s.job !== 'none' && s.job !== 'retired') {
-    s.job = 'retired'; notes.push('retirement');
+    s.job = 'retired'; s.occupation=null; notes.push('retirement');
   }
   if (s.job !== 'none') {
     const income = annualSalary(s);
@@ -156,7 +160,7 @@ export function takeAction(raw: Simulation, rawStats: Stats, age: number, action
     }
   } else if (action === 'job' && age >= 16 && age < 65) {
     const next = eligibility(age, s.education);
-    s.job = next;
+    s.job = next;s.occupation=null;
     stats = updatedStats(stats, { happiness: 2, health: -1 });
     notes.push('job:' + next);
   } else if (action === 'socialize') {
@@ -191,13 +195,25 @@ export function takeAction(raw: Simulation, rawStats: Stats, age: number, action
     stats=updatedStats(stats,{happiness:5,health:-1});
     notes.push('child-born');
   } else if (action === 'retire' && age >= 60 && s.job !== 'none' && s.job !== 'retired') {
-    s.job = 'retired'; notes.push('retirement');
+    s.job = 'retired'; s.occupation=null; notes.push('retirement');
   } else return { state: raw, stats: rawStats, notes: [], ok: false };
   s.lastActionAge = age;
   s.actionLedger = {...raw.actionLedger,[action]:age};
   return { state: s, stats, notes, ok: true };
 }
 /** Persistent effects use original Zoid Life story IDs, not third-party code. */
+/** A chosen vacancy uses the same annual cooldown as finding work. */
+export function applyCareer(raw:Simulation,rawStats:Stats,age:number,id:OccupationId):Outcome{
+ const role=careerById(id);
+ if(!role||!canTakeAction(raw,age,'job')||!careerAvailable(raw,age,role))
+  return {state:raw,stats:rawStats,notes:[],ok:false};
+ const s:Simulation={...raw,job:role.job,occupation:role.id,actionLedger:{...raw.actionLedger,job:age},
+  lastActionAge:age,lastYearNotes:[...raw.lastYearNotes]};
+ if(role.capital>0)charge(s,role.capital);
+ s.experience=money(s.experience+1);
+ return {state:s,stats:updatedStats(rawStats,{happiness:4,health:-Math.round(role.stress/2)}),
+  notes:['job:'+role.job,'occupation:'+role.id],ok:true};
+}
 export function applyNarrativeChoice(raw: Simulation, rawStats: Stats, age: number, eventId: string, index: number, statEffects: Partial<Stats>, world:WorldImpact={}): Outcome {
   if (raw.ended || !Number.isInteger(index) || index < 0) return { state: raw, stats: rawStats, notes: [], ok: false };
   const s = { ...raw, lastYearNotes: [...raw.lastYearNotes] };

@@ -361,3 +361,26 @@ test('new pixel art silhouettes preserve visible genetics and phase differences'
  await expect(page.locator('.storyboard-baby svg[data-style="clean-pixel-simulation-v2"]')).toBeVisible();
  await expect(page.locator('.storyboard-child .stage-child')).toBeVisible();
 });
+
+test('career board requires qualifications, changes salary and persists job selection',async ({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const data=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  data.age=21;data.simulation.education='college';data.simulation.credits=16;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(data));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('.career-vacancy')).toHaveCount(11);
+ await expect(page.locator('[data-career="developer"]')).toBeEnabled();
+ await page.locator('[data-career="developer"]').click();
+ await expect(page.locator('[data-career="developer"]')).toBeDisabled();
+ await expect(page.locator('.career-vacancy.current')).toContainText('Desenvolvedor');
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.occupation).toBe('developer');
+ expect(saved.simulation.job).toBe('professional');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('.career-vacancy.current')).toContainText('Desenvolvedor');
+ await expect(page.locator('[data-career="developer"]')).toBeDisabled();
+});

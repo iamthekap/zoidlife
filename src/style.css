@@ -538,3 +538,21 @@ body{background:var(--bg);color:var(--ink);}
  .storyboard-scene{border-width:2px;}
 }
 @media(prefers-reduced-motion:reduce){.storyboard-scene *{animation:none!important;transition:none!important;}}
+
+
+/* Zoid Life 0.6 career board */
+.career-page{display:grid;gap:13px;}
+.career-heading{font-size:14px;color:#244d86;font-weight:850;margin-top:7px;}
+.career-list{display:grid;grid-template-columns:minmax(0,1fr);gap:9px;}
+.career-vacancy{display:flex;align-items:center;justify-content:space-between;gap:10px;
+ min-width:0;padding:13px;background:white;border:1px solid #d6e2f2;border-radius:12px;}
+.career-vacancy.current{border-color:#ff0044;background:#fff6f8;}
+.career-vacancy-info{min-width:0;display:flex;flex-direction:column;gap:4px;line-height:1.45;}
+.career-vacancy-info strong{font-size:12px;color:#173d70;}
+.career-vacancy-info span{font-size:10px;color:#637e9b;overflow-wrap:anywhere;}
+.career-vacancy-info small{font-size:11px;color:#c03258;font-weight:800;}
+.career-apply{flex:0 0 auto;background:#3A86FF;color:#fff;border:1px solid #2b6abe;
+ border-radius:9px;padding:9px 10px;min-width:80px;font-size:10px;font-weight:850;}
+.career-apply:disabled{background:#e9eff6;color:#7486a0;border-color:#ccd8e7;opacity:.8;}
+@media(min-width:850px){.career-list{grid-template-columns:repeat(2,minmax(0,1fr));}
+ .career-vacancy{min-height:91px;}}
