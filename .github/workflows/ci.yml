@@ -26,6 +26,13 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Test game in Chromium
         run: npm run test:e2e
+      - name: Upload visual review captures
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoidlife-visual-qa
+          path: test-results/visual/
+          retention-days: 7
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4
