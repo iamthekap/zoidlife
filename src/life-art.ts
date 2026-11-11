@@ -152,12 +152,15 @@ function infantPortrait(p:CharacterProfile,seed:number,size:string):string {
  const darkCheek=tint(shade,.67);
  const draw:string[]=[];
  const add=(x:number,y:number,w:number,h:number,color:string,attrs='')=>draw.push(r(x,y,w,h,color,attrs));
- draw.push('<g data-part="background">');
- add(0,0,144,176,background);
- add(8,8,128,160,tint(background,.48));
- add(16,23,112,118,background,' opacity=".68"');
- for(let i=0;i<18;i++)add(17+(i*31)%110,18+(i*37)%135,2,2,'#ffffff',' opacity=".40"');
- draw.push('</g><g data-part="seated-onesie">');
+ if(size!=='story-actor'){
+   draw.push('<g data-part="background">');
+   add(0,0,144,176,background);
+   add(8,8,128,160,tint(background,.48));
+   add(16,23,112,118,background,' opacity=".68"');
+   for(let i=0;i<18;i++)add(17+(i*31)%110,18+(i*37)%135,2,2,'#ffffff',' opacity=".40"');
+   draw.push('</g>');
+ }
+ draw.push('<g data-part="seated-onesie">');
  // A single, loose baby onesie with bent knees and tiny booties, not adult clothes.
  add(42,107,60,43,cloth);
  add(34,117,13,30,cloth);add(98,117,13,30,cloth);
@@ -237,10 +240,12 @@ export function portraitLife(p:CharacterProfile,age:number,size='card'):string {
  const [skin,shade]=skins[p.skin],shirt=shirts[seed%shirts.length];
  const draw:string[]=[];
  const backdrop=backdrops[(seed>>>7)%backdrops.length];
- draw.push(r(0,0,144,176,backdrop),r(6,7,132,161,tint(backdrop,.44)));
- // Stylized square block backdrop, changing for phases without altering identity.
- draw.push(r(15,25,115,124,backdrop,' opacity=".8"'));
- for(let i=0;i<14;i++)draw.push(r(13+((i*37)%116),40+((i*19)%107),3,3,'#ffffff',' opacity=".24"'));
+ if(size!=='story-actor'){
+   draw.push(r(0,0,144,176,backdrop),r(6,7,132,161,tint(backdrop,.44)));
+   // Keep the existing character-card backdrop, but let storyboard scenes provide their own.
+   draw.push(r(15,25,115,124,backdrop,' opacity=".8"'));
+   for(let i=0;i<14;i++)draw.push(r(13+((i*37)%116),40+((i*19)%107),3,3,'#ffffff',' opacity=".24"'));
+ }
  const child=stage==='child',teen=stage==='teen';
  const headWidth=child?61:teen?56:52;
  const headHeight=child?64:teen?61:60;

@@ -282,3 +282,62 @@ test('newborn graphics have infant face, romper and no adult facial hair',async 
  await page.locator('.dock-age').click();
  await expect(page.locator('.scene-avatar svg[data-age-visual="infant"]')).toBeVisible();
 });
+
+test('storyboard appears at birth, grows with age and never reveals future chapters',async ({page})=>{
+ await chooseBaby(page);
+ await expect(page.locator('.storyboard-timeline')).toBeVisible();
+ await expect(page.locator('.storyboard-milestone')).toHaveCount(1);
+ await expect(page.locator('.storyboard-baby .storyboard-scene')).toBeVisible();
+ await expect(page.locator('.storyboard-baby .storyboard-actor .stage-baby')).toBeVisible();
+ await expect(page.locator('.storyboard-baby .storyboard-actor [data-part="background"]')).toHaveCount(0);
+ await advance(page,3);
+ await expect(page.locator('.storyboard-milestone')).toHaveCount(2);
+ await expect(page.locator('.storyboard-child .storyboard-actor .stage-child')).toBeVisible();
+ await expect(page.locator('.storyboard-teen')).toHaveCount(0);
+ await page.reload();
+ await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.storyboard-child')).toBeVisible();
+ await expect(page.locator('.storyboard-baby')).toBeVisible();
+});
+test('storyboard has blue Zoid, red Life and a red age CTA on mobile',async ({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ const colors=await page.locator('.welcome-logo').evaluate(el=>{
+  const word=getComputedStyle(el).color;
+  const life=getComputedStyle(el.querySelector('span')).color;
+  const css=getComputedStyle(document.documentElement);
+  return {word,life,blue:css.getPropertyValue('--brand-blue').trim(),
+   red:css.getPropertyValue('--brand-red').trim()};
+ });
+ expect(colors.blue).toBe('#3A86FF');
+ expect(colors.red).toBe('#FF0044');
+ expect(colors.word).toBe('rgb(58, 134, 255)');
+ expect(colors.life).toBe('rgb(255, 0, 68)');
+ await page.locator('[data-do="preset-0"]').click();
+ await expect(page.locator('.storyboard-timeline')).toBeVisible();
+ const ageBackground=await page.locator('.dock-age').evaluate(el=>getComputedStyle(el).backgroundImage);
+ expect(ageBackground).toContain('rgb(255, 0, 68)');
+ await expect.poll(async()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
+});
+test('a legacy adult life shows phase scenes without changing saved genetic traits',async ({page})=>{
+ await chooseBaby(page);
+ const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ await page.evaluate(()=>{
+  const stored=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  stored.age=18;
+  stored.history.push('18: Começou a trabalhar em um novo projeto.');
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(stored));
+ });
+ await page.reload();
+ await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.storyboard-milestone')).toHaveCount(4);
+ await expect(page.locator('.storyboard-adult .stage-adult')).toBeVisible();
+ await expect(page.locator('.storyboard-teen .stage-teen')).toBeVisible();
+ await expect(page.locator('.storyboard-child .stage-child')).toBeVisible();
+ await expect(page.locator('.storyboard-baby .stage-baby')).toBeVisible();
+ await expect(page.locator('.storyboard-senior')).toHaveCount(0);
+ await expect(page.locator('.storyboard-adult')).toContainText('Começou a trabalhar');
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(after.profile).toEqual(before.profile);
+ await expect.poll(async()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
+});

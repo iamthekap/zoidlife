@@ -5,6 +5,7 @@ import { extendedEvents, extendedAllowed } from "./events-extended";
 import { selectEvent, recordEvent, migrateLedger, type EventLedger } from "./event-engine";
 import { eventScene, iconSvg } from "./event-scenes";
 import { portraitLife, lifeStage } from "./life-art";
+import { renderStoryboardTimeline } from "./storyboard";
 import { validateLifeSave, serializeLife, saveFilename } from "./save-io";
 import { initialSocial, normalizeSocial, syncSocial, spendSocialTime, personAge, personLabel, type SocialState } from "./social";
 
@@ -353,7 +354,7 @@ function render(): void {
   const shell='<div class="app-shell">'+header+
    (scene==="welcome"?renderWelcome():scene==="selection"?renderSelection():
      scene==="custom"?renderCustom():renderPlay())+
-   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.5.2 · PT / EN</span></footer></div>';
+   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.6.0 · PT / EN</span></footer></div>';
   app.innerHTML=shell;
 }
 function renderWelcome(): string {
@@ -375,7 +376,7 @@ function renderWelcome(): string {
     button(language==="pt-BR"?"+ Criar meu personagem":"+ Create my own","custom","outline")+'</div>'+
     (hasSave?'<div class="continue-life">'+button(u("continue"),"continue","primary")+
       '<span>'+safe(life!.name)+' · '+safe(ageText(life!.age))+'</span></div>':'')+'</section>'+
-    '<div class="entry-footer"><span>'+safe(u("noLogin"))+'</span><span>BLUE EDITION · 0.5.2</span></div></main>';
+    '<div class="entry-footer"><span>'+safe(u("noLogin"))+'</span><span>BLUE & RED EDITION · 0.6.0</span></div></main>';
 }
 function renderSelection(): string { return renderWelcome(); }
 function option(value: string,label: string, selected: boolean): string {
@@ -506,7 +507,7 @@ function renderStory():string {
     '<div class="story-intro"><div><strong>'+safe(language==='pt-BR'?'Diário de vida':'Life journal')+'</strong>'+
     '<span>'+safe(u("year"))+' '+(life.birthYear+life.age)+'</span></div>'+
     '<button type="button" data-tab="actions" class="subtle-link">'+safe(u("actions"))+'</button></div>'+
-    eventHtml+timelineEntries()+'</section>';
+    eventHtml+renderStoryboardTimeline(life.profile,life.age,life.history,language)+timelineEntries()+'</section>';
 }
 
 const actionTypes: Action[]=['study','job','socialize','care','budget','invest','home','child','retire'];
