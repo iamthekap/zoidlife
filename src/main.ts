@@ -1,5 +1,5 @@
 import "./style.css";
-import { randomCandidates, randomCharacter, normalizeProfile, portraitSvg, CITIES, COUNTRIES, GENDERS, SKINS, HAIRS, HAIR_COLORS, EYES, type Country, type CharacterProfile } from "./characters";
+import { randomCandidates, randomCharacter, normalizeProfile, portraitSvg, CITIES, COUNTRIES, GENDERS, SKINS, HAIRS, HAIR_COLORS, EYES, OUTFITS, type Country, type CharacterProfile } from "./characters";
 import { extraEvents, eventAllowed } from "./events-plus";
 import { extendedEvents, extendedAllowed } from "./events-extended";
 import { advancedEvents } from "./events-advanced";
@@ -386,10 +386,15 @@ function renderSelection(): string { return renderWelcome(); }
 function option(value: string,label: string, selected: boolean): string {
   return '<option value="'+safe(value)+'"'+(selected?' selected':'')+'>'+safe(label)+'</option>';
 }
+function outfitLabel(value:string):string{
+ const pt:Record<string,string>={blue:'Azul',red:'Vermelho',mint:'Verde-água',ochre:'Ocre',purple:'Roxo',rose:'Rosa'};
+ const en:Record<string,string>={blue:'Blue',red:'Red',mint:'Mint',ochre:'Ochre',purple:'Purple',rose:'Rose'};
+ return (language==='en'?en:pt)[value]||value;
+}
 function selectField(name: string,label: string, options: string[]): string {
   const current=String((custom as unknown as Record<string,string|number>)[name]);
   return '<label class="form-field"><span>'+safe(label)+'</span><select name="'+safe(name)+'" data-custom="'+safe(name)+'">'+
-   options.map(v=>option(v,name==='country'?countryName(v as Country):u(v),v===current)).join('')+
+   options.map(v=>option(v,name==='country'?countryName(v as Country):name==='outfit'?outfitLabel(v):u(v),v===current)).join('')+
    '</select></label>';
 }
 function renderCustom(): string {
@@ -407,7 +412,8 @@ function renderCustom(): string {
     selectField("gender",u("gender"),GENDERS)+selectField("country",u("country"),COUNTRIES)+
     selectField("city",u("city"),[...CITIES[custom.country]])+
     selectField("skin",u("skin"),SKINS)+selectField("hair",u("hair"),HAIRS)+
-    selectField("hairColor",u("hairColor"),HAIR_COLORS)+selectField("eyes",u("eyes"),EYES)+numeric+
+    selectField("hairColor",u("hairColor"),HAIR_COLORS)+selectField("eyes",u("eyes"),EYES)+
+    selectField("outfit",language==="pt-BR"?"Roupa do personagem":"Character outfit",OUTFITS)+numeric+
     '<fieldset class="stats-editor wide"><legend>'+safe(u("overview"))+'</legend>'+
     sliders.map(k=>'<label class="slider-field"><span>'+safe(u(k))+'</span><input data-stat="'+k+'" name="'+k+
       '" type="range" min="10" max="100" step="5" value="'+customStats[k]+'"/><output data-value="'+k+'">'+customStats[k]+'%</output></label>').join('')+

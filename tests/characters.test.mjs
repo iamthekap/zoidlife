@@ -48,3 +48,16 @@ test('legacy name can migrate to a generated visual profile',()=>{
   assert.equal(p.name,'Carolina Marques');
   assert.ok(CITIES[p.country].includes(p.city));
 });
+
+test('three default newborns receive distinct outfits and user appearance survives profile normalization',()=>{
+ for(let i=0;i<24;i++){
+  const triple=randomCandidates(3);
+  assert.equal(new Set(triple.map(p=>p.outfit)).size,3);
+ }
+ const original=randomCharacter();
+ const normalized=normalizeProfile({...original,outfit:'red'},original.name);
+ assert.equal(normalized.outfit,'red');
+ assert.equal(normalizeProfile({...original,outfit:'javascript:alert(1)'},original.name).outfit,undefined);
+ const legacy={...original};delete legacy.outfit;
+ assert.equal(normalizeProfile(legacy,legacy.name).outfit,undefined);
+});

@@ -4,6 +4,7 @@ export type Skin = 'light' | 'tan' | 'brown' | 'deep';
 export type Hair = 'short' | 'waves' | 'curls' | 'long';
 export type HairColor = 'black' | 'brown' | 'blonde' | 'red';
 export type Eye = 'brown' | 'blue' | 'green';
+export type Outfit = 'blue' | 'red' | 'mint' | 'ochre' | 'purple' | 'rose';
 export type Country = 'BR' | 'US' | 'PT' | 'UK' | 'CA';
 export type CharacterProfile = {
   name: string;
@@ -14,6 +15,8 @@ export type CharacterProfile = {
   hair: Hair;
   hairColor: HairColor;
   eyes: Eye;
+  /** Optional to retain stable appearance of saves created before the outfit selector. */
+  outfit?: Outfit;
   birthday: number;
   birthMonth: number;
 };
@@ -29,6 +32,7 @@ export const SKINS: Skin[] = ['light', 'tan', 'brown', 'deep'];
 export const HAIRS: Hair[] = ['short', 'waves', 'curls', 'long'];
 export const HAIR_COLORS: HairColor[] = ['black', 'brown', 'blonde', 'red'];
 export const EYES: Eye[] = ['brown', 'blue', 'green'];
+export const OUTFITS: Outfit[]=['blue','red','mint','ochre','purple','rose'];
 export const GENDERS: Gender[] = ['woman', 'man', 'nonbinary'];
 const firstNames: Record<Gender, string[]> = {
   woman: ['Luiza','Luna','Marina','Camila','Bianca','Sofia','Elisa','Isabela','Nina','Cecília'],
@@ -43,7 +47,7 @@ export function randomCharacter(): CharacterProfile {
   const country=pick(COUNTRIES);
   return { name: pick(firstNames[gender]) + ' ' + pick(surnames), gender,
     country, city: pick(CITIES[country]), skin: pick(SKINS), hair: pick(HAIRS),
-    hairColor: pick(HAIR_COLORS), eyes: pick(EYES),
+    hairColor: pick(HAIR_COLORS), eyes: pick(EYES), outfit:pick(OUTFITS),
     birthday: 1 + Math.floor(Math.random()*28), birthMonth: 1 + Math.floor(Math.random()*12) };
 }
 export function randomCandidates(count = 3): CharacterProfile[] {
@@ -59,13 +63,13 @@ export function randomCandidates(count = 3): CharacterProfile[] {
     }
     return copy;
   };
-  const skinOrder=shuffle(SKINS),hairOrder=shuffle(HAIRS),colors=shuffle(HAIR_COLORS);
+  const skinOrder=shuffle(SKINS),hairOrder=shuffle(HAIRS),colors=shuffle(HAIR_COLORS),outfitOrder=shuffle(OUTFITS);
   for(let i=0;i<total;i++){
     let candidate=randomCharacter();
     for(let tries=0;names.has(candidate.name)&&tries<50;tries++)candidate=randomCharacter();
     if(names.has(candidate.name))candidate={...candidate,name:candidate.name+' '+(i+1)};
     const profile={...candidate,skin:skinOrder[i%skinOrder.length],
-      hair:hairOrder[i%hairOrder.length],hairColor:colors[i%colors.length]};
+      hair:hairOrder[i%hairOrder.length],hairColor:colors[i%colors.length],outfit:outfitOrder[i%outfitOrder.length]};
     names.add(profile.name);
     result.push(profile);
   }
@@ -84,6 +88,7 @@ export function normalizeProfile(raw: unknown, fallbackName='Pessoa'): Character
     hair: isOneOf(r.hair,HAIRS) ? r.hair : defaults.hair,
     hairColor: isOneOf(r.hairColor, HAIR_COLORS) ? r.hairColor : defaults.hairColor,
     eyes: isOneOf(r.eyes,EYES) ? r.eyes : defaults.eyes,
+    ...(isOneOf(r.outfit,OUTFITS)?{outfit:r.outfit}:{}),
     birthday: typeof r.birthday === 'number' && r.birthday >= 1 && r.birthday <= 28 ? Math.floor(r.birthday) : defaults.birthday,
     birthMonth: typeof r.birthMonth === 'number' && r.birthMonth >= 1 && r.birthMonth <= 12 ? Math.floor(r.birthMonth) : defaults.birthMonth
   };

@@ -5,7 +5,7 @@
  * Local-color selective outlines, at most three solid tones per material.
  * No third party assets. Every sprite is a self-contained SVG.
  */
-import type {CharacterProfile} from './characters.ts';
+import {OUTFITS,type CharacterProfile} from './characters.ts';
 
 export type PixelStage='baby'|'child'|'teen'|'adult'|'senior';
 type Palette={light:string;mid:string;dark:string};
@@ -166,18 +166,41 @@ function outfit(d:Painter,stage:PixelStage,p:CharacterProfile,seed:number,skin:P
 function face(d:Painter,stage:PixelStage,p:CharacterProfile,skin:Palette,hair:Palette,seed:number):void{
  const rig=rigs[stage],{x,y,w,h}=rig;
  const baby=stage==='baby',young=stage==='baby'||stage==='child';
- const eyeY=y+Math.round(h*(baby ? 0.51 : stage==='child' ? 0.49 : 0.46));
+ const eyeY=y+Math.round(h*(baby ? 0.45 : stage==='child' ? 0.49 : 0.46));
  d.group(baby?'infant-face':'age-face',()=>{
-  // Selective outline, stepped locally shaded rounded face.
-  d.rect(x+6,y-1,w-12,h+1,skin.dark);
-  d.rect(x+3,y+3,w-6,h-5,skin.dark);
-  d.rect(x,y+9,w,h-16,skin.dark);
-  d.rect(x+6,y+1,w-12,h-3,skin.mid);
-  d.rect(x+3,y+5,w-6,h-10,skin.mid);
-  d.rect(x+1,y+10,w-2,h-18,skin.mid);
-  d.rect(x+7,y+2,w-14,h-6,skin.light);
-  d.rect(x+4,y+7,w-8,h-13,skin.light);
-  d.rect(x+2,y+12,w-4,h-20,skin.light);
+  // Round baby cranium is built from progressively narrower pixel rows,
+  // never a rectangular adult face. Local-color contours remain 1–3 tones.
+  if(baby){
+   d.rect(x+13,y-2,w-26,3,skin.dark);
+   d.rect(x+8,y,w-16,4,skin.dark);
+   d.rect(x+5,y+4,w-10,5,skin.dark);
+   d.rect(x+2,y+9,w-4,7,skin.dark);
+   d.rect(x,y+16,w,15,skin.dark);
+   d.rect(x+3,y+31,w-6,5,skin.dark);
+   d.rect(x+7,y+36,w-14,5,skin.dark);
+   d.rect(x+13,y+40,w-26,2,skin.dark);
+   d.rect(x+13,y-1,w-26,3,skin.mid);
+   d.rect(x+8,y+2,w-16,4,skin.mid);
+   d.rect(x+5,y+6,w-10,6,skin.mid);
+   d.rect(x+2,y+12,w-4,19,skin.mid);
+   d.rect(x+6,y+31,w-12,6,skin.mid);
+   d.rect(x+11,y+36,w-22,4,skin.mid);
+   d.rect(x+10,y+2,w-20,4,skin.light);
+   d.rect(x+7,y+6,w-14,6,skin.light);
+   d.rect(x+4,y+12,w-8,19,skin.light);
+   d.rect(x+8,y+31,w-16,6,skin.light);
+   d.rect(x+14,y+36,w-28,3,skin.light);
+  }else{
+   d.rect(x+6,y-1,w-12,h+1,skin.dark);
+   d.rect(x+3,y+3,w-6,h-5,skin.dark);
+   d.rect(x,y+9,w,h-16,skin.dark);
+   d.rect(x+6,y+1,w-12,h-3,skin.mid);
+   d.rect(x+3,y+5,w-6,h-10,skin.mid);
+   d.rect(x+1,y+10,w-2,h-18,skin.mid);
+   d.rect(x+7,y+2,w-14,h-6,skin.light);
+   d.rect(x+4,y+7,w-8,h-13,skin.light);
+   d.rect(x+2,y+12,w-4,h-20,skin.light);
+  }
   // Very small ears.
   d.rect(x-3,y+Math.round(h*.49),4,8,skin.dark);
   d.rect(x-2,y+Math.round(h*.49)+1,3,6,skin.mid);
@@ -196,7 +219,8 @@ function face(d:Painter,stage:PixelStage,p:CharacterProfile,skin:Palette,hair:Pa
     // Large soft pixel eyes with invariant iris color and highlight.
     const eyeW=baby?9:stage==='child'?8:7;
     const eyeH=baby?8:7;
-    d.rect(eyeX-1,eyeY-3,eyeW+2,2,hair.dark);
+    if(!baby)d.rect(eyeX-1,eyeY-3,eyeW+2,2,hair.dark);
+    else d.rect(eyeX,eyeY-2,eyeW,1,skin.mid);
     d.rect(eyeX,eyeY,eyeW,eyeH,skin.dark);
     d.rect(eyeX+1,eyeY,eyeW-2,eyeH-1,'#fffaf2');
     d.rect(eyeX+Math.round(eyeW*.42),eyeY,3,eyeH-1,eyes[p.eyes]);
@@ -207,8 +231,8 @@ function face(d:Painter,stage:PixelStage,p:CharacterProfile,skin:Palette,hair:Pa
   d.rect(cx,eyeY+(baby?11:10),2,2,skin.mid);
   d.rect(cx+1,eyeY+(baby?12:11),2,1,skin.dark,' opacity=".40"');
   const mouthY=y+h-(baby?9:stage==='child'?8:7);
-  d.rect(cx-4,mouthY,8,2,'#ad606b');
-  d.rect(cx-2,mouthY+2,4,1,'#da8892');
+  d.rect(cx-(baby?3:4),mouthY,baby?6:8,baby?1:2,'#ad606b');
+  d.rect(cx-2,mouthY+1,4,1,'#da8892');
   if(stage==='senior'){
    d.rect(x+4,eyeY+11,5,1,skin.mid);
    d.rect(x+w-9,eyeY+11,5,1,skin.mid);
@@ -225,6 +249,32 @@ function hairstyle(d:Painter,stage:PixelStage,p:CharacterProfile,hair:Palette,se
   const h=(a:number,b:number,c:number,e:number,tone:string=hair.mid)=>d.rect(a,b,c,e,tone);
   // Hair options preserve gene while stage-specific geometry changes with age.
   const capY=y-(baby?0:3),crown=capY-(baby?2:4);
+  if(baby){
+   // The inherited hairstyle describes curl/wave/length genetics, not adult hair volume.
+   // All newborn versions have a small, soft hairline rather than a full adult cap.
+   if(p.hair==='short'){
+    h(x+15,y+1,11,3,hair.mid);h(x+25,y-2,8,4,hair.mid);
+    h(x+19,y-4,5,4,hair.dark);h(x+24,y+1,6,2,hair.light);
+   }else if(p.hair==='waves'){
+    h(x+9,y+2,11,4,hair.dark);h(x+17,y-2,12,5,hair.mid);
+    h(x+28,y,10,3,hair.dark);h(x+20,y-4,5,3,hair.light);
+    h(x+8,y+4,5,3,hair.mid);
+   }else if(p.hair==='curls'){
+    // Two small coiled buns and irregular curly tufts, not a square afro.
+    for(const dx of [12,19,26,33]){
+      const yy=y+(dx%3===0?-2:1);
+      h(x+dx,yy,7,5,hair.dark);h(x+dx+1,yy+1,5,3,hair.mid);
+    }
+    h(x+3,y-4,10,10,hair.dark);h(x+5,y-3,7,6,hair.mid);
+    h(x+w-13,y-4,10,10,hair.dark);h(x+w-11,y-3,7,6,hair.mid);
+    h(x+8,y-5,3,2,hair.light);h(x+w-9,y-5,3,2,hair.light);
+   }else{
+    h(x+8,y+1,31,5,hair.dark);h(x+12,y-2,24,5,hair.mid);
+    h(x+4,y+7,6,10,hair.mid);h(x+w-10,y+7,6,9,hair.mid);
+    h(x+17,y-4,8,4,hair.light);
+   }
+   return;
+  }
   if(p.hair==='short'){
    h(x+5,crown+1,w-10,6,hair.dark);h(x+3,capY+3,w-6,5);
    h(x+7,crown,w-15,4,hair.mid);h(x+2,capY+7,5,baby?5:7,hair.dark);
@@ -275,7 +325,7 @@ function hairstyle(d:Painter,stage:PixelStage,p:CharacterProfile,hair:Palette,se
 export function renderPixelCharacter(p:CharacterProfile,stage:PixelStage,size='card',seed?:number):string{
  const skin=skins[p.skin],hair=hairColors[p.hairColor];
  const hash=seed??fixedHash([p.name,p.gender,p.country,p.skin,p.hair,p.hairColor,p.eyes].join('|'));
- const cloth=outfits[hash%outfits.length];
+ const cloth=outfits[p.outfit?OUTFITS.indexOf(p.outfit):hash%outfits.length];
  const d=new Painter();
  if(size!=='story-actor')background(d,hash);
  // Back hair must sit behind face, body and foreground bangs.

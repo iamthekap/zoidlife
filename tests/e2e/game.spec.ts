@@ -431,3 +431,28 @@ test('life ending generates accurate original recap and downloadable text summar
  expect((await download).suggestedFilename()).toMatch(/\.txt$/);
  await expect(page.locator('.dock-age')).toBeDisabled();
 });
+
+test('the three newborns have distinct outfits and custom clothing survives save and reload',async({page})=>{
+ await page.goto('/');
+ await expect(page.locator('.newborn-card')).toHaveCount(3);
+ const outfits=await page.locator('.newborn-card').evaluateAll(cards=>cards.map(card=>
+  [...(card.querySelector('[data-part="seated-onesie"]')?.querySelectorAll('rect')||[])]
+   .map(x=>x.getAttribute('fill')).find(fill=>['#3976c9','#dc536d','#539c9d','#b88963','#8675bd','#bf5a62'].includes(fill||''))
+ ));
+ expect(new Set(outfits).size).toBe(3);
+ await page.locator('[data-do="custom"]').click();
+ const choice=page.locator('select[data-custom="outfit"]');
+ await expect(choice).toBeVisible();
+ await choice.selectOption('red');
+ await expect(page.locator('#creator-portrait svg')).toHaveAttribute('data-style','clean-pixel-simulation-v2');
+ const selected=await page.locator('#creator-portrait [data-part="seated-onesie"]').innerHTML();
+ expect(selected).toContain('#dc536d');
+ await page.locator('[name="name"]').fill('Mariana Costa');
+ await page.locator('#creator-form button[type="submit"]').click();
+ const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(stored.profile.outfit).toBe('red');
+ await page.reload();
+ await page.locator('[data-do="continue"]').click();
+ const persisted=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(persisted.profile.outfit).toBe('red');
+});

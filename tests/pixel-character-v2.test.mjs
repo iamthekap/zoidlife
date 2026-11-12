@@ -67,3 +67,27 @@ test('the same profile always draws the same pixels, while changing a gene chang
   assert.notEqual(portraitLife({...p,...change},0),svg);
  }
 });
+
+test('outfit choice changes actual sprite clothing across growth but preserves genetics',()=>{
+ const baby=portraitLife({...p,outfit:'red'},0);
+ const blue=portraitLife({...p,outfit:'blue'},0);
+ assert.notEqual(baby,blue);
+ assert.ok(baby.includes('#dc536d'));
+ assert.ok(blue.includes('#3976c9'));
+ for(const age of [0,3,12,18,65]){
+  const svg=portraitLife({...p,outfit:'red'},age);
+  assert.ok(svg.includes('#dc536d'));
+  assert.ok(svg.includes('#38836b'));
+ }
+});
+test('newborn face is round with a lighter brow and infant hair never forms an adult hair cap',()=>{
+ for(const hair of ['short','waves','curls','long']){
+  const svg=portraitLife({...p,hair},0);
+  const face=svg.split('<g data-part="infant-face">')[1]?.split('</g>')[0]||'';
+  const infantHair=svg.split('<g data-part="infant-hair">')[1]?.split('</g>')[0]||'';
+  assert.ok(face.includes('x="26"')); // central rounded face cap
+  assert.ok(!face.includes('data-part="facial-hair"'));
+  assert.ok(infantHair.length>100);
+  assert.equal(svg.includes('data-part="age-hair"'),false);
+ }
+});
