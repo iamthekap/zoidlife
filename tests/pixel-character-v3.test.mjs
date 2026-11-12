@@ -58,3 +58,25 @@ test('adult clothing varies across identities while genetic hair/eyes remain int
  }
  assert.equal(styles.size,3);
 });
+
+test('childhood clothing has three distinct shape layers at fixed genetics',()=>{
+ const expected=['child-graphic-tee','child-tunic','child-sporty-pullover'];
+ for(let i=0;i<3;i++){
+  const svg=renderMatureCharacter(profile,'child','card',i);
+  assert.ok(svg.includes('data-part="'+expected[i]+'"'),expected[i]+' absent');
+  assert.ok(svg.includes('fill="#ba8362"'));
+  assert.ok(svg.includes('fill="#38836b"'));
+  assert.equal((svg.match(/data-part="child-/g)||[]).length,1);
+ }
+});
+test('growth retains recognizable eyes, skin and age-specific clothing without added facial hair',()=>{
+ const ages=['child','teen','adult','senior'];
+ const sprites=ages.map(age=>renderMatureCharacter(profile,age,'card',2));
+ assert.equal(new Set(sprites).size,4);
+ for(const sprite of sprites){
+  assert.ok(sprite.includes('data-part="age-face"'));
+  assert.ok(sprite.includes('data-part="age-hair"'));
+  assert.ok(sprite.includes('fill="#38836b"'));
+  assert.ok(!sprite.includes('data-part="facial-hair"'));
+ }
+});
