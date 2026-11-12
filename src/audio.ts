@@ -50,6 +50,7 @@ export class GameSound{
  private loop:ReturnType<typeof setInterval>|null=null;
  private beat=0;
  private failed=false;
+ private voices=new Set<OscillatorNode>();
  settings:SoundSettings;
  constructor(settings=readSoundSettings()){this.settings=normalizeSoundSettings(settings);}
  private getContext():AudioContext|null{
@@ -75,10 +76,11 @@ export class GameSound{
     envelope.gain.linearRampToValueAtTime(peak,start+n.start+.012);
     envelope.gain.exponentialRampToValueAtTime(.001,start+n.start+n.length);
     oscillator.connect(envelope);envelope.connect(ctx.destination);
+    this.voices.add(oscillator);
     oscillator.start(start+n.start);oscillator.stop(start+n.start+n.length+.018);
-    oscillator.onended=()=>{oscillator.disconnect();envelope.disconnect();};
+    oscillator.onended=()=>{this.voices.delete(oscillator);oscillator.disconnect();envelope.disconnect();};
    }
-  }catch{this.failed=true;this.stopMusic();}
+  }catch{this.failed=true;this.stopMusic();this.silence();}
  }
  play(cue:SoundCue):void{
   if(!this.settings.enabled)return;
@@ -93,7 +95,8 @@ export class GameSound{
   if(this.settings.enabled&&!previous.enabled){
    this.active=true;this.schedule(soundNotes('success'));
   }
-  if(!this.settings.enabled||!this.settings.music)this.stopMusic();
+  if(!this.settings.enabled){this.stopMusic();this.silence();}
+  else if(!this.settings.music)this.stopMusic();
   else if(this.active)this.syncMusic();
   return this.settings;
  }
@@ -106,6 +109,10 @@ export class GameSound{
    this.schedule(ambienceNotes(this.beat++));
   },3300);
  }
+ private silence():void{
+  for(const voice of this.voices){try{voice.stop();}catch{}}
+  this.voices.clear();
+ }
  stopMusic():void{
   if(this.loop!==null){clearInterval(this.loop);this.loop=null;}
  }
@@ -114,7 +121,7 @@ export class GameSound{
   else if(this.active)this.syncMusic();
  }
  destroy():void{
-  this.stopMusic();this.active=false;
+  this.stopMusic();this.silence();this.active=false;
   const ctx=this.ctx;this.ctx=null;if(ctx)void ctx.close().catch(()=>{});
  }
 }
