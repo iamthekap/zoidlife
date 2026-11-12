@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {CAREERS,careerById,careerAvailable,careerLabel} from '../src/careers.ts';
-import {createSimulation,loadSimulation,applyCareer,annualSalary,passYear} from '../src/simulation.ts';
+import {createSimulation,loadSimulation,applyCareer,annualSalary,passYear,takeAction} from '../src/simulation.ts';
 const stats={happiness:70,health:82,smarts:75,looks:60};
 test('every job has a unique identifier, a salary and a translated name',()=>{
  assert.equal(new Set(CAREERS.map(x=>x.id)).size,CAREERS.length);
@@ -55,4 +55,28 @@ test('startup capital is paid once, then salary reflects entrepreneurial work',(
  assert.equal(result.state.balance,3000);
  assert.equal(result.state.occupation,'founder');
  assert.ok(annualSalary(result.state)>35000);
+});
+
+test('work effort unlocks promotions and increasing annual pay over multiple years',()=>{
+ let state={...createSimulation(),job:'professional',occupation:'doctor',experience:3};
+ const stats={happiness:75,health:95,smarts:82,looks:60};
+ const baseline=annualSalary(state);
+ state=takeAction(state,stats,30,'work').state;
+ const first=passYear(state,stats,31);
+ state=takeAction(first.state,first.stats,31,'work').state;
+ const result=passYear(state,stats,32);
+ assert.equal(result.state.careerLevel,1);
+ assert.ok(annualSalary(result.state)>baseline);
+ assert.ok(result.notes.some(n=>n.startsWith('career-promotion:')));
+});
+test('a sports season cannot award a victory without earned training',()=>{
+ const base={...createSimulation(),job:'professional',occupation:'footballer'};
+ const stats={health:95,happiness:70,smarts:60,looks:55};
+ assert.equal(passYear(base,stats,22).state.sportsVictories,0);
+ let wins=0;
+ for(let age=19;age<35;age++){
+  const result=passYear({...base,training:80,careerMomentum:21},stats,age);
+  wins+=result.state.sportsVictories;
+ }
+ assert.ok(wins>0);
 });

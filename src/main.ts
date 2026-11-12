@@ -184,6 +184,7 @@ const titles: Record<Language, Record<string,string>> = {
     actionDone:"Você já escolheu uma atividade neste ano.",
     train:"Treinar esporte",trainInfo:"Evolua sua aptidão para carreiras esportivas.",
     mystic:"Exercitar poderes",mysticInfo:"Treine habilidades únicas da sua origem.",
+    work:"Dedicar-se ao trabalho",workInfo:"Aumente a experiência e conquiste promoções.",
     study:"Estudar", job:"Procurar emprego", socialize:"Socializar",
     invest:"Investir", home:"Comprar imóvel", child:"Ter um filho",
     care:"Cuidar da saúde", budget:"Organizar finanças", retire:"Aposentar",
@@ -245,6 +246,7 @@ const titles: Record<Language, Record<string,string>> = {
     actionDone:"You've already completed an activity this year.",
     train:"Sports training",trainInfo:"Build the athletic skill needed for sports careers.",
     mystic:"Practice powers",mysticInfo:"Develop abilities from your special origin.",
+    work:"Work harder",workInfo:"Build experience and earn promotions.",
     study:"Study", job:"Find work", socialize:"Socialize",
     invest:"Invest", home:"Buy a home", child:"Have a child", care:"Look after health", budget:"Manage finances", retire:"Retire",
     studyInfo:"Keep learning and work toward your degree.", jobInfo:"Find work that matches your experience.",
@@ -348,6 +350,9 @@ function caption(s: string): string {
   if(s.startsWith("occupation:")){const role=careerById(s.slice(11));return role?careerLabel(role,language):u("job");}
   if(s.startsWith('training:'))return (language==='pt-BR'?'Treino esportivo: ':'Sports training: ')+s.slice(9);
   if(s.startsWith('mystic-mastery:'))return (language==='pt-BR'?'Domínio místico: ':'Mystic mastery: ')+s.slice(15);
+  if(s.startsWith('career-effort:'))return (language==='pt-BR'?'Dedicação: ':'Work effort: ')+s.slice(14);
+  if(s.startsWith('career-promotion:'))return (language==='pt-BR'?'Promoção! Nível ':'Promotion! Level ')+s.slice(17);
+  if(s.startsWith('sport-win:'))return (language==='pt-BR'?'Vitória esportiva, premiação: ':'Sports victory, prize: ')+cash(Number(s.slice(10)));
   if(s.startsWith("health-start:")||s.startsWith("health-treated:")||s.startsWith("health-recovered:")){
     const name=s.split(':')[1] as ConditionId;
     const label=['fatigue','strain','mobility'].includes(name)?healthLabel(name,language):'';
@@ -653,10 +658,10 @@ function renderStory():string {
     eventHtml+renderStoryboardTimeline(life.profile,life.age,life.history,language)+timelineEntries()+'</section>';
 }
 
-const actionTypes: Action[]=['study','job','train','socialize','care','budget','invest','home','child','retire'];
+const actionTypes: Action[]=['study','job','work','train','socialize','care','budget','invest','home','child','retire'];
 function canAction(action: Action): boolean {
   if (!life || life.simulation.ended || life.pendingEvent || !canTakeAction(life.simulation,life.age,action))return false;
-  return action==='study'?life.age>=6:action==='train'?life.age>=6&&life.age<85:
+  return action==='study'?life.age>=6:action==='work'?life.age>=16&&!['none','retired'].includes(life.simulation.job):action==='train'?life.age>=6&&life.age<85:
     action==='mystic'?life.age>=12&&isMysticOrigin(life.profile):action==='job'?life.age>=16&&life.age<65:
     action==='budget'?life.age>=16:action==='invest'?life.age>=18&&life.simulation.balance>=1000:
     action==='home'?life.age>=21&&!life.simulation.homeOwned&&life.simulation.balance>=25000:
@@ -774,7 +779,10 @@ function renderCareer(): string {
    'Choose a profession. Each vacancy has requirements and a different salary.')+'</p></div>'+
    '<div class="data-list">'+pair(u("degree"),u(s.education))+pair(u("credits"),String(s.credits))+
    pair(u("currentJob"),safe(jobLabel))+pair(u("experience"),String(s.experience))+
-   pair(u("income"),cash(annualSalary(s)))+pair(language==='pt-BR'?'Treino esportivo':'Athletic training',String(s.training??0))+'</div>'+
+   pair(u("income"),cash(annualSalary(s)))+pair(language==='pt-BR'?'Treino esportivo':'Athletic training',String(s.training??0))+
+   pair(language==='pt-BR'?'Nível profissional':'Career level',String(s.careerLevel??0))+
+   pair(language==='pt-BR'?'Dedicação':'Work effort',String(s.careerMomentum??0))+
+   pair(language==='pt-BR'?'Vitórias esportivas':'Sports victories',String(s.sportsVictories??0))+'</div>'+
    '<div class="activity-grid">'+actionButton("study")+'</div>'+
    '<label class="career-search"><span>'+safe(language==='pt-BR'?'Buscar profissão':'Search careers')+'</span>'+
    '<input type="search" data-career-search autocomplete="off" placeholder="'+safe(language==='pt-BR'?'Ex.: médico, futebol, advogado':'E.g. doctor, football, lawyer')+'"/></label>'+

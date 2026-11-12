@@ -599,3 +599,20 @@ test('senior is visually distinct from adult while inheriting the same profile',
  await expect(page.locator('.identity-portrait [data-part="senior-details"]')).toHaveCount(1);
  await expect(page.locator('.storyboard-senior')).toBeVisible();
 });
+
+test('dedicated work action persists momentum and appears in the career dashboard',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=28;s.simulation.job='professional';s.simulation.occupation='doctor';
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await page.locator('[data-action="work"]').click();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.careerMomentum).toBe(17);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('.career-page')).toContainText('Dedicação');
+});
