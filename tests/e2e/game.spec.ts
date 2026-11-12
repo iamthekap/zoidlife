@@ -1262,3 +1262,15 @@ test('real decisions produce two mandatory yearly follow-ups with persistent bra
  await page.reload();await page.locator('[data-do="continue"]').click();
  await expect(page.locator('[data-chronicle-event="arc-coding-club-2"]')).toBeVisible();
 });
+
+test('real decision and persistent chronicle have age-accurate environmental scene art',async({page})=>{
+ await chooseBaby(page);await page.locator('.dock-age').click();
+ await expect(page.locator('.event-modal-overlay .scene-world')).toBeVisible();
+ await expect(page.locator('.event-modal-overlay .scene-world rect')).not.toHaveCount(0);
+ await page.locator('[data-choice="0"]').click();
+ await expect(page.locator('.chronicle-panel .scene-world')).toBeVisible();
+ const save=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(save.chronicle.length).toBe(1);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.chronicle-panel .scene-world')).toBeVisible();
+});

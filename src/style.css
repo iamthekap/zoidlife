@@ -869,3 +869,11 @@ body:has(.event-modal-overlay){overflow:hidden;}
  color:#19559e;border-radius:6px;font-size:10px;font-weight:900;letter-spacing:.055em;}
 .chronicle-linked{display:inline-flex;align-self:start;width:max-content;max-width:100%;
  padding:4px 8px;background:#e8f0ff;border-radius:5px;color:#295d9b;font-size:10px;font-weight:800;}
+
+/* Illustrated in-world scenarios: classroom, workplace, family home, clinic, street, etc. */
+.scene-world{position:absolute;inset:0;width:100%;height:100%;z-index:0;display:block;
+ image-rendering:pixelated;pointer-events:none;}
+.scene-visual{background:#e3ecf3;}
+.scene-avatar{z-index:2;filter:drop-shadow(0 2px 0 #263c5733);}
+.scene-props>div{background:#fffdf1db;border:1px solid #fff9;backdrop-filter:blur(2px);}
+@media(max-width:430px){.scene-world{transform:scale(1.02);transform-origin:center bottom;}}
