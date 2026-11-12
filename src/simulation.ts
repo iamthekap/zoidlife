@@ -16,7 +16,7 @@ export type Simulation = {
   actionLedger: Partial<Record<Action,number>>;
   investments: number; homeOwned: boolean; homeValue: number; children: number; training:number;mysticMastery:number;careerLevel:number;careerTenure:number;careerMomentum:number;sportsVictories:number; conditions:Condition[];justice:JusticeState;
 };
-export type WorldImpact={cash?:number;debt?:number;investments?:number;family?:number;friends?:number;partner?:number;credits?:number;experience?:number;relationship?:Relation};
+export type WorldImpact={cash?:number;debt?:number;investments?:number;family?:number;friends?:number;partner?:number;credits?:number;experience?:number;careerMomentum?:number;training?:number;mysticMastery?:number;relationship?:Relation};
 export type Outcome = { state: Simulation; stats: Stats; notes: string[]; ok: boolean };
 const bound = (n: number) => Math.max(0, Math.min(100, Math.round(Number.isFinite(n) ? n : 0)));
 const money = (n: number) => Math.max(0, Math.round(Number.isFinite(n) ? n : 0));
@@ -386,6 +386,9 @@ export function applyNarrativeChoice(raw: Simulation, rawStats: Stats, age: numb
   s.partner=bound(s.partner+finite(world.partner));
   s.credits=money(s.credits+finite(world.credits));
   s.experience=money(s.experience+finite(world.experience));
+  s.careerMomentum=Math.min(100,money(s.careerMomentum+finite(world.careerMomentum)));
+  s.training=Math.min(100,money(s.training+finite(world.training)));
+  s.mysticMastery=Math.min(100,money(s.mysticMastery+finite(world.mysticMastery)));
   if(world.relationship==='single'){s.relationship='single';s.partner=0;}
   if(world.relationship==='dating' && age>=18){s.relationship='dating';s.partner=Math.max(s.partner,55);}
   if(world.relationship==='married' && age>=21 && s.relationship!=='single'){

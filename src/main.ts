@@ -3,6 +3,7 @@ import { randomCandidates, randomCharacter, normalizeProfile, portraitSvg, CITIE
 import { extraEvents, eventAllowed } from "./events-plus";
 import { extendedEvents, extendedAllowed } from "./events-extended";
 import { advancedEvents } from "./events-advanced";
+import {careerEvents} from "./career-events";
 import {isMysticOrigin,practiceMystic,mysticEvents,mysticNatureLabel} from "./mystic";
 import { selectEvent, recordEvent, migrateLedger, type EventLedger } from "./event-engine";
 import { eventScene, iconSvg } from "./event-scenes";
@@ -822,7 +823,7 @@ function activeEventForLanguage(): void {
   if(!life?.pendingEvent)return;
   const id=life.pendingEvent.id;
   if(id==="quiet-year"){life.pendingEvent=quietEvent();return;}
-  const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language),...extendedEvents(language),...advancedEvents(language),...mysticEvents(language,life?.profile)] as LifeEvent[]).find(e=>e.id===id);
+  const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language),...extendedEvents(language),...advancedEvents(language),...mysticEvents(language,life?.profile),...(life?careerEvents(language,life.simulation):[])] as LifeEvent[]).find(e=>e.id===id);
   if(localized)life.pendingEvent=localized;
 }
 function syncLifePeople():void {
@@ -880,7 +881,7 @@ function ageUp(): void {
   syncLifePeople();
   transition.notes.forEach(n=>life!.history.push(age+": "+caption(n)));
   if (!transition.state.ended) {
-    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language),...extendedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...advancedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...mysticEvents(language,life!.profile)] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
+    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language),...extendedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...advancedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...mysticEvents(language,life!.profile),...careerEvents(language,life!.simulation)] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
     life.pendingEvent=selectEvent(eligible,age,life.eventLedger,life.lastEventId)??quietEvent();
   }
   saveLife();tab="story";render();
