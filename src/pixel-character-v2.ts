@@ -331,7 +331,7 @@ export function renderPixelCharacter(p:CharacterProfile,stage:PixelStage,size='c
  const d=new Painter();
  if(size!=='story-actor')background(d,hash);
  // Back hair must sit behind face, body and foreground bangs.
- if((p.hair==='long'||p.hair==='curls')&&stage!=='baby'){
+ if((p.hair==='long'||p.hair==='curls')){
   const rig=rigs[stage];
   d.group('hair-behind',()=>{
    d.rect(rig.x-3,rig.y+15,rig.w+6,Math.min(44,rig.h+18),hair.dark);
@@ -344,6 +344,5 @@ export function renderPixelCharacter(p:CharacterProfile,stage:PixelStage,size='c
  const classes=['portrait','portrait-'+size,'stage-'+stage].join(' ');
  return '<svg class="'+classes+'" viewBox="0 0 144 176" xmlns="http://www.w3.org/2000/svg" '+
   'role="img" aria-label="Zoid Life original pixel '+stage+'" data-style="clean-pixel-simulation-v2" '+
-  (stage==='baby'?'data-age-visual="infant" ':'')+
   'shape-rendering="crispEdges"><g transform="scale(2)">'+d.chunks.join('')+'</g></svg>';
 }
