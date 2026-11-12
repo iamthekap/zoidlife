@@ -722,3 +722,27 @@ test('conflict can be reconciled next year only, and history persists through re
  expect(after.social.people[0].memories.at(-1).kind).toBe('reconcile');
  await expect(page.locator('[data-person="mother-primary"][data-kind="reconcile"]')).toBeDisabled();
 });
+
+test('medical degree requires choosing a college specialization before applying',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=28;saved.simulation.education='college';saved.simulation.credits=50;
+  saved.simulation.experience=12;saved.simulation.studyTrack='general';
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('[data-career="doctor"]')).toBeDisabled();
+ await page.locator('[data-study-track]').selectOption('medicine');
+ await page.locator('[data-do="track-apply"]').click();
+ await expect(page.locator('.career-page')).toContainText('Medicina e Saúde');
+ await expect(page.locator('[data-career="doctor"]')).toBeEnabled();
+ await page.locator('[data-career="doctor"]').click();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.studyTrack).toBe('medicine');
+ expect(saved.simulation.occupation).toBe('doctor');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('.career-vacancy.current')).toContainText('Médico');
+});

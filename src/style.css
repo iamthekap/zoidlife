@@ -697,3 +697,15 @@ body{background:var(--bg);color:var(--ink);}
 .person-actions .social-argue:hover:not(:disabled){background:#ffe8ed;border-color:#ff0044;}
 .person-last-memory{display:block;color:#4a6b94;font-size:10px;line-height:1.3;margin-top:4px;}
 @media(max-width:520px){.person-actions{grid-template-columns:repeat(2,minmax(0,1fr));}}
+
+/* Optional course specialization; preserves prior generic-career saves. */
+.academic-track{display:grid;gap:10px;padding:14px;border:1px solid #c2d4ef;
+ background:#f7faff;border-radius:12px;}
+.academic-track h3{color:#255aa7;font-size:14px;font-weight:850;}
+.academic-track p{font-size:11px;line-height:1.45;color:#61738a;}
+.academic-track>div{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;}
+.academic-track select{min-height:42px;flex:1 1 170px;min-width:0;background:#fff;
+ border:1px solid #bbcce4;padding:8px 10px;color:#1a396a;border-radius:8px;}
+.academic-track button{min-height:42px;border:0;background:#3A86FF;color:#fff;
+ font-weight:800;border-radius:8px;padding:8px 14px;flex:1 1 150px;}
+.academic-track button:disabled{background:#b5c4d7;}

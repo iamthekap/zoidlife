@@ -17,7 +17,7 @@ import { validateLifeSave, serializeLife, saveFilename } from "./save-io";
 import { initialSocial, normalizeSocial, syncSocial, personAge, personLabel, type SocialState } from "./social";
 import {SOCIAL_KINDS,interactionLabel,interactionCost,canInteract,resolveSocialEncounter,recentSocialMemory,type Lang} from "./social-interactions";
 
-import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, applyCareer, applyOffense, type Simulation, type Action, type WorldImpact, canTakeAction } from "./simulation";
+import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, applyCareer, applyOffense, type Simulation, type Action, type WorldImpact, canTakeAction, STUDY_TRACKS, selectStudyTrack, type StudyTrack } from "./simulation";
 
 type Language = "pt-BR" | "en";
 type StatKey = "happiness" | "health" | "smarts" | "looks";
@@ -355,6 +355,7 @@ function caption(s: string): string {
   if(s.startsWith('training:'))return (language==='pt-BR'?'Treino esportivo: ':'Sports training: ')+s.slice(9);
   if(s.startsWith('mystic-mastery:'))return (language==='pt-BR'?'Domínio místico: ':'Mystic mastery: ')+s.slice(15);
   if(s==='style-changed')return language==='pt-BR'?'Mudou o visual do personagem.':'Updated the character appearance.';
+  if(s.startsWith('study-track:'))return (language==='pt-BR'?'Formação: ':'Academic track: ')+s.slice(12);
   if(s.startsWith('career-effort:'))return (language==='pt-BR'?'Dedicação: ':'Work effort: ')+s.slice(14);
   if(s.startsWith('career-promotion:'))return (language==='pt-BR'?'Promoção! Nível ':'Promotion! Level ')+s.slice(17);
   if(s.startsWith('sport-win:'))return (language==='pt-BR'?'Vitória esportiva, premiação: ':'Sports victory, prize: ')+cash(Number(s.slice(10)));
@@ -798,6 +799,28 @@ function renderPeople(): string {
 }
 
 function pair(label: string,value:string): string {return '<div class="data-row"><span>'+safe(label)+'</span><strong>'+safe(value)+'</strong></div>';}
+function studyTrackLabel(track:StudyTrack):string {
+ const labels:Record<StudyTrack,[string,string]>={
+  general:['Geral','General'],
+  medicine:['Medicina e Saúde','Medicine & Health'],
+  law:['Direito','Law'],
+  science:['Ciências e Engenharia','Science & Engineering'],
+  arts:['Artes','Arts']
+ };
+ return labels[track][language==='en'?1:0];
+}
+function chooseStudyTrackFromUI():void {
+ if(!life||life.pendingEvent||life.simulation.ended)return;
+ const raw=appEl?.querySelector<HTMLSelectElement>('[data-study-track]')?.value;
+ if(!STUDY_TRACKS.includes(raw as StudyTrack))return;
+ const outcome=selectStudyTrack(life.simulation,life.stats,life.age,raw as StudyTrack);
+ if(!outcome.ok)return;
+ life.simulation=outcome.state;life.stats=outcome.stats;
+ life.history.push(life.age+': '+(language==='pt-BR'?'Escolheu a área acadêmica ':'Selected academic focus ')+studyTrackLabel(raw as StudyTrack)+'.');
+ for(const note of outcome.notes)life.history.push(life.age+': '+caption(note));
+ saveLife();tab='career';render();
+}
+
 function renderCareer(): string {
   if(!life)return '';
   const s=life.simulation;
@@ -821,11 +844,19 @@ function renderCareer(): string {
    'Choose a profession. Each vacancy has requirements and a different salary.')+'</p></div>'+
    '<div class="data-list">'+pair(u("degree"),u(s.education))+pair(u("credits"),String(s.credits))+
    pair(u("currentJob"),safe(jobLabel))+pair(u("experience"),String(s.experience))+
+   pair(language==='pt-BR'?'Especialização':'Academic track',safe(studyTrackLabel(s.studyTrack??'general')))+
    pair(u("income"),cash(annualSalary(s)))+pair(language==='pt-BR'?'Treino esportivo':'Athletic training',String(s.training??0))+
    pair(language==='pt-BR'?'Nível profissional':'Career level',String(s.careerLevel??0))+
    pair(language==='pt-BR'?'Dedicação':'Work effort',String(s.careerMomentum??0))+
    pair(language==='pt-BR'?'Vitórias esportivas':'Sports victories',String(s.sportsVictories??0))+'</div>'+
    '<div class="activity-grid">'+actionButton("study")+'</div>'+
+   '<section class="academic-track"><h3>'+safe(language==='pt-BR'?'Escolha sua formação':'Choose your academic track')+'</h3>'+
+   '<p>'+safe(language==='pt-BR'?'Depois de concluir o ensino superior, escolha uma especialização estudando. Medicina, direito e ciências exigem a área correspondente. Uma escolha por ano.':'After completing college, study a specialization. Medical, legal and science careers require the matching focus. One selection per year.')+'</p>'+
+   '<div><select data-study-track aria-label="'+safe(language==='pt-BR'?'Área acadêmica':'Academic track')+'">'+
+   STUDY_TRACKS.map(t=>option(t,studyTrackLabel(t),t===(s.studyTrack??'general'))).join('')+'</select>'+
+   '<button type="button" data-do="track-apply"'+
+   (s.education==='college'&&life.age>=18&&life.age<=65&&!life.pendingEvent&&canTakeAction(s,life.age,'study')?'':' disabled')+
+   '>'+safe(language==='pt-BR'?'Estudar especialização':'Study specialization')+'</button></div></section>'+
    '<label class="career-search"><span>'+safe(language==='pt-BR'?'Buscar profissão':'Search careers')+'</span>'+
    '<input type="search" data-career-search autocomplete="off" placeholder="'+safe(language==='pt-BR'?'Ex.: médico, futebol, advogado':'E.g. doctor, football, lawyer')+'"/></label>'+
    '<h3 class="career-heading">'+safe(language==='pt-BR'?'Vagas disponíveis e futuras':'Current and future careers')+'</h3>'+
@@ -1029,6 +1060,7 @@ function handleAction(value:string):void {
   if(value==="continue"){scene="playing";tab="story";render();return;}
   if(value==="age-up"){ageUp();return;}
   if(value==="style-apply"){applyStyleFromUI();return;}
+  if(value==="track-apply"){chooseStudyTrackFromUI();return;}
   if(value.startsWith("preset-")){
     const i=Number(value.slice(7));const profile=candidates[i];
     if(profile)createLife(profile,{happiness:45+Math.floor(Math.random()*40),health:60+Math.floor(Math.random()*35),

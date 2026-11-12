@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {CAREERS,careerById,careerAvailable,careerLabel} from '../src/careers.ts';
-import {createSimulation,loadSimulation,applyCareer,annualSalary,passYear,takeAction} from '../src/simulation.ts';
+import {createSimulation,loadSimulation,applyCareer,annualSalary,passYear,takeAction,selectStudyTrack} from '../src/simulation.ts';
 const stats={happiness:70,health:82,smarts:75,looks:60};
 test('every job has a unique identifier, a salary and a translated name',()=>{
  assert.equal(new Set(CAREERS.map(x=>x.id)).size,CAREERS.length);
@@ -79,4 +79,28 @@ test('a sports season cannot award a victory without earned training',()=>{
   wins+=result.state.sportsVictories;
  }
  assert.ok(wins>0);
+});
+
+test('medical, legal and science professions require corresponding academic tracks',()=>{
+ const s={...createSimulation(),age:28,education:'college',credits:50,experience:12};
+ assert.equal(careerAvailable(s,28,careerById('doctor')),false);
+ assert.equal(careerAvailable({...s,studyTrack:'medicine'},28,careerById('doctor')),true);
+ assert.equal(careerAvailable({...s,studyTrack:'law'},28,careerById('lawyer')),true);
+ assert.equal(careerAvailable({...s,studyTrack:'medicine'},28,careerById('lawyer')),false);
+ assert.equal(careerAvailable({...s,studyTrack:'science'},28,careerById('scientist')),true);
+ assert.equal(careerAvailable({...s,studyTrack:'general'},28,careerById('developer')),true);
+});
+test('study specialization is limited by education, age and annual cooldown and persists',()=>{
+ const seed={...createSimulation(),education:'college',credits:20};
+ assert.equal(selectStudyTrack(seed,stats,17,'medicine').ok,false);
+ const result=selectStudyTrack(seed,stats,20,'medicine');
+ assert.equal(result.ok,true);
+ assert.equal(result.state.studyTrack,'medicine');
+ assert.equal(result.state.actionLedger.study,20);
+ assert.equal(selectStudyTrack(result.state,result.stats,20,'law').ok,false);
+ assert.equal(loadSimulation(result.state).studyTrack,'medicine');
+ assert.equal(loadSimulation({...seed,studyTrack:'<script>'}).studyTrack,'general');
+ const switched=selectStudyTrack(result.state,result.stats,21,'law');
+ assert.equal(switched.ok,true);
+ assert.equal(switched.state.studyTrack,'law');
 });

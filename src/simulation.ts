@@ -6,10 +6,12 @@ import type {CharacterProfile} from './characters.ts';
 export type Stats = Record<'happiness' | 'health' | 'smarts' | 'looks', number>;
 export type Job = 'none' | 'parttime' | 'service' | 'office' | 'professional' | 'retired';
 export type Education = 'none' | 'school' | 'secondary' | 'college';
+export type StudyTrack='general'|'medicine'|'law'|'science'|'arts';
+export const STUDY_TRACKS:readonly StudyTrack[]=['general','medicine','law','science','arts'];
 export type Relation = 'single' | 'dating' | 'married';
 export type Action = 'study' | 'job' | 'socialize' | 'care' | 'budget' | 'retire' | 'invest' | 'home' | 'child' | 'crime' | 'train' | 'mystic' | 'work' | 'style';
 export type Simulation = {
-  schema: 2; balance: number; debt: number; education: Education; credits: number;
+  schema: 2; balance: number; debt: number; education: Education; credits: number; studyTrack:StudyTrack;
   job: Job; occupation:OccupationId|null; experience: number; family: number; friends: number; partner: number;
   relationship: Relation; lastActionAge: number; lastYearNotes: string[]; ended: boolean;
   /** Most recent age that each activity was performed. Allows different activities in one year. */
@@ -47,7 +49,7 @@ export function canTakeAction(s:Simulation,age:number,action:Action):boolean {
   return s.actionLedger?.[action]!==age && !(loadJustice(s.justice).incarceratedUntil>age&&action!=='care'&&action!=='study');
 }
 export function createSimulation(): Simulation {
-  return { schema: 2, balance: 0, debt: 0, education: 'none', credits: 0, job: 'none', occupation:null,
+  return { schema: 2, balance: 0, debt: 0, education: 'none', credits: 0, studyTrack:'general',job: 'none', occupation:null,
     experience: 0, family: 70, friends: 30, partner: 0, relationship: 'single',
     lastActionAge: -1, actionLedger: {}, lastYearNotes: [], ended: false,
     investments: 0, homeOwned: false, homeValue: 0, children: 0,training:0,mysticMastery:0,careerLevel:0,careerTenure:0,careerMomentum:0,sportsVictories:0,conditions:[],justice:createJustice() };
@@ -61,9 +63,10 @@ export function loadSimulation(raw: unknown): Simulation {
   const jobs: Job[] = ['none', 'parttime', 'service', 'office', 'professional', 'retired'];
   const degrees: Education[] = ['none', 'school', 'secondary', 'college'];
   const relations: Relation[] = ['single', 'dating', 'married'];
+  const track=STUDY_TRACKS.includes(r.studyTrack as StudyTrack)?r.studyTrack!:'general';
   return { ...initial, balance: money(r.balance ?? 0), debt: money(r.debt ?? 0),
     education: degrees.includes(r.education as Education) ? r.education! : initial.education,
-    credits: money(r.credits ?? 0), job: jobs.includes(r.job as Job) ? r.job! : initial.job,
+    credits: money(r.credits ?? 0),studyTrack:track, job: jobs.includes(r.job as Job) ? r.job! : initial.job,
     occupation:careerById(r.occupation)?.id??null,
     experience: money(r.experience ?? 0), family: bound(r.family ?? 70), friends: bound(r.friends ?? 30),
     partner: bound(r.partner ?? 0), relationship: relations.includes(r.relationship as Relation) ? r.relationship! : initial.relationship,
@@ -242,6 +245,18 @@ export function takeAction(raw: Simulation, rawStats: Stats, age: number, action
   s.actionLedger = {...raw.actionLedger,[action]:age};
   return { state: s, stats, notes, ok: true };
 }
+
+/** Selecting an academic specialization consumes the yearly study activity;
+ * a graduate may retrain in another subject in later years.
+ */
+export function selectStudyTrack(raw:Simulation,stats:Stats,age:number,track:StudyTrack):Outcome{
+ if(raw.ended||age<18||age>65||raw.education!=='college'||!STUDY_TRACKS.includes(track)||
+  !canTakeAction(raw,age,'study'))return {state:raw,stats,notes:[],ok:false};
+ const result=takeAction(raw,stats,age,'study');
+ if(!result.ok)return result;
+ return {...result,state:{...result.state,studyTrack:track},notes:[...result.notes,'study-track:'+track]};
+}
+
 /** Persistent effects use original Zoid Life story IDs, not third-party code. */
 /** A chosen vacancy uses the same annual cooldown as finding work. */
 export function applyCareer(raw:Simulation,rawStats:Stats,age:number,id:OccupationId,profile?:CharacterProfile):Outcome{
