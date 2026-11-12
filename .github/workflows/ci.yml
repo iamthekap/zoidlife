@@ -22,9 +22,9 @@ jobs:
         run: npm test
       - name: Type-check and build
         run: npm run build
-      - name: Install Chromium for browser smoke tests
-        run: npx playwright install --with-deps chromium
-      - name: Test game in Chromium
+      - name: Install Chromium, Firefox and WebKit for smoke tests
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Test game in Chromium, Firefox and WebKit
         run: npm run test:e2e
       - name: Upload visual review captures
         if: success()

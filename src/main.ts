@@ -999,7 +999,7 @@ function renderFinances(): string {
     '<div class="data-list">'+pair(u("income"),cash(annualSalary(s)))+
     pair(u("investments"),cash(s.investments))+pair(u("homeValue"),cash(s.homeValue))+
     pair(u("netWorth"),cash(s.balance+s.investments+s.homeValue-s.debt))+
-    pair(u("expenses"),cash((life.age>=65?8500:10500)+(s.homeOwned?1800:0)+2000*s.children))+'</div>'+
+    pair(u("expenses"),cash(life.age<18?0:(life.age>=65?8500:10500)+(s.homeOwned?1800:0)+2000*s.children))+'</div>'+
     (s.debt>=30000?'<p class="debt-warning">'+safe(u("warningDebt"))+'</p>':'')+
     '<div class="activity-grid">'+actionButton("budget")+(life.age>=18?actionButton("invest")+actionButton("home"):'')+'</div></section>';
 }

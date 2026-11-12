@@ -1116,3 +1116,43 @@ test('mandatory dialog traps focus, has no interactable background and reflects 
  expect(saved.history[card.historyIndex]).toContain(card.result);
  expect(card.result).toMatch(/Saúde|Felicidade|Inteligência|Aparência|Sem mudança/);
 });
+
+test('real full life from newborn to terminal recap preserves only lived choices',async({page})=>{
+ test.setTimeout(210_000);
+ await chooseBaby(page);
+ for(let year=1;year<=110;year++){
+  if(await page.locator('.life-recap').count())break;
+  await expect(page.locator('.dock-age')).toBeEnabled();
+  await page.locator('.dock-age').click();
+  if(await page.locator('.event-modal-overlay').count()){
+   await expect(page.locator('.event-modal-overlay .choice')).toHaveCount(3);
+   await page.locator('.event-modal-overlay [data-choice="2"]').click();
+  }
+ }
+ await expect(page.locator('.life-recap')).toBeVisible();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.ended).toBe(true);
+ expect(saved.age).toBeGreaterThan(30);
+ expect(saved.age).toBeLessThanOrEqual(110);
+ expect(saved.chronicle.length).toBeGreaterThan(25);
+ expect(saved.chronicle.every(e=>e.age<=saved.age&&
+   saved.history[e.historyIndex]?.includes(e.result))).toBe(true);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.life-recap')).toBeVisible();
+ await expect(page.locator('.dock-age')).toBeDisabled();
+});
+test('adolescent annual finance forecast matches actual expenses charged only after 18',async({page})=>{
+ await chooseBaby(page);
+ await advance(page,16);
+ await page.locator('.game-dock [data-tab="finances"]').click();
+ await expect(page.locator('.data-list')).toContainText('Despesas anuais previstas');
+ const finance16=await page.locator('.data-list').innerText();
+ expect(finance16).toMatch(/Despesas anuais previstas\\s+R\\$\\s*0/);
+ await page.locator('.dock-age').click();await page.locator('[data-choice="0"]').click();
+ const finance17=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(finance17.age).toBe(17);
+ await page.locator('.dock-age').click();await page.locator('[data-choice="0"]').click();
+ await page.locator('.game-dock [data-tab="finances"]').click();
+ const text18=await page.locator('.data-list').innerText();
+ expect(text18).not.toMatch(/Despesas anuais previstas\\s+R\\$\\s*0/);
+});

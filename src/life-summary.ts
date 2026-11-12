@@ -39,7 +39,12 @@ export function makeLifeReport(input:LifeReportInput,lang:Locale):LifeReport{
  if(s.relationship==='married')achievements.push(txt(lang,'Construiu um casamento','Built a marriage'));
  if(s.investments>0)achievements.push(txt(lang,'Construiu investimentos','Built investments'));
  if(s.experience>=10)achievements.push(txt(lang,'Carreira de longa duração','Long professional career'));
- const news=input.history.filter(x=>typeof x==='string'&&x.trim()).map(sanitize);
+ // Imported history may contain notes from future ages: never report them as lived events.
+ const news=input.history.filter(x=>{
+  if(typeof x!=='string'||!x.trim())return false;
+  const match=/^(\\d{1,3}):\\s*(.*)$/.exec(x);
+  return !match||(Number(match[1])<=input.age&&!!match[2].trim());
+ }).map(sanitize);
  const events=[...new Set(news)].slice(-12).reverse();
  const children=input.social?.people.filter(p=>p.role==='child').length??s.children;
  const friends=input.social?.people.filter(p=>p.role==='friend'&&p.alive).length??0;

@@ -10,7 +10,11 @@ export default defineConfig({
     screenshot:'only-on-failure',
     trace:'retain-on-failure'
   },
-  projects:[{name:'chromium',use:{...devices['Desktop Chrome']}}],
+  projects:[
+    {name:'chromium',use:{...devices['Desktop Chrome']}},
+    {name:'firefox',testMatch:'**/compatibility.spec.ts',use:{...devices['Desktop Firefox']}},
+    {name:'webkit',testMatch:'**/compatibility.spec.ts',use:{...devices['Desktop Safari']}}
+  ],
   webServer:{
     command:'npm run dev -- --host 127.0.0.1 --port 4173',
     url:'http://127.0.0.1:4173',
