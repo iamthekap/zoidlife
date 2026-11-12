@@ -1202,3 +1202,27 @@ test('a storage quota error is visible and the unsaved life can still be exporte
  let exported='';for await(const chunk of stream)exported+=chunk.toString();
  expect(JSON.parse(exported).name).toBeTruthy();
 });
+
+test('investment purchase and redemption affect the real balance and survive reload',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+   const save=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+   save.age=25;save.simulation.balance=8000;save.simulation.investments=0;save.simulation.debt=0;
+   localStorage.setItem('zoid-life-save-v1',JSON.stringify(save));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="finances"]').click();
+ await expect(page.locator('[data-action="invest"]')).toBeEnabled();
+ await page.locator('[data-action="invest"]').click();
+ const invested=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(invested.simulation.balance).toBe(5000);
+ expect(invested.simulation.investments).toBe(3000);
+ await page.locator('[data-action="withdraw"]').click();
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(after.simulation.balance).toBe(8000);
+ expect(after.simulation.investments).toBe(0);
+ expect(after.chronicle.some(x=>x.eventId==='activity-withdraw')).toBe(true);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="finances"]').click();
+ await expect(page.locator('[data-action="withdraw"]')).toBeDisabled();
+});

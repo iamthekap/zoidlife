@@ -46,3 +46,19 @@ test('different activities can occur in the same year but each is limited once',
   assert.equal(takeAction(care.state,care.stats,26,'invest').ok,false);
   assert.equal(takeAction(care.state,care.stats,27,'care').ok,true);
 });
+
+test('investment can be redeemed without fabricated income or debt repayments',()=>{
+ const stats={happiness:72,health:80,smarts:64,looks:63};
+ const start={...createSimulation(),balance:8000,debt:3000,investments:0};
+ const invested=takeAction(start,stats,24,'invest');
+ assert.equal(invested.ok,true);
+ assert.equal(invested.state.balance,5000);
+ assert.equal(invested.state.investments,3000);
+ const redeemed=takeAction(invested.state,invested.stats,24,'withdraw');
+ assert.equal(redeemed.ok,true);
+ assert.equal(redeemed.state.balance,8000);
+ assert.equal(redeemed.state.debt,3000);
+ assert.equal(redeemed.state.investments,0);
+ assert.equal(takeAction(redeemed.state,redeemed.stats,24,'withdraw').ok,false);
+ assert.equal(takeAction(start,stats,17,'withdraw').ok,false);
+});

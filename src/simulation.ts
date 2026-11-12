@@ -9,7 +9,7 @@ export type Education = 'none' | 'school' | 'secondary' | 'college';
 export type StudyTrack='general'|'medicine'|'law'|'science'|'arts';
 export const STUDY_TRACKS:readonly StudyTrack[]=['general','medicine','law','science','arts'];
 export type Relation = 'single' | 'dating' | 'married';
-export type Action = 'study' | 'job' | 'socialize' | 'care' | 'budget' | 'retire' | 'invest' | 'home' | 'child' | 'crime' | 'train' | 'mystic' | 'work' | 'style' | 'resign';
+export type Action = 'study' | 'job' | 'socialize' | 'care' | 'budget' | 'retire' | 'invest' | 'home' | 'child' | 'crime' | 'train' | 'mystic' | 'work' | 'style' | 'resign' | 'withdraw';
 export type Simulation = {
   schema: 2; balance: number; debt: number; education: Education; credits: number; studyTrack:StudyTrack;
   job: Job; occupation:OccupationId|null; experience: number; family: number; friends: number; partner: number;
@@ -29,7 +29,7 @@ export const annualSalary=(s:Simulation):number=>{
  const bonus=(s.job==='none'||s.job==='retired')?0:Math.round(amount*.12*Math.min(5,s.careerLevel??0));
  return amount+bonus+(s.job==='none'||s.job==='retired'?0:Math.min(s.experience,30)*360);
 };
-export const ALL_ACTIONS: Action[]=['study','job','socialize','care','budget','retire','invest','home','child','crime','train','mystic','work','style','resign'];
+export const ALL_ACTIONS: Action[]=['study','job','socialize','care','budget','retire','invest','home','child','crime','train','mystic','work','style','resign','withdraw'];
 function normalizeActionLedger(raw:unknown,lastActionAge:unknown):Partial<Record<Action,number>> {
   const ledger:Partial<Record<Action,number>>={};
   if(raw&&typeof raw==='object'&&!Array.isArray(raw)){
@@ -53,7 +53,7 @@ export function actionAgeAllowed(age:number,action:Action):boolean {
   case 'study':case 'train':return age>=6;
   case 'style':case 'mystic':case 'crime':return age>=12;
   case 'job':case 'work':case 'budget':case 'resign':return age>=16&&age<65;
-  case 'invest':return age>=18;
+  case 'invest':case 'withdraw':return age>=18;
   case 'home':return age>=21;
   case 'child':return age>=20&&age<=55;
   case 'retire':return age>=60;
@@ -248,6 +248,11 @@ export function takeAction(raw: Simulation, rawStats: Stats, age: number, action
     s.balance -= amount;
     s.investments += amount;
     notes.push('investment:'+amount);
+  } else if (action === 'withdraw' && age >= 18 && s.investments > 0) {
+    // Redeeming an owned investment is not income: don't automatically repay debt.
+    const amount=Math.min(s.investments,5000);
+    s.investments-=amount;s.balance=money(s.balance+amount);
+    notes.push('withdrawal:'+amount);
   } else if (action === 'home' && age >= 21 && !s.homeOwned && s.balance >= 25000) {
     s.balance -= 25000;
     s.debt += 105000;

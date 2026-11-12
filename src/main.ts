@@ -197,7 +197,7 @@ const titles: Record<Language, Record<string,string>> = {
     work:"Dedicar-se ao trabalho",workInfo:"Aumente a experiência e conquiste promoções.",
     style:"Mudar aparência",styleInfo:"Mude roupas ou cabelo sem alterar sua história.",
     study:"Estudar", job:"Procurar emprego", resign:"Pedir demissão",resignInfo:"Encerre seu emprego atual; experiência anterior será preservada.", socialize:"Socializar",
-    invest:"Investir", home:"Comprar imóvel", child:"Ter um filho",
+    invest:"Investir", withdraw:"Resgatar investimento",withdrawInfo:"Traga até 5 mil de volta para o saldo sem criar renda artificial.", home:"Comprar imóvel", child:"Ter um filho",
     care:"Cuidar da saúde", budget:"Organizar finanças", retire:"Aposentar",
     studyInfo:"Aprenda e avance na formação.", jobInfo:"Tente conseguir uma ocupação compatível com sua experiência.",
     socializeInfo:"Fortaleça os vínculos que importam.", careInfo:"Melhore o bem-estar, com custos quando adulto.",
@@ -260,7 +260,7 @@ const titles: Record<Language, Record<string,string>> = {
     work:"Work harder",workInfo:"Build experience and earn promotions.",
     style:"Change appearance",styleInfo:"Change clothes or hair without losing your story.",
     study:"Study", job:"Find work",resign:"Resign",resignInfo:"Leave your current job while keeping earned experience.", socialize:"Socialize",
-    invest:"Invest", home:"Buy a home", child:"Have a child", care:"Look after health", budget:"Manage finances", retire:"Retire",
+    invest:"Invest",withdraw:"Withdraw investment",withdrawInfo:"Move up to 5,000 invested units into your balance without artificial income.", home:"Buy a home", child:"Have a child", care:"Look after health", budget:"Manage finances", retire:"Retire",
     studyInfo:"Keep learning and work toward your degree.", jobInfo:"Find work that matches your experience.",
     socializeInfo:"Strengthen bonds with people who matter.", careInfo:"Improve well-being, with costs for adults.",
     budgetInfo:"Use savings to pay down debts.", retireInfo:"Leave your job behind and enter a new chapter.",
@@ -416,6 +416,7 @@ function caption(s: string): string {
   if(s.startsWith("expenses:"))return u("expenseNote")+": "+cash(Number(s.slice(9)));
   if(s.startsWith("debt-paid:"))return u("debtPaid")+": "+cash(Number(s.slice(10)));
   if(s.startsWith("investment:"))return u("investmentNote")+": "+cash(Number(s.slice(11)));
+  if(s.startsWith("withdrawal:"))return (language==='pt-BR'?'Investimento resgatado':'Investment redeemed')+": "+cash(Number(s.slice(11)));
   if(s.startsWith("childcare:"))return u("childcare")+": "+cash(Number(s.slice(10)));
   if(s.startsWith("story-income:"))return (language==="pt-BR"?"Recebeu":"Received")+": "+cash(Number(s.slice(13)));
   if(s.startsWith("story-expense:"))return (language==="pt-BR"?"Gastou":"Spent")+": "+cash(Number(s.slice(14)));
@@ -746,12 +747,13 @@ function renderStory():string {
     '</details></section>';
 }
 
-const actionTypes: Action[]=['study','job','work','resign','train','socialize','care','budget','invest','home','child','retire'];
+const actionTypes: Action[]=['study','job','work','resign','train','socialize','care','budget','invest','withdraw','home','child','retire'];
 function canAction(action: Action): boolean {
   if (!life || life.simulation.ended || life.pendingEvent || !canTakeAction(life.simulation,life.age,action))return false;
   return action==='study'?life.age>=6:action==='style'?life.age>=12:action==='work'?life.age>=16&&!['none','retired'].includes(life.simulation.job):action==='train'?life.age>=6&&life.age<85:
     action==='mystic'?life.age>=12&&isMysticOrigin(life.profile):action==='resign'?life.age>=16&&life.age<65&&!['none','retired'].includes(life.simulation.job):action==='job'?life.age>=16&&life.age<65:
     action==='budget'?life.age>=16:action==='invest'?life.age>=18&&life.simulation.balance>=1000:
+    action==='withdraw'?life.age>=18&&life.simulation.investments>0:
     action==='home'?life.age>=21&&!life.simulation.homeOwned&&life.simulation.balance>=25000:
     action==='child'?life.age>=20&&life.age<=55&&life.simulation.relationship!=='single'&&life.simulation.partner>=50&&life.simulation.children<8:
     action==='retire'?life.age>=60&&!['none','retired'].includes(life.simulation.job):true;
@@ -848,7 +850,7 @@ function renderActions(): string {
       .filter(a=>life!.age<6?['socialize','care'].includes(a):
        life!.age<12?['study','socialize','care','train'].includes(a):
        life!.age<16?['study','socialize','care','train','style','mystic'].includes(a):
-       life!.age<18?!['home','child','invest','retire'].includes(a):true)
+       life!.age<18?!['home','child','invest','withdraw','retire'].includes(a):true)
       .map(actionButton).join('')+'</div>'+
     (isMysticOrigin(life.profile)?'<div class="special-origin"><strong>'+safe(mysticNatureLabel(life.profile.nature!,language))+
     '</strong><span>'+safe(language==='pt-BR'?'Domínio místico ':'Mystic mastery ')+(life.simulation.mysticMastery??0)+'/100</span></div>':'')+
@@ -1011,7 +1013,7 @@ function renderFinances(): string {
     pair(u("netWorth"),cash(s.balance+s.investments+s.homeValue-s.debt))+
     pair(u("expenses"),cash(life.age<18?0:(life.age>=65?8500:10500)+(s.homeOwned?1800:0)+2000*s.children))+'</div>'+
     (s.debt>=30000?'<p class="debt-warning">'+safe(u("warningDebt"))+'</p>':'')+
-    '<div class="activity-grid">'+actionButton("budget")+(life.age>=18?actionButton("invest")+actionButton("home"):'')+'</div></section>';
+    '<div class="activity-grid">'+actionButton("budget")+(life.age>=18?actionButton("invest")+actionButton("withdraw")+actionButton("home"):'')+'</div></section>';
 }
 function quietEvent(): LifeEvent {
   const pt=language==="pt-BR";
@@ -1096,7 +1098,7 @@ function describeActualChanges(before:Simulation,after:Simulation,prior:Stats,ne
 }
 const activityCategory:Record<Action,string>={
  study:'school',job:'work',resign:'work',socialize:'friend',care:'health',budget:'money',retire:'retirement',
- invest:'money',home:'money',child:'family',crime:'city',train:'leisure',mystic:'leisure',work:'work',style:'leisure'
+ invest:'money',withdraw:'money',home:'money',child:'family',crime:'city',train:'leisure',mystic:'leisure',work:'work',style:'leisure'
 };
 
 function visitPerson(id:string,kind='talk'):void {
