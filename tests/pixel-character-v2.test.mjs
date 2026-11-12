@@ -10,7 +10,7 @@ test('all five silhouettes are original and anatomically different',()=>{
  const outputs=Object.entries(stages).map(([stage,age])=>{
   const svg=portraitLife(p,age,'card');
   assert.ok(svg.includes('stage-'+stage));
-  assert.ok(svg.includes('data-style="clean-pixel-simulation-v2"'));
+  assert.ok(svg.includes('data-style="clean-pixel-simulation-v3"'), 'grown sprites must use the revised rig');;
   // Newborn is 72x88 at 2x, while other ages render independently on a finer 96x118 grid.
   if(stage==='baby')assert.ok(svg.includes('<g transform="scale(2)">'));
   else assert.ok(svg.includes('data-renderer="mature-v3"'));
