@@ -78,3 +78,19 @@ test('portable saves keep legitimate future story callbacks and reject invented 
  assert.deepEqual(validateLifeSave(JSON.stringify({...original,storyArc:{...arc,id:'fake'}})),
   {ok:false,error:'invalid-story-arc'});
 });
+
+test('portable life keeps the previous route in an unfinished followup but rejects arbitrary branches',()=>{
+ const completedFirst={id:'coding-club',phase:2,originAge:10,dueAge:12,branch:1};
+ const data={...life,age:11,storyArc:completedFirst};
+ const checked=validateLifeSave(JSON.stringify(data));
+ assert.equal(checked.ok,true);
+ if(checked.ok)assert.deepEqual(checked.value.storyArc,completedFirst);
+ for(const broken of [
+  {...completedFirst,branch:3},{...completedFirst,branch:-1},
+  {...completedFirst,branch:'0'},{...completedFirst,phase:1},
+  {...completedFirst,dueAge:11},{...completedFirst,dueAge:14}
+ ]){
+  const bad=validateLifeSave(JSON.stringify({...data,storyArc:broken}));
+  assert.deepEqual(bad,{ok:false,error:'invalid-story-arc'});
+ }
+});
