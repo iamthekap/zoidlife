@@ -848,3 +848,6 @@ body:has(.event-modal-overlay){overflow:hidden;}
 @media(prefers-reduced-motion:reduce){
  .event-modal-overlay{backdrop-filter:none;}
 }
+
+.save-warning{margin:8px 14px 0;padding:12px 15px;border:1px solid #c5485e;border-radius:9px;
+ background:#fff1f4;color:#8b2140;font-weight:750;font-size:12px;line-height:1.5;}
