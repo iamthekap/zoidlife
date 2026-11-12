@@ -13,6 +13,7 @@ import {normalizeChronicle,livedHistory,type ChronicleEvent} from "./chronicle";
 import {normalizeStoryArc,startStoryArc,storyArcEvent,afterStoryArcChoice,storyArcAllowed,type StoryArc} from "./story-arcs";
 import { makeLifeReport,reportAsText } from "./life-summary";
 import {GameSound} from "./audio";
+import {HOBBY_IDS,canPracticeHobby,hobbyName,hobbyCost,hobbyCreditAlternative,type HobbyId} from "./hobbies";
 import { healthLabel,type ConditionId } from "./health";
 import { OFFENSES,justiceLabel,legalStatus,type OffenseId } from "./justice";
 import { CAREERS,careerById,careerAvailable,careerLabel,careerRequirements,type OccupationId } from "./careers";
@@ -20,7 +21,7 @@ import { validateLifeSave, serializeLife, saveFilename, MAX_SAVE_BYTES } from ".
 import { initialSocial, normalizeSocial, syncSocial, personAge, personLabel, type SocialState } from "./social";
 import {SOCIAL_KINDS,interactionLabel,interactionCost,canInteract,resolveSocialEncounter,recentSocialMemory,type Lang} from "./social-interactions";
 
-import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, applyCareer, applyOffense, type Simulation, type Action, type WorldImpact, canTakeAction, STUDY_TRACKS, selectStudyTrack, type StudyTrack } from "./simulation";
+import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, applyCareer, applyOffense, practiceHobby, type Simulation, type Action, type WorldImpact, canTakeAction, STUDY_TRACKS, selectStudyTrack, type StudyTrack } from "./simulation";
 
 type Language = "pt-BR" | "en";
 type StatKey = "happiness" | "health" | "smarts" | "looks";
@@ -406,6 +407,17 @@ function caption(s: string): string {
   if(s==='classmate-graduated')return language==='pt-BR'?'A amizade da escola continuou depois da formatura.':'A school friendship continued after graduation.';
   if(s.startsWith("job:"))return u("newJob")+": "+u(s.slice(4));
   if(s.startsWith("occupation:")){const role=careerById(s.slice(11));return role?careerLabel(role,language):u("job");}
+  if(s.startsWith('hobby:')){
+    const [,id,level]=s.split(':');
+    if(HOBBY_IDS.includes(id as HobbyId))return (language==='pt-BR'?'Talento praticado: ':'Practiced talent: ')+
+      hobbyName(id as HobbyId,language)+' · '+level+'/100';
+  }
+  if(s.startsWith('hobby-award:')){
+    const [,id,rank]=s.split(':');
+    if(HOBBY_IDS.includes(id as HobbyId))return (language==='pt-BR'?'Conquista em ':'Milestone in ')+hobbyName(id as HobbyId,language)+' · '+rank+'/4';
+  }
+  if(s.startsWith('hobby-career:'))return language==='pt-BR'?
+    'Seu talento fortaleceu sua carreira.':'Your talent advanced your career.';
   if(s.startsWith('training:'))return (language==='pt-BR'?'Treino esportivo: ':'Sports training: ')+s.slice(9);
   if(s.startsWith('mystic-mastery:'))return (language==='pt-BR'?'Domínio místico: ':'Mystic mastery: ')+s.slice(15);
   if(s==='style-changed')return language==='pt-BR'?'Mudou o visual do personagem.':'Updated the character appearance.';
@@ -864,6 +876,54 @@ function chooseOffense(id:string):void{
  saveLife();tab='actions';render();
 }
 
+function renderHobbyStudio():string{
+ if(!life||life.age<6)return '';
+ const s=life.simulation,book=s.hobbies;
+ const pt=language==='pt-BR';
+ const used=HOBBY_IDS.filter(id=>book[id].lastAge===life!.age).length;
+ const rows=HOBBY_IDS.map(id=>{
+  const record=book[id],able=!life!.pendingEvent&&!s.ended&&s.justice.incarceratedUntil<=life!.age&&
+    canPracticeHobby(book,life!.age,id);
+  const cost=life!.age>=18?hobbyCost(id):0;
+  const label=hobbyName(id,language);
+  return '<article class="talent-card" data-hobby-card="'+id+'">'+
+    '<div class="talent-head"><strong>'+safe(label)+'</strong><span>'+record.xp+'/100</span></div>'+
+    '<div class="talent-track" role="progressbar" aria-label="'+safe(label)+'" aria-valuenow="'+record.xp+'" aria-valuemin="0" aria-valuemax="100">'+
+      '<span style="width:'+record.xp+'%"></span></div>'+
+    '<div class="talent-details"><small>'+safe(pt?'Conquistas':'Awards')+': '+record.awards+'/4</small>'+
+      (cost?'<small>'+safe(pt?'Custo: ':'Cost: ')+safe(cash(cost))+'</small>':'')+'</div>'+
+    '<button type="button" data-hobby="'+id+'"'+(able?'':' disabled')+'>'+
+      safe(record.lastAge===life!.age?(pt?'Já praticado':'Practiced this year'):
+       record.xp>=100?(pt?'Domínio completo':'Mastered'):
+       used>=2?(pt?'Limite anual atingido':'Yearly limit reached'):
+       pt?'Praticar agora':'Practice now')+'</button></article>';
+ }).join('');
+ return '<section class="talent-studio" aria-label="'+safe(pt?'Talentos e hobbies':'Talents and hobbies')+'">'+
+  '<div class="talent-intro"><h3>'+safe(pt?'Talentos que crescem com você':'Talents that grow with you')+'</h3>'+
+  '<p>'+safe(pt?'Escolha até duas atividades por ano. Seu progresso abre caminhos de carreira, gera conquistas e muda sua história.':
+     'Choose up to two activities per year. Progress unlocks career paths, earns awards and changes your story.')+'</p>'+
+  '<span>'+used+'/2 '+safe(pt?'atividades neste ano':'activities this year')+'</span></div>'+
+  '<div class="talent-grid">'+rows+'</div></section>';
+}
+function practiceHobbyFromUI(id:string):void{
+ if(!life||!HOBBY_IDS.includes(id as HobbyId)||life.pendingEvent||life.simulation.ended)return;
+ const skill=id as HobbyId,before=life.simulation,prior=life.stats;
+ const done=practiceHobby(life.simulation,life.stats,life.age,skill);
+ if(!done.ok)return;
+ life.simulation=done.state;life.stats=done.stats;
+ sound.play(done.notes.some(n=>n.startsWith('hobby-award:'))?'success':'hobby');
+ const xp=done.state.hobbies[skill].xp,awards=done.state.hobbies[skill].awards;
+ const result=(language==='pt-BR'?'Você praticou ':'You practiced ')+hobbyName(skill,language)+
+   ' · '+xp+'/100 · '+(language==='pt-BR'?'Conquistas ':'Awards ')+awards+'/4. '+
+   describeActualChanges(before,done.state,prior,done.stats);
+ recordStoryChoice('hobby-'+skill,hobbyName(skill,language),
+   language==='pt-BR'?'Você decidiu desenvolver este talento.':'You chose to develop this talent.',
+   language==='pt-BR'?'Praticar':'Practice',result,
+   skill==='sports'?'health':skill==='volunteering'?'family':skill==='coding'?'school':'leisure');
+ for(const note of done.notes)life.history.push(life.age+': '+caption(note));
+ saveLife();tab='actions';render();
+}
+
 function renderActions(): string {
   if(!life)return '';
   const note=life.pendingEvent?u("blockedEvent"):(language==="pt-BR"?"Você pode fazer atividades diferentes no mesmo ano. Cada uma pode ser realizada uma vez por ano.":"Do different activities in the same year. Each activity is available once per year.");
@@ -876,7 +936,7 @@ function renderActions(): string {
       .map(actionButton).join('')+'</div>'+
     (isMysticOrigin(life.profile)?'<div class="special-origin"><strong>'+safe(mysticNatureLabel(life.profile.nature!,language))+
     '</strong><span>'+safe(language==='pt-BR'?'Domínio místico ':'Mystic mastery ')+(life.simulation.mysticMastery??0)+'/100</span></div>':'')+
-    styleStudio()+(life.age>=12?justiceActions():'')+'</section>';
+    renderHobbyStudio()+styleStudio()+(life.age>=12?justiceActions():'')+'</section>';
 }
 function progress(label: string, amount: number): string {
   return '<div class="relationship-progress"><div><span>'+safe(label)+'</span><b>'+clamp(amount)+'%</b></div>'+
@@ -983,7 +1043,8 @@ function renderCareer(): string {
     const actionable=allowed&&qualified&&!active;
     return '<article class="career-vacancy'+(active?' current':'')+'" data-career-card="'+c.id+'">'+
       '<div class="career-vacancy-info"><strong>'+safe(careerLabel(c,language))+'</strong>'+
-      '<span>'+safe(careerRequirements(c,language))+'</span>'+
+      '<span>'+safe(careerRequirements(c,language))+
+       (hobbyCreditAlternative(c.id,s.hobbies)?' · '+safe(language==='pt-BR'?'Portfólio de talento':'Talent portfolio'):'')+'</span>'+
       '<small>'+safe(language==='pt-BR'?'Salário anual':'Annual salary')+' · '+safe(cash(c.salary))+'</small></div>'+
       '<button type="button" data-career="'+c.id+'"'+(actionable?'':' disabled')+
       ' class="career-apply">'+safe(active?(language==='pt-BR'?'Atual':'Current'):
@@ -1350,6 +1411,8 @@ appEl?.addEventListener("click",e=>{
   }
   const descendant=target.closest<HTMLButtonElement>("[data-descendant]");
   if(descendant){continueAsDescendant(descendant.dataset.descendant||'');return;}
+  const hobby=target.closest<HTMLButtonElement>("[data-hobby]");
+  if(hobby){practiceHobbyFromUI(hobby.dataset.hobby||'');return;}
   const person=target.closest<HTMLButtonElement>("[data-person]");
   if(person){visitPerson(person.dataset.person||'',person.dataset.kind||'talk');return;}
   const offense=target.closest<HTMLButtonElement>("[data-offense]");
