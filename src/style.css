@@ -862,3 +862,10 @@ body:has(.event-modal-overlay){overflow:hidden;}
 .save-recovery strong{color:#8f2443;font-size:13px;}
 .save-recovery p{color:#734557;font-size:12px;line-height:1.55;margin:0;}
 .save-recovery .button{min-height:43px;}
+
+/* Linked, life-spanning consequences stand out from one-off generic events. */
+.story-arc-badge{display:inline-flex;max-width:100%;margin:0 0 12px;padding:5px 10px;
+ border:1px solid #a9c8ff;border-left:3px solid #ff0044;background:#eaf3ff;
+ color:#19559e;border-radius:6px;font-size:10px;font-weight:900;letter-spacing:.055em;}
+.chronicle-linked{display:inline-flex;align-self:start;width:max-content;max-width:100%;
+ padding:4px 8px;background:#e8f0ff;border-radius:5px;color:#295d9b;font-size:10px;font-weight:800;}

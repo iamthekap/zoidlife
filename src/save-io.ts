@@ -1,5 +1,6 @@
 /** Import/export guard for user-created life saves; no cloud account required. */
 export type ImportResult={ok:true;value:Record<string,unknown>}|{ok:false;error:string};
+import {normalizeStoryArc} from './story-arcs.ts';
 export const MAX_SAVE_BYTES=4_000_000;
 const record=(v:unknown):v is Record<string,unknown>=>Boolean(v)&&typeof v==='object'&&!Array.isArray(v);
 const range=(v:unknown,lo:number,hi:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=lo&&v<=hi;
@@ -22,6 +23,8 @@ export function validateLifeSave(json:string):ImportResult {
     Number.isInteger(e.age)&&range(e.age,0,110)&&short(e.eventId,80)&&short(e.title,300)&&
     short(e.description,2000)&&short(e.choice,500)&&short(e.result,3000)&&
     (e.category===undefined||short(e.category,64)))))return {ok:false,error:'invalid-chronicle'};
+ if(value.storyArc!==undefined&&value.storyArc!==null&&
+   !normalizeStoryArc(value.storyArc,Number(value.age)))return {ok:false,error:'invalid-story-arc'};
  if(value.pendingEvent!==undefined && value.pendingEvent!==null){
   const ev=value.pendingEvent;
   if(!record(ev)||!short(ev.id,80)||!short(ev.title,300)||!short(ev.description,2000)||
@@ -48,7 +51,7 @@ export function validateLifeSave(json:string):ImportResult {
  }
  // Sanitize only the entry-level shape; loadLife normalizes known nested data.
  const clean:Record<string,unknown>={name:value.name.trim(),age:value.age,stats:value.stats};
- for(const key of ['birthYear','history','chronicle','seenEventIds','eventLedger','lastEventId','pendingEvent','simulation','profile','social','familyMembers','ancestors'])
+ for(const key of ['birthYear','history','chronicle','storyArc','seenEventIds','eventLedger','lastEventId','pendingEvent','simulation','profile','social','familyMembers','ancestors'])
   if(Object.hasOwn(value,key))clean[key]=value[key];
  return {ok:true,value:clean};
 }

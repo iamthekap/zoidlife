@@ -68,3 +68,13 @@ test('UTF-8 byte limit includes multibyte text and does not confuse code units w
  assert.equal(validateLifeSave(text).ok,false);
  assert.equal(validateLifeSave('🌱'.repeat(Math.floor(max/4)+1)).ok,false);
 });
+
+test('portable saves keep legitimate future story callbacks and reject invented arcs',()=>{
+ const arc={id:'school-team',phase:1,originAge:6,dueAge:7};
+ const original={...life,age:6,storyArc:arc};
+ const checked=validateLifeSave(JSON.stringify(original));
+ assert.equal(checked.ok,true);
+ if(checked.ok)assert.deepEqual(checked.value.storyArc,arc);
+ assert.deepEqual(validateLifeSave(JSON.stringify({...original,storyArc:{...arc,id:'fake'}})),
+  {ok:false,error:'invalid-story-arc'});
+});

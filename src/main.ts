@@ -10,6 +10,7 @@ import { eventScene, iconSvg } from "./event-scenes";
 import { portraitLife, lifeStage } from "./life-art";
 import { renderStoryboardTimeline } from "./storyboard";
 import {normalizeChronicle,livedHistory,type ChronicleEvent} from "./chronicle";
+import {normalizeStoryArc,startStoryArc,storyArcEvent,afterStoryArcChoice,type StoryArc} from "./story-arcs";
 import { makeLifeReport,reportAsText } from "./life-summary";
 import { healthLabel,type ConditionId } from "./health";
 import { OFFENSES,justiceLabel,legalStatus,type OffenseId } from "./justice";
@@ -33,6 +34,7 @@ type Life = {
   pendingEvent: LifeEvent | null;
   history: string[];
   chronicle: ChronicleEvent[];
+  storyArc: StoryArc|null;
   seenEventIds: string[];
   eventLedger: EventLedger;
   lastEventId: string | null;
@@ -305,11 +307,15 @@ function clamp(n: number): number { return Math.max(0,Math.min(100,Math.round(n)
 /** Persist only the chosen event identifier; rebuild choices from trusted game data.
  * An unavailable legacy event becomes a quiet year instead of an untrusted payload.
  */
-function restorePendingEvent(raw:unknown,profile:CharacterProfile,simulation:Simulation,age:number):LifeEvent|null{
+function restorePendingEvent(raw:unknown,profile:CharacterProfile,simulation:Simulation,age:number,arc:StoryArc|null):LifeEvent|null{
  if(!raw||typeof raw!=='object')return null;
  const id=(raw as Partial<LifeEvent>).id;
  if(typeof id!=='string')return quietEvent();
  if(id==='quiet-year')return quietEvent();
+ if(id.startsWith('arc-')){
+  const episode=storyArcEvent(arc,language);
+  return episode?.id===id&&age>=episode.minAge?episode:quietEvent();
+ }
  const pool:LifeEvent[]=[...(copy[language].events as LifeEvent[]),...extraEvents(language),
   ...extendedEvents(language),...advancedEvents(language),...mysticEvents(language,profile),
   ...careerEvents(language,simulation)];
@@ -329,9 +335,10 @@ function loadLife(): Life|null {
     const profile=normalizeProfile(r.profile,name);
     const simulation=loadSimulation(r.simulation);
     const history=Array.isArray(r.history)?r.history.filter((x):x is string=>typeof x==='string').slice(-6000):[];
+    const storyArc=normalizeStoryArc(r.storyArc,Math.max(0,Math.min(110,r.age)));
     const restored:Life={ name,birthYear:Number.isInteger(r.birthYear)?Number(r.birthYear):new Date().getFullYear(),
       age:Math.min(110,Math.max(0,r.age)),stats,
-      pendingEvent:restorePendingEvent(r.pendingEvent,profile,simulation,r.age),
+      pendingEvent:restorePendingEvent(r.pendingEvent,profile,simulation,r.age,storyArc),storyArc,
       history,chronicle:normalizeChronicle(r.chronicle,history,Math.max(0,Math.min(110,r.age))),
       seenEventIds:Array.isArray(r.seenEventIds)?r.seenEventIds.filter((x):x is string=>typeof x==='string'):[],
       eventLedger:migrateLedger(r.eventLedger,r.seenEventIds),
@@ -375,7 +382,7 @@ function createLife(profile: CharacterProfile, stats: Stats): void {
   life={ name:normalized.name, profile:normalized, familyMembers:makeFamily(normalized.name),
     social:initialSocial(normalized),
     birthYear:new Date().getFullYear(),age:0,
-    stats:{...stats},pendingEvent:null,history:[u("birthNote")+" "+normalized.city+", "+countryName(normalized.country)+"."],chronicle:[],
+    stats:{...stats},pendingEvent:null,history:[u("birthNote")+" "+normalized.city+", "+countryName(normalized.country)+"."],chronicle:[],storyArc:null,
     seenEventIds:[],eventLedger:{},lastEventId:null,simulation:createSimulation(),ancestors:[] };
   tab="story";scene="playing";saveLife();render();
 }
@@ -616,7 +623,9 @@ function timelineEntries():string {
    const chapter=detail?
      '<div class="chronicle-panel" data-chronicle-event="'+safe(detail.eventId)+'">'+
      '<div class="chronicle-illustration">'+eventScene(detail.eventId,life!.profile,language,age,detail.category)+'</div>'+
-     '<div class="chronicle-story"><h3>'+safe(detail.title)+'</h3>'+
+     '<div class="chronicle-story">'+(detail.eventId.startsWith('arc-')?
+     '<span class="chronicle-linked">'+safe(language==='pt-BR'?'Capítulo de uma decisão anterior':'A previous choice returns')+'</span>':'')+
+     '<h3>'+safe(detail.title)+'</h3>'+
      '<p class="chronicle-prompt">'+safe(detail.description)+'</p>'+
      '<p class="chronicle-choice"><strong>'+safe(language==='pt-BR'?'Sua escolha:':'Your choice:')+'</strong> '+safe(detail.choice)+'</p>'+
      '<p class="chronicle-result"><strong>'+safe(language==='pt-BR'?'Consequência:':'Outcome:')+'</strong> '+safe(detail.result)+'</p>'+
@@ -669,7 +678,7 @@ function continueAsDescendant(id:string):void{
    age:nextAge,stats:{happiness:65,health:Math.max(40,80-Math.floor(nextAge/5)),smarts:55,looks:60},
    history:[nextAge+': '+(language==='pt-BR'?'Você assumiu o próximo capítulo da família.':
     'You began the next chapter of your family.')],chronicle:[],
-   pendingEvent:null,seenEventIds:[],eventLedger:{},lastEventId:null,simulation,
+   pendingEvent:null,storyArc:null,seenEventIds:[],eventLedger:{},lastEventId:null,simulation,
    social:family,familyMembers:makeFamily(childProfile.name),ancestors
  };
  scene='playing';tab='story';menuOpen=false;saveLife();render();
@@ -731,7 +740,10 @@ function renderStory():string {
       '<div class="decision-body"><div class="decision-tools"><span class="story-label">'+safe(u("event"))+' · '+safe(ageText(life.age))+'</span>'+
       '<button type="button" data-do="language" class="event-language" aria-label="'+safe(u("languages"))+'">'+
       (language==='pt-BR'?'EN':'PT')+'</button></div>'+
-      '<h2 id="current-event-title">'+safe(event.title)+'</h2><p>'+safe(event.description)+'</p>'+
+      ''<h2 id="current-event-title">'+safe(event.title)+'</h2>'+
+      (event.id.startsWith('arc-')?'<div class="story-arc-badge" data-story-arc="'+safe(event.id)+'">'+
+      safe(language==='pt-BR'?'CONTINUAÇÃO DA SUA HISTÓRIA':'YOUR STORY CONTINUES')+'</div>':'')+
+      '<p>'+safe(event.description)+'</p>'+
       '<div class="event-choices">'+event.choices.map((c,i)=>'<button type="button" data-choice="'+i+
       '" class="choice"><span>'+safe(c.label)+'</span><span class="choice-index">'+(i+1)+'</span></button>').join('')+
       '</div></div></section></div>':
@@ -1036,6 +1048,11 @@ function activeEventForLanguage(): void {
   if(!life?.pendingEvent)return;
   const id=life.pendingEvent.id;
   if(id==="quiet-year"){life.pendingEvent=quietEvent();return;}
+  if(id.startsWith('arc-')){
+   const followup=storyArcEvent(life.storyArc,language);
+   if(followup?.id===id)life.pendingEvent=followup;
+   return;
+  }
   const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language),...extendedEvents(language),...advancedEvents(language),...mysticEvents(language,life?.profile),...(life?careerEvents(language,life.simulation):[])] as LifeEvent[]).find(e=>e.id===id);
   if(localized)life.pendingEvent=localized;
 }
@@ -1130,7 +1147,11 @@ function ageUp(): void {
   transition.notes.forEach(n=>life!.history.push(age+": "+caption(n)));
   if (!transition.state.ended) {
     const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language),...extendedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...advancedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...mysticEvents(language,life!.profile),...careerEvents(language,life!.simulation)] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
-    life.pendingEvent=selectEvent(eligible,age,life.eventLedger,life.lastEventId)??quietEvent();
+    const continuing=storyArcEvent(life.storyArc,language);
+    life.pendingEvent=continuing&&age>=continuing.minAge?
+      continuing:selectEvent(eligible,age,life.eventLedger,life.lastEventId)??quietEvent();
+  }else{
+    life.storyArc=null;
   }
   saveLife();tab="story";render();
 }
@@ -1154,6 +1175,8 @@ function choose(index:number): void {
     life.eventLedger=recordEvent(life.eventLedger,event.id,life.age);
   }
   life.lastEventId=event.id;
+  life.storyArc=afterStoryArcChoice(life.storyArc,event.id,index,life.age);
+  life.storyArc=startStoryArc(event.id,index,life.age,life.storyArc);
   life.pendingEvent=null;saveLife();render();
 }
 function applyToCareer(id:string):void {

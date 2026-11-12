@@ -1226,3 +1226,38 @@ test('investment purchase and redemption affect the real balance and survive rel
  await page.locator('.game-dock [data-tab="finances"]').click();
  await expect(page.locator('[data-action="withdraw"]')).toBeDisabled();
 });
+
+test('real decisions produce two mandatory yearly follow-ups with persistent branching',async({page})=>{
+ await chooseBaby(page);
+ await advance(page,10);
+ await page.evaluate(()=>{
+   const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+   saved.pendingEvent={id:'computer-club'}; // Restore from the actual trusted scenario catalog.
+   localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Um clube de tecnologia');
+ await page.locator('[data-choice="0"]').click();
+ let saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.storyArc).toMatchObject({id:'coding-club',phase:1,originAge:10,dueAge:11});
+ await page.locator('.dock-age').click();
+ await expect(page.locator('[data-story-arc="arc-coding-club-1"]')).toBeVisible();
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('[data-story-arc="arc-coding-club-1"]')).toBeVisible();
+ await page.locator('.event-modal-overlay .event-language').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Your game gets noticed');
+ await page.locator('[data-choice="0"]').click();
+ saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.storyArc).toMatchObject({id:'coding-club',phase:2,dueAge:12});
+ await page.locator('.dock-age').click();
+ await expect(page.locator('[data-story-arc="arc-coding-club-2"]')).toBeVisible();
+ await page.locator('[data-choice="1"]').click();
+ saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.storyArc).toBe(null);
+ expect(saved.chronicle.map(x=>x.eventId)).toEqual(expect.arrayContaining([
+  'computer-club','arc-coding-club-1','arc-coding-club-2'
+ ]));
+ expect(saved.chronicle.every(x=>saved.history[x.historyIndex]?.includes(x.result))).toBe(true);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('[data-chronicle-event="arc-coding-club-2"]')).toBeVisible();
+});
