@@ -191,7 +191,7 @@ test('a pending event changes language without losing its persistent choices',as
  await page.locator('.dock-age').click();
  const first=await page.locator('.decision-card h2').textContent();
  const before=await page.locator('[data-choice]').count();
- await page.locator('.game-language').click();
+ await page.locator('.event-modal-overlay .event-language').click();
  const after=await page.locator('.decision-card h2').textContent();
  expect(after).not.toBe(first);
  expect(before).toBe(3);
