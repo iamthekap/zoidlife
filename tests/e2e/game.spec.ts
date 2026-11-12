@@ -1528,3 +1528,24 @@ test('the living portrait reacts to happiness and health while identity genes re
  saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
  expect([saved.profile.skin,saved.profile.hairColor,saved.profile.eyes]).toEqual(genes);
 });
+
+test('muting stops active WebAudio oscillators immediately instead of merely preventing new notes',async({page})=>{
+ await page.addInitScript(()=>{
+  window.__soundStarts=0;window.__soundStops=0;
+  window.AudioContext=class{
+   currentTime=0;state='running';destination={};
+   createOscillator(){return {type:'sine',frequency:{setValueAtTime(){}},connect(){},
+    start(){window.__soundStarts++},stop(){window.__soundStops++},disconnect(){},onended:null};}
+   createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){},
+    exponentialRampToValueAtTime(){}},connect(){},disconnect(){}};}
+   resume(){return Promise.resolve();}close(){return Promise.resolve();}
+  };
+ });
+ await page.goto('/');
+ await page.locator('.welcome-audio-toolbar [data-do="toggle-sound"]').click();
+ const before=await page.evaluate(()=>({starts:window.__soundStarts,stops:window.__soundStops}));
+ expect(before.starts).toBeGreaterThan(0);
+ await page.locator('.welcome-audio-toolbar [data-do="toggle-sound"]').click();
+ expect(await page.evaluate(()=>window.__soundStops)).toBeGreaterThan(before.stops);
+ await expect(page.locator('.welcome-audio-toolbar [data-do="toggle-sound"]')).toHaveAttribute('aria-pressed','false');
+});
