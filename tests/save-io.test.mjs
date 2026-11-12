@@ -28,3 +28,14 @@ test('older data without new nested systems is still accepted for migration',()=
  const old={name:'Vida Antiga',age:14,stats:life.stats,history:['2: bom']};
  assert.equal(validateLifeSave(JSON.stringify(old)).ok,true);
 });
+
+test('lineage data is retained on import/export and unrelated unknown keys discarded',()=>{
+ const entry={name:'Alex Costa',age:30,stats:{happiness:60,health:70,smarts:60,looks:70},
+  ancestors:[{name:'Samira Costa',age:85,birthYear:1980,career:'Professor(a)'}],
+  unrelatedInjection:'discard'};
+ const result=validateLifeSave(JSON.stringify(entry));
+ assert.equal(result.ok,true);
+ if(!result.ok)return;
+ assert.equal(result.value.ancestors[0].name,'Samira Costa');
+ assert.equal('unrelatedInjection' in result.value,false);
+});

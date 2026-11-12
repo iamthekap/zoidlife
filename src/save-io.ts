@@ -31,7 +31,7 @@ export function validateLifeSave(json:string):ImportResult {
  }
  // Sanitize only the entry-level shape; loadLife normalizes known nested data.
  const clean:Record<string,unknown>={name:value.name.trim(),age:value.age,stats:value.stats};
- for(const key of ['birthYear','history','seenEventIds','eventLedger','lastEventId','pendingEvent','simulation','profile','social','familyMembers'])
+ for(const key of ['birthYear','history','seenEventIds','eventLedger','lastEventId','pendingEvent','simulation','profile','social','familyMembers','ancestors'])
   if(Object.hasOwn(value,key))clean[key]=value[key];
  return {ok:true,value:clean};
 }

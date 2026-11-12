@@ -1,6 +1,6 @@
 /** Original persistent people and family simulation for Zoid Life. */
 import {randomCharacter, normalizeProfile, type CharacterProfile} from './characters.ts';
-export type SocialRole='mother'|'father'|'partner'|'child'|'friend';
+export type SocialRole='mother'|'father'|'parent'|'partner'|'child'|'friend';
 export type SocialPerson={
  id:string; role:SocialRole; profile:CharacterProfile; bornAtPlayerAge:number;
  closeness:number; alive:boolean; lastSharedAge:number;
@@ -8,9 +8,9 @@ export type SocialPerson={
 export type SocialState={schema:1;people:SocialPerson[]};
 export type SocialUpdate={social:SocialState;notes:string[]};
 const clamp=(n:number)=>Math.max(0,Math.min(100,Math.round(n)));
-const validId=(id:string)=>/^(mother|father|partner|child|friend)-[a-z0-9-]{1,40}$/.test(id);
-const roleLabels:Record<SocialRole,string>={mother:'Mãe',father:'Pai',partner:'Parceria',child:'Filho(a)',friend:'Amizade'};
-const englishLabels:Record<SocialRole,string>={mother:'Mother',father:'Father',partner:'Partner',child:'Child',friend:'Friend'};
+const validId=(id:string)=>/^(mother|father|parent|partner|child|friend)-[a-z0-9-]{1,40}$/.test(id);
+const roleLabels:Record<SocialRole,string>={mother:'Mãe',father:'Pai',parent:'Responsável',partner:'Parceria',child:'Filho(a)',friend:'Amizade'};
+const englishLabels:Record<SocialRole,string>={mother:'Mother',father:'Father',parent:'Parent',partner:'Partner',child:'Child',friend:'Friend'};
 export const personLabel=(role:SocialRole,language:'pt-BR'|'en')=>
  language==='en'?englishLabels[role]:roleLabels[role];
 export function personAge(person:SocialPerson,playerAge:number):number {
@@ -53,7 +53,7 @@ export function normalizeSocial(raw:unknown,player:CharacterProfile,age:number,c
  const people:SocialPerson[]=[];
  const used=new Set<string>();
  for(const entry of data.people.slice(0,60)){
-   if(!entry||!validId(entry.id)||used.has(entry.id)||!['mother','father','partner','child','friend'].includes(entry.role))continue;
+   if(!entry||!validId(entry.id)||used.has(entry.id)||!['mother','father','parent','partner','child','friend'].includes(entry.role))continue;
    used.add(entry.id);
    const birth=Number.isInteger(entry.bornAtPlayerAge) && Math.abs(entry.bornAtPlayerAge)<=140?entry.bornAtPlayerAge:0;
    people.push({
@@ -62,7 +62,7 @@ export function normalizeSocial(raw:unknown,player:CharacterProfile,age:number,c
      alive:entry.alive!==false,lastSharedAge:Number.isInteger(entry.lastSharedAge)?entry.lastSharedAge:-1
    });
  }
- if(!people.some(p=>p.role==='mother') || !people.some(p=>p.role==='father')){
+ if(!people.some(p=>p.role==='mother'||p.role==='parent') || !people.some(p=>p.role==='father')){
    const fallback=initialSocial(player);
    for(const parent of fallback.people)if(!people.some(p=>p.role===parent.role))people.push(parent);
  }

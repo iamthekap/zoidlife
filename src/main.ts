@@ -35,6 +35,8 @@ type Life = {
   profile: CharacterProfile;
   familyMembers: {name:string; kind:"mother" | "father"; birthAge:number}[];
   social: SocialState;
+  /** Only verified predecessor data is retained; a child may begin a new playable generation. */
+  ancestors?: {name:string;age:number;birthYear:number;career:string}[];
 };
 
 const copy = {
@@ -298,6 +300,10 @@ function loadLife(): Life|null {
       eventLedger:migrateLedger(r.eventLedger,r.seenEventIds),
       lastEventId:typeof r.lastEventId==='string'?r.lastEventId:null,
       simulation,profile,
+      ancestors:Array.isArray(r.ancestors)?r.ancestors.slice(-12).filter(
+       (a):a is NonNullable<Life['ancestors']>[number]=>Boolean(a)&&typeof a.name==='string'&&
+        a.name.length<=52&&Number.isInteger(a.age)&&a.age>=0&&a.age<=110&&
+        Number.isInteger(a.birthYear)&&typeof a.career==='string'&&a.career.length<=100):[],
       social:normalizeSocial(r.social,profile,r.age,simulation.children,Array.isArray(r.familyMembers)?r.familyMembers:fallbackFamily),
       familyMembers:Array.isArray(r.familyMembers) && r.familyMembers.length>0 ? r.familyMembers : fallbackFamily
     };
@@ -319,7 +325,7 @@ function createLife(profile: CharacterProfile, stats: Stats): void {
     social:initialSocial(normalized),
     birthYear:new Date().getFullYear(),age:0,
     stats:{...stats},pendingEvent:null,history:[u("birthNote")+" "+normalized.city+", "+countryName(normalized.country)+"."],
-    seenEventIds:[],eventLedger:{},lastEventId:null,simulation:createSimulation() };
+    seenEventIds:[],eventLedger:{},lastEventId:null,simulation:createSimulation(),ancestors:[] };
   tab="story";scene="playing";saveLife();render();
 }
 function countryName(c: Country): string {
@@ -522,6 +528,47 @@ function timelineEntries():string {
     '<span>'+entries.length+' '+safe(language==='pt-BR'?'registros':'entries')+'</span></div>'+
     (entries.length?'<ol>'+entries.map(item).join('')+'</ol>':'<p>'+safe(u("noTimeline"))+'</p>')+'</section>';
 }
+function continueAsDescendant(id:string):void{
+ if(!life||!life.simulation.ended)return;
+ const previous=life;
+ const child=previous.social.people.find(p=>p.id===id&&p.role==='child'&&p.alive);
+ if(!child)return;
+ const nextAge=personAge(child,previous.age);
+ if(nextAge<0||nextAge>=110)return;
+ const confirmation=language==='pt-BR'?
+   'Continuar como descendente substituirá este save. Você pode exportar o resumo e o save anterior no menu. Continuar?':
+   'Continuing as a descendant replaces this save. You can export the previous life before continuing. Proceed?';
+ if(!window.confirm(confirmation))return;
+ const childProfile=normalizeProfile(child.profile,child.profile.name);
+ const family=initialSocial(childProfile);
+ const priorParentRole=previous.profile.gender==='man'?'father':'mother';
+ const priorParent=family.people.find(p=>p.role===priorParentRole);
+ if(priorParent){
+   priorParent.profile={...previous.profile};
+   if(previous.profile.gender==='nonbinary'){priorParent.role='parent';priorParent.id='parent-primary';}
+   priorParent.alive=false;
+   priorParent.closeness=0;
+   priorParent.bornAtPlayerAge=-child.bornAtPlayerAge;
+ }
+ const parentNetWorth=Math.max(0,previous.simulation.balance+previous.simulation.investments+
+   previous.simulation.homeValue-previous.simulation.debt);
+ const inherited=Math.min(250000,Math.floor(parentNetWorth*.15));
+ const simulation=createSimulation();
+ simulation.balance=inherited;
+ const ancestors=[...(previous.ancestors??[]),
+  {name:previous.name,age:previous.age,birthYear:previous.birthYear,
+   career:makeLifeReport({...previous},language).profession}].slice(-12);
+ life={
+   name:childProfile.name,profile:childProfile,birthYear:previous.birthYear+child.bornAtPlayerAge,
+   age:nextAge,stats:{happiness:65,health:Math.max(40,80-Math.floor(nextAge/5)),smarts:55,looks:60},
+   history:[nextAge+': '+(language==='pt-BR'?'Você assumiu o próximo capítulo da família.':
+    'You began the next chapter of your family.')],
+   pendingEvent:null,seenEventIds:[],eventLedger:{},lastEventId:null,simulation,
+   social:family,familyMembers:makeFamily(childProfile.name),ancestors
+ };
+ scene='playing';tab='story';menuOpen=false;saveLife();render();
+}
+
 function renderLifeRecap():string{
  if(!life)return '';
  const report=makeLifeReport({...life},language);
@@ -547,7 +594,16 @@ function renderLifeRecap():string{
   '<ol class="recap-events">'+(report.events.length?report.events.map(x=>'<li>'+safe(x)+'</li>').join(''):
    '<li>'+safe(pt?'Essa vida ainda não tem acontecimentos registrados.':'No events have been recorded.')+'</li>')+'</ol>'+
   '<div class="recap-actions">'+button(pt?'Exportar resumo (.txt)':'Download life summary (.txt)','download-recap','secondary')+
-   button(u('newLife'),'new-life','primary')+'</div></section>';
+   button(u('newLife'),'new-life','primary')+'</div>'+
+   (life.social.people.some(p=>p.role==='child'&&p.alive)?
+    '<div class="recap-descendants"><h3>'+safe(pt?'Continuar sua linhagem':'Continue your family line')+'</h3>'+
+    life.social.people.filter(p=>p.role==='child'&&p.alive&&personAge(p,life!.age)<110).map(p=>
+      '<button type="button" data-descendant="'+safe(p.id)+'"><span>'+portraitLife(p.profile,personAge(p,life!.age),'tiny')+
+      '</span><strong>'+safe(p.profile.name)+'</strong><small>'+safe(ageText(personAge(p,life!.age)))+'</small></button>').join('')+
+    '</div>':'')+
+   (life.ancestors?.length?'<div class="recap-ancestors"><h3>'+safe(pt?'Gerações anteriores':'Previous generations')+'</h3>'+
+      life.ancestors.map(p=>'<p>'+safe(p.name)+' · '+p.age+' · '+safe(p.career)+'</p>').join('')+'</div>':'')+
+   '</section>';
 }
 function downloadLifeRecap():void{
  if(!life)return;
@@ -921,6 +977,8 @@ function handleAction(value:string):void {
 const appEl=document.querySelector<HTMLDivElement>("#app");
 appEl?.addEventListener("click",e=>{
   const target=e.target as HTMLElement;
+  const descendant=target.closest<HTMLButtonElement>("[data-descendant]");
+  if(descendant){continueAsDescendant(descendant.dataset.descendant||'');return;}
   const person=target.closest<HTMLButtonElement>("[data-person]");
   if(person){visitPerson(person.dataset.person||'',person.dataset.kind||'talk');return;}
   const offense=target.closest<HTMLButtonElement>("[data-offense]");

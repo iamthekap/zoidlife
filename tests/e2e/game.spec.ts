@@ -496,3 +496,33 @@ test('legal choices record outcomes, use annual cooldown and survive reload',asy
  await page.locator('.game-dock [data-tab="actions"]').click();
  await expect(page.locator('.justice-history li')).toHaveCount(1);
 });
+
+test('descendant inherits appearance and starts a second playable generation after death',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=78;s.simulation.ended=true;
+  s.simulation.children=1;s.simulation.balance=100000;
+  s.simulation.investments=0;s.simulation.debt=0;
+  s.social.people.push({
+   id:'child-40-0',role:'child',bornAtPlayerAge:40,alive:true,lastSharedAge:-1,closeness:88,
+   profile:{...s.profile,name:'Ana Costa',hair:'waves',outfit:'red'}
+  });
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.recap-descendants button')).toHaveCount(1);
+ page.once('dialog',d=>d.accept());
+ await page.locator('[data-descendant="child-40-0"]').click();
+ await expect(page.locator('.life-recap')).toHaveCount(0);
+ await expect(page.locator('.game-identity')).toContainText('Ana Costa');
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.age).toBe(38);
+ expect(saved.profile.outfit).toBe('red');
+ expect(saved.simulation.balance).toBe(15000);
+ expect(saved.ancestors).toHaveLength(1);
+ expect(saved.ancestors[0].age).toBe(78);
+ expect(saved.social.people.some(p=>!p.alive&&p.profile.name===saved.ancestors[0].name)).toBe(true);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.game-identity')).toContainText('Ana Costa');
+});
