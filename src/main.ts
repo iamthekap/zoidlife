@@ -1,7 +1,7 @@
 import "./style.css";
 import { randomCandidates, randomCharacter, normalizeProfile, portraitSvg, CITIES, COUNTRIES, GENDERS, SKINS, HAIRS, HAIR_COLORS, EYES, OUTFITS, NATURES, type Country, type CharacterProfile } from "./characters";
 import { extraEvents, eventAllowed } from "./events-plus";
-import { extendedEvents, extendedAllowed } from "./events-extended";
+import { extendedEvents, extendedAllowed, type Scenario } from "./events-extended";
 import { advancedEvents } from "./events-advanced";
 import {careerEvents} from "./career-events";
 import {isMysticOrigin,practiceMystic,mysticEvents,mysticNatureLabel} from "./mystic";
@@ -314,13 +314,17 @@ function restorePendingEvent(raw:unknown,profile:CharacterProfile,simulation:Sim
  if(id==='quiet-year')return quietEvent();
  if(id.startsWith('arc-')){
   const episode=storyArcAllowed(arc,simulation,age)?storyArcEvent(arc,language):null;
-  return episode?.id===id&&age>=episode.minAge?episode:quietEvent();
+  return episode?.id===id&&age===episode.minAge?episode:quietEvent();
  }
  const pool:LifeEvent[]=[...(copy[language].events as LifeEvent[]),...extraEvents(language),
   ...extendedEvents(language),...advancedEvents(language),...mysticEvents(language,profile),
   ...careerEvents(language,simulation)];
  const match=pool.find(x=>x.id===id);
  if(!match||age<match.minAge||age>match.maxAge)return quietEvent();
+ // A valid event ID alone does not prove it is playable in this character's
+ // current career, family or educational context.
+ if(!eventAllowed(match,simulation))return quietEvent();
+ if('condition' in match&&!extendedAllowed(match as Scenario,simulation))return quietEvent();
  return match;
 }
 function loadLife(): Life|null {

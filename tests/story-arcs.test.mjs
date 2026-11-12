@@ -48,3 +48,14 @@ test('career arc cannot promise leadership after unemployment and school arcs en
  assert.equal(storyArcAllowed(career,createSimulation(),41),false);
  assert.equal(normalizeStoryArc({id:'coding-club',phase:2,originAge:10,dueAge:11},11),null);
 });
+
+test('stale overdue stories are rejected rather than resurfacing one year late',()=>{
+ const phase1={id:'school-team',phase:1,originAge:7,dueAge:8};
+ assert.equal(normalizeStoryArc(phase1,7)?.phase,1);
+ assert.equal(normalizeStoryArc(phase1,8)?.phase,1);
+ assert.equal(normalizeStoryArc(phase1,9),null);
+ const phase2={id:'coding-club',phase:2,originAge:12,dueAge:14};
+ assert.equal(normalizeStoryArc(phase2,13)?.phase,2);
+ assert.equal(normalizeStoryArc(phase2,14)?.phase,2);
+ assert.equal(normalizeStoryArc(phase2,15),null);
+});

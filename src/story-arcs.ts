@@ -90,7 +90,7 @@ export function normalizeStoryArc(raw:unknown,age:number):StoryArc|null {
  if(!STORY_ARC_IDS.includes(r.id as StoryArcId)||(r.phase!==1&&r.phase!==2)||
   !Number.isInteger(r.originAge)||!Number.isInteger(r.dueAge)||!Number.isInteger(age)||
   age<0||age>110||!(r.originAge!>=0&&r.originAge!<=age)||
-  !(r.dueAge===r.originAge!+r.phase!&&r.dueAge<=110)||r.dueAge!>age+1||age-r.dueAge!>1)return null;
+  !(r.dueAge===r.originAge!+r.phase!&&r.dueAge<=110)||(age!==r.dueAge&&age!==r.dueAge!-1))return null;
  return {id:r.id!,phase:r.phase!,originAge:r.originAge!,dueAge:r.dueAge!};
 }
 export function startStoryArc(id:string,index:number,age:number,current:StoryArc|null):StoryArc|null {

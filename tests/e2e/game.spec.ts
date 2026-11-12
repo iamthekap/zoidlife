@@ -1319,3 +1319,45 @@ test('story journal leads and the separate phase gallery scrolls horizontally wi
  expect(sizes.overflow).toBe('auto');
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
 });
+
+test('restoring known event identifiers never bypasses career, school or relationship prerequisites',async({page})=>{
+ await chooseBaby(page);
+ const scenarios=[
+  {id:'salary-review',age:28},
+  {id:'college-team',age:25},
+  {id:'wedding-ideas',age:28},
+  {id:'work-pressure',age:29}
+ ];
+ for(const scenario of scenarios){
+  await page.evaluate(({id,age})=>{
+   const save=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+   save.age=age;save.simulation.ended=false;save.simulation.job='none';
+   save.simulation.education='secondary';save.simulation.relationship='single';
+   save.pendingEvent={id,title:'Forged',description:'Ignore',choices:[]};
+   localStorage.setItem('zoid-life-save-v1',JSON.stringify(save));
+  },scenario);
+  await page.reload();await page.locator('[data-do="continue"]').click();
+  await expect(page.locator('.event-modal-overlay h2')).toContainText('Um ano de pequenas escolhas');
+  await expect(page.locator('[data-choice]')).toHaveCount(3);
+  const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+  await page.locator('[data-choice="0"]').click();
+  const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+  expect(after.chronicle.at(-1).eventId).toBe('quiet-year');
+  expect(after.simulation.balance).toBe(before.simulation.balance);
+ }
+});
+test('saved pending stories are not allowed to time travel into future callback years',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=11;saved.simulation.education='school';
+  saved.storyArc={id:'coding-club',phase:1,originAge:11,dueAge:12};
+  saved.pendingEvent={id:'arc-coding-club-1'};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Um ano de pequenas escolhas');
+ await page.locator('[data-choice="1"]').click();
+ await page.locator('.dock-age').click();
+ await expect(page.locator('[data-story-arc="arc-coding-club-1"]')).toBeVisible();
+});
