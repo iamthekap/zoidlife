@@ -7,7 +7,7 @@ export type Stats = Record<'happiness' | 'health' | 'smarts' | 'looks', number>;
 export type Job = 'none' | 'parttime' | 'service' | 'office' | 'professional' | 'retired';
 export type Education = 'none' | 'school' | 'secondary' | 'college';
 export type Relation = 'single' | 'dating' | 'married';
-export type Action = 'study' | 'job' | 'socialize' | 'care' | 'budget' | 'retire' | 'invest' | 'home' | 'child' | 'crime' | 'train' | 'mystic' | 'work';
+export type Action = 'study' | 'job' | 'socialize' | 'care' | 'budget' | 'retire' | 'invest' | 'home' | 'child' | 'crime' | 'train' | 'mystic' | 'work' | 'style';
 export type Simulation = {
   schema: 2; balance: number; debt: number; education: Education; credits: number;
   job: Job; occupation:OccupationId|null; experience: number; family: number; friends: number; partner: number;
@@ -27,7 +27,7 @@ export const annualSalary=(s:Simulation):number=>{
  const bonus=(s.job==='none'||s.job==='retired')?0:Math.round(amount*.12*Math.min(5,s.careerLevel??0));
  return amount+bonus+(s.job==='none'||s.job==='retired'?0:Math.min(s.experience,30)*360);
 };
-export const ALL_ACTIONS: Action[]=['study','job','socialize','care','budget','retire','invest','home','child','crime','train','mystic','work'];
+export const ALL_ACTIONS: Action[]=['study','job','socialize','care','budget','retire','invest','home','child','crime','train','mystic','work','style'];
 function normalizeActionLedger(raw:unknown,lastActionAge:unknown):Partial<Record<Action,number>> {
   const ledger:Partial<Record<Action,number>>={};
   if(raw&&typeof raw==='object'&&!Array.isArray(raw)){
@@ -186,6 +186,10 @@ export function takeAction(raw: Simulation, rawStats: Stats, age: number, action
     s.training=Math.min(100,s.training+4);
     stats=updatedStats(stats,{health:3,happiness:2});
     notes.push('training:'+s.training);
+  } else if(action==='style'&&age>=12){
+    if(age>=18)charge(s,250);
+    stats=updatedStats(stats,{happiness:3,looks:2});
+    notes.push('style-changed');
   } else if(action==='work'&&age>=16&&s.job!=='none'&&s.job!=='retired'){
     s.careerMomentum=Math.min(100,s.careerMomentum+17);
     s.experience=Math.min(110,s.experience+1);

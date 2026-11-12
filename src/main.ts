@@ -186,6 +186,7 @@ const titles: Record<Language, Record<string,string>> = {
     train:"Treinar esporte",trainInfo:"Evolua sua aptidão para carreiras esportivas.",
     mystic:"Exercitar poderes",mysticInfo:"Treine habilidades únicas da sua origem.",
     work:"Dedicar-se ao trabalho",workInfo:"Aumente a experiência e conquiste promoções.",
+    style:"Mudar aparência",styleInfo:"Mude roupas ou cabelo sem alterar sua história.",
     study:"Estudar", job:"Procurar emprego", socialize:"Socializar",
     invest:"Investir", home:"Comprar imóvel", child:"Ter um filho",
     care:"Cuidar da saúde", budget:"Organizar finanças", retire:"Aposentar",
@@ -248,6 +249,7 @@ const titles: Record<Language, Record<string,string>> = {
     train:"Sports training",trainInfo:"Build the athletic skill needed for sports careers.",
     mystic:"Practice powers",mysticInfo:"Develop abilities from your special origin.",
     work:"Work harder",workInfo:"Build experience and earn promotions.",
+    style:"Change appearance",styleInfo:"Change clothes or hair without losing your story.",
     study:"Study", job:"Find work", socialize:"Socialize",
     invest:"Invest", home:"Buy a home", child:"Have a child", care:"Look after health", budget:"Manage finances", retire:"Retire",
     studyInfo:"Keep learning and work toward your degree.", jobInfo:"Find work that matches your experience.",
@@ -351,6 +353,7 @@ function caption(s: string): string {
   if(s.startsWith("occupation:")){const role=careerById(s.slice(11));return role?careerLabel(role,language):u("job");}
   if(s.startsWith('training:'))return (language==='pt-BR'?'Treino esportivo: ':'Sports training: ')+s.slice(9);
   if(s.startsWith('mystic-mastery:'))return (language==='pt-BR'?'Domínio místico: ':'Mystic mastery: ')+s.slice(15);
+  if(s==='style-changed')return language==='pt-BR'?'Mudou o visual do personagem.':'Updated the character appearance.';
   if(s.startsWith('career-effort:'))return (language==='pt-BR'?'Dedicação: ':'Work effort: ')+s.slice(14);
   if(s.startsWith('career-promotion:'))return (language==='pt-BR'?'Promoção! Nível ':'Promotion! Level ')+s.slice(17);
   if(s.startsWith('sport-win:'))return (language==='pt-BR'?'Vitória esportiva, premiação: ':'Sports victory, prize: ')+cash(Number(s.slice(10)));
@@ -662,7 +665,7 @@ function renderStory():string {
 const actionTypes: Action[]=['study','job','work','train','socialize','care','budget','invest','home','child','retire'];
 function canAction(action: Action): boolean {
   if (!life || life.simulation.ended || life.pendingEvent || !canTakeAction(life.simulation,life.age,action))return false;
-  return action==='study'?life.age>=6:action==='work'?life.age>=16&&!['none','retired'].includes(life.simulation.job):action==='train'?life.age>=6&&life.age<85:
+  return action==='study'?life.age>=6:action==='style'?life.age>=12:action==='work'?life.age>=16&&!['none','retired'].includes(life.simulation.job):action==='train'?life.age>=6&&life.age<85:
     action==='mystic'?life.age>=12&&isMysticOrigin(life.profile):action==='job'?life.age>=16&&life.age<65:
     action==='budget'?life.age>=16:action==='invest'?life.age>=18&&life.simulation.balance>=1000:
     action==='home'?life.age>=21&&!life.simulation.homeOwned&&life.simulation.balance>=25000:
@@ -676,6 +679,40 @@ function actionButton(action: Action): string {
      (language==='pt-BR'?'Realizada neste ano':'Done this year'):u(action+'Info'))+'</span>'+
    '<i aria-hidden="true">›</i></button>';
 }
+function styleStudio():string {
+ if(!life||life.age<12||life.simulation.ended)return '';
+ const p=life.profile;
+ const options=(values:readonly string[],selected:string,kind:string)=>
+  '<select data-style-field="'+kind+'">'+values.map(value=>option(value,
+   kind==='outfit'?outfitLabel(value):u(value),value===selected)).join('')+'</select>';
+ const enabled=canAction('style');
+ return '<section class="style-studio"><h3>'+safe(language==='pt-BR'?'Personalizar aparência':'Customize appearance')+'</h3>'+
+  '<p>'+safe(language==='pt-BR'?'Cabelo e roupa podem mudar sem alterar os traços de nascimento. Uma mudança por ano. A partir da vida adulta, custa 250.':
+    'Hair and clothing can change without altering birth traits. One change per year. Adults pay 250.')+'</p>'+
+  '<div class="style-fields"><label>'+safe(language==='pt-BR'?'Penteado':'Hair style')+options(HAIRS,p.hair,'hair')+'</label>'+
+  '<label>'+safe(language==='pt-BR'?'Cor do cabelo':'Hair color')+options(HAIR_COLORS,p.hairColor,'hairColor')+'</label>'+
+  '<label>'+safe(language==='pt-BR'?'Roupa':'Outfit')+options(OUTFITS,p.outfit??'blue','outfit')+'</label></div>'+
+  '<button class="style-save" type="button" data-do="style-apply"'+(enabled?'':' disabled')+'>'+
+  safe(language==='pt-BR'?'Salvar novo visual':'Save new appearance')+'</button></section>';
+}
+function applyStyleFromUI():void {
+ if(!life||!canAction('style'))return;
+ const field=(k:string)=>appEl?.querySelector<HTMLSelectElement>('[data-style-field="'+k+'"]')?.value;
+ const hair=field('hair'),hairColor=field('hairColor'),outfit=field('outfit');
+ if(!HAIRS.includes(hair as typeof HAIRS[number])||
+  !HAIR_COLORS.includes(hairColor as typeof HAIR_COLORS[number])||
+  !OUTFITS.includes(outfit as typeof OUTFITS[number]))return;
+ if(hair===life.profile.hair&&hairColor===life.profile.hairColor&&outfit===life.profile.outfit)return;
+ const result=takeAction(life.simulation,life.stats,life.age,'style');
+ if(!result.ok)return;
+ life.profile={...life.profile,hair:hair as typeof HAIRS[number],
+  hairColor:hairColor as typeof HAIR_COLORS[number],outfit:outfit as typeof OUTFITS[number]};
+ life.simulation=result.state;life.stats=result.stats;
+ life.history.push(life.age+': '+(language==='pt-BR'?'Atualizou seu visual.':'Updated their appearance.'));
+ for(const note of result.notes)life.history.push(life.age+': '+caption(note));
+ saveLife();render();
+}
+
 function justiceActions():string {
  if(!life)return '';
  const age=life.age,legal=life.simulation.justice,available=canTakeAction(life.simulation,age,'crime');
@@ -719,7 +756,7 @@ function renderActions(): string {
     '<div class="activity-grid">'+(isMysticOrigin(life.profile)?[...actionTypes,'mystic' as Action]:actionTypes).map(actionButton).join('')+'</div>'+
     (isMysticOrigin(life.profile)?'<div class="special-origin"><strong>'+safe(mysticNatureLabel(life.profile.nature!,language))+
     '</strong><span>'+safe(language==='pt-BR'?'Domínio místico ':'Mystic mastery ')+(life.simulation.mysticMastery??0)+'/100</span></div>':'')+
-    justiceActions()+'</section>';
+    styleStudio()+justiceActions()+'</section>';
 }
 function progress(label: string, amount: number): string {
   return '<div class="relationship-progress"><div><span>'+safe(label)+'</span><b>'+clamp(amount)+'%</b></div>'+
@@ -1007,6 +1044,7 @@ function handleAction(value:string):void {
   if(value==="custom"){custom={...randomCharacter(),name:"",origin:"custom",nature:"human"};customStats={happiness:70,health:80,smarts:55,looks:60};scene="custom";render();return;}
   if(value==="continue"){scene="playing";tab="story";render();return;}
   if(value==="age-up"){ageUp();return;}
+  if(value==="style-apply"){applyStyleFromUI();return;}
   if(value.startsWith("preset-")){
     const i=Number(value.slice(7));const profile=candidates[i];
     if(profile)createLife(profile,{happiness:45+Math.floor(Math.random()*40),health:60+Math.floor(Math.random()*35),

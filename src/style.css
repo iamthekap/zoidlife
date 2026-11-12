@@ -674,3 +674,17 @@ body{background:var(--bg);color:var(--ink);}
  .newborn-card strong{font-size:clamp(11px,3.1vw,15px);}
  .newborn-select{font-size:clamp(10px,2.6vw,12px);padding:8px 3px;}
 }
+
+/* Optional appearance salon — never changes ancestry or premium origins. */
+.style-studio{margin-top:14px;padding:15px;border:1px solid #cbd9ed;border-radius:12px;
+ background:#f9fbff;display:grid;gap:10px;}
+.style-studio h3{color:#2459a8;font-size:14px;font-weight:900;}
+.style-studio p{color:#61758d;font-size:11px;line-height:1.5;}
+.style-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;}
+.style-fields label{display:grid;gap:6px;color:#355979;font-size:11px;font-weight:750;min-width:0;}
+.style-fields select{width:100%;min-width:0;border:1px solid #c0d0eb;border-radius:8px;
+ background:#fff;color:#1e447d;padding:8px;}
+.style-save{border:0;color:#fff;background:#3A86FF;font-weight:850;border-radius:9px;
+ min-height:42px;padding:9px 15px;justify-self:start;}
+.style-save:disabled{background:#b5c6dd;}
+@media(max-width:480px){.style-fields{grid-template-columns:1fr;}}

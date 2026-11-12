@@ -69,3 +69,15 @@ test('higher education opens a professional career and a family bond is persiste
   const family=applyNarrativeChoice(s,base,24,'family',0,{});
   assert.equal(family.state.family,88);
 });
+
+test('style changes are age-gated and limited to one action per year',()=>{
+ const original=createSimulation();
+ const stats={health:80,happiness:60,smarts:55,looks:60};
+ assert.equal(takeAction(original,stats,11,'style').ok,false);
+ const result=takeAction(original,stats,18,'style');
+ assert.equal(result.ok,true);
+ assert.equal(result.state.debt,250);
+ assert.equal(result.state.actionLedger.style,18);
+ assert.equal(takeAction(result.state,result.stats,18,'style').ok,false);
+ assert.equal(takeAction(result.state,result.stats,19,'style').ok,true);
+});

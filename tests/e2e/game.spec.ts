@@ -630,3 +630,29 @@ test('candidate pixel characters occupy the card art region on narrow viewports'
  }
  await expect.poll(async()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
 });
+
+test('player can change appearance without modifying custom destiny or genetic skin/eyes',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');s.age=18;s.simulation.balance=500;s.profile.hairColor='black';s.profile.outfit='blue';
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await expect(page.locator('.style-studio')).toBeVisible();
+ const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ await page.locator('[data-style-field="hairColor"]').selectOption('red');
+ await page.locator('[data-style-field="outfit"]').selectOption('purple');
+ await page.locator('[data-do="style-apply"]').click();
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(after.profile.hairColor).toBe('red');
+ expect(after.profile.outfit).toBe('purple');
+ expect(after.profile.skin).toBe(before.profile.skin);
+ expect(after.profile.eyes).toBe(before.profile.eyes);
+ expect(after.profile.nature).toBe('human');
+ expect(after.simulation.balance).toBe(250);
+ await expect(page.locator('[data-do="style-apply"]')).toBeDisabled();
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ const again=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(again.profile.outfit).toBe('purple');
+});
