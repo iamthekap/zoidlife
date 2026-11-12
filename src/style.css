@@ -906,3 +906,25 @@ body:has(.event-modal-overlay){overflow:hidden;}
  .story-chapters .storyboard-milestone{flex-basis:min(77vw,280px);}
  .story-chapters .storyboard-track{gap:10px;padding:8px 9px 15px;}
 }
+
+/* Offline original audio: compact and accessible. Never obscures the age button. */
+.sound-toggle{min-height:36px;padding:6px 9px;border:1px solid #9ebde6;border-radius:9px;background:#eff6ff;
+ color:#225d9b;font-weight:850;font-size:11px;display:inline-flex;align-items:center;gap:6px;
+ justify-content:center;white-space:nowrap;cursor:pointer;}
+.sound-toggle[aria-pressed="true"]{background:#e4f3ee;border-color:#77b8a0;color:#17654d;}
+.sound-toggle:focus-visible,.audio-preferences input:focus-visible{outline:3px solid #ff0044;outline-offset:2px;}
+.welcome-audio-toolbar{position:absolute;top:-10px;left:0;display:flex;}
+.sound-toggle-mini{min-width:35px;min-height:36px;padding:6px;font-size:17px;flex:0 0 35px;}
+.audio-preferences{display:grid;gap:11px;padding:12px;border-radius:12px;border:1px solid #d5e2f4;background:#f6f9ff;}
+.audio-preferences h3{font-size:13px;font-weight:900;color:#1e4f88;}
+.audio-preferences p{font-size:10px;line-height:1.5;color:#58718e;margin:0;}
+.sound-switch{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;color:#274a70;cursor:pointer;}
+.sound-switch input{accent-color:#3a86ff;min-height:18px;min-width:18px;}
+.sound-volume{display:grid;gap:6px;font-size:11px;font-weight:800;color:#294d75;}
+.sound-volume>span{display:flex;justify-content:space-between;}
+.sound-volume input{width:100%;accent-color:#3a86ff;min-height:24px;}
+@media(max-width:460px){
+ .welcome-audio-toolbar{position:static;justify-content:center;margin-bottom:12px;}
+ .sound-toggle-mini{font-size:15px;min-width:31px;flex-basis:31px;}
+ .game-status{gap:5px;}
+}
