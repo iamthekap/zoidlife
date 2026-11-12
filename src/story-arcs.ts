@@ -142,7 +142,8 @@ export function storyArcEvent(state:StoryArc|null,language:'pt-BR'|'en'):{
   }))};
 }
 export function afterStoryArcChoice(current:StoryArc|null,id:string,index:number,age:number):StoryArc|null {
- if(!current||id!=='arc-'+current.id+'-'+current.phase)return current;
+ if(!current||id!=='arc-'+current.id+'-'+current.phase||age!==current.dueAge||
+  !Number.isInteger(index)||index<0||index>2)return current;
  if(current.phase===2||index===2||age>=110)return null;
  return {...current,phase:2,dueAge:age+1,branch:index as 0|1};
 }
