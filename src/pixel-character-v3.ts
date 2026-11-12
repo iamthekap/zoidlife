@@ -216,8 +216,8 @@ function hairstyle(d:Canvas,stage:MatureStage,p:CharacterProfile,h:Pal,seed:numb
   }
  });
 }
-export function renderMatureCharacter(p:CharacterProfile,stage:MatureStage,size='card'):string{
- const key=hash([p.name,p.gender,p.country,p.skin,p.hair,p.hairColor,p.eyes].join('|'));
+export function renderMatureCharacter(p:CharacterProfile,stage:MatureStage,size='card',seed?:number):string{
+ const key=seed??hash([p.name,p.gender,p.country,p.skin,p.hair,p.hairColor,p.eyes].join('|'));
  const d=new Canvas(),skin=SKIN[p.skin],hair=HAIR[p.hairColor];
  const cloth=CLOTH[p.outfit??'']??CLOTH.blue;
  if(size!=='story-actor')backdrop(d,key);
