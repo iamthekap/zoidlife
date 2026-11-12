@@ -23,4 +23,29 @@ test('save visual acceptance captures for newborns, growth and life journal',asy
  await page.locator('.game-dock [data-tab="career"]').click();
  await expect(page.locator('.career-vacancy')).toHaveCount(11);
  await page.screenshot({path:'test-results/visual/05-career-board.png',fullPage:true});
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await expect(page.locator('.justice-board')).toBeVisible();
+ await page.screenshot({path:'test-results/visual/06-legal-choices.png',fullPage:true});
+ await page.evaluate(()=>{
+   const state=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+   state.simulation.conditions=[{id:'fatigue',severity:2,since:23}];
+   localStorage.setItem('zoid-life-save-v1',JSON.stringify(state));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.health-condition').first()).toContainText('Cansaço persistente');
+ await page.screenshot({path:'test-results/visual/07-health.png',fullPage:true});
+ await page.evaluate(()=>{
+   const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+   s.age=78;s.simulation.ended=true;s.simulation.children=1;
+   s.social.people.push({id:'child-41-0',role:'child',bornAtPlayerAge:41,alive:true,
+     lastSharedAge:-1,closeness:88,profile:{...s.profile,name:'Lucia Costa',outfit:'red'}});
+   localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('[data-descendant]')).toHaveCount(1);
+ await page.screenshot({path:'test-results/visual/08-descendant-choices.png',fullPage:true});
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('[data-descendant="child-41-0"]').click();
+ await expect(page.locator('.game-identity')).toContainText('Lucia Costa');
+ await page.screenshot({path:'test-results/visual/09-second-generation.png',fullPage:true});
 });
