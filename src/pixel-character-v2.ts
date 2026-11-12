@@ -341,6 +341,20 @@ export function renderPixelCharacter(p:CharacterProfile,stage:PixelStage,size='c
  outfit(d,stage,p,hash,skin,cloth);
  face(d,stage,p,skin,hair,hash);
  hairstyle(d,stage,p,hair,hash);
+ if(stage==='senior')d.group('senior-details',()=>{
+   const rig=rigs.senior;
+   // Clearly aged but still the same eye/skin/hair genes; only the stage-specific details change.
+   d.rect(rig.x+5,rig.y+15,5,1,skin.dark,' opacity=".35"');
+   d.rect(rig.x+rig.w-10,rig.y+15,5,1,skin.dark,' opacity=".35"');
+   d.rect(rig.x+7,rig.y+22,4,1,skin.mid);
+   d.rect(rig.x+rig.w-11,rig.y+22,4,1,skin.mid);
+   d.rect(rig.x+10,rig.y-5,4,2,'#c6c8cf');
+   d.rect(rig.x+18,rig.y-6,5,2,'#d6d8dc');
+   d.rect(rig.x+rig.w-9,rig.y-3,3,2,'#b9bbc1');
+   // Cane silhouette is added at the side, not superimposed on the facial features.
+   d.rect(61,45,2,35,'#876c5c');d.rect(59,44,5,3,'#5c4a41');
+   d.rect(59,80,6,2,'#5c4a41');
+ });
  const classes=['portrait','portrait-'+size,'stage-'+stage].join(' ');
  return '<svg class="'+classes+'" viewBox="0 0 144 176" xmlns="http://www.w3.org/2000/svg" '+
   'role="img" aria-label="Zoid Life original pixel '+stage+'" data-style="clean-pixel-simulation-v2" '+

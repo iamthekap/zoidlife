@@ -776,6 +776,8 @@ function renderCareer(): string {
    pair(u("currentJob"),safe(jobLabel))+pair(u("experience"),String(s.experience))+
    pair(u("income"),cash(annualSalary(s)))+pair(language==='pt-BR'?'Treino esportivo':'Athletic training',String(s.training??0))+'</div>'+
    '<div class="activity-grid">'+actionButton("study")+'</div>'+
+   '<label class="career-search"><span>'+safe(language==='pt-BR'?'Buscar profissão':'Search careers')+'</span>'+
+   '<input type="search" data-career-search autocomplete="off" placeholder="'+safe(language==='pt-BR'?'Ex.: médico, futebol, advogado':'E.g. doctor, football, lawyer')+'"/></label>'+
    '<h3 class="career-heading">'+safe(language==='pt-BR'?'Vagas disponíveis e futuras':'Current and future careers')+'</h3>'+
    '<div class="career-list">'+vacancies+'</div></section>';
 }
@@ -1024,6 +1026,13 @@ appEl?.addEventListener("click",e=>{
 });
 appEl?.addEventListener("input",e=>{
   const target=e.target as HTMLInputElement;
+  if(target.hasAttribute('data-career-search')){
+    const query=target.value.trim().toLocaleLowerCase();
+    appEl.querySelectorAll<HTMLElement>('.career-vacancy').forEach(card=>{
+      card.hidden=Boolean(query)&&!card.textContent?.toLocaleLowerCase().includes(query);
+    });
+    return;
+  }
   if(target.dataset.stat){
     const k=target.dataset.stat as StatKey;customStats[k]=clamp(Number(target.value));
     const output=appEl.querySelector<HTMLOutputElement>('[data-value="'+k+'"]');

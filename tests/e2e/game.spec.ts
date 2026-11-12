@@ -575,3 +575,27 @@ test('custom-created vampire trains powers while random presets never receive th
  const s=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
  expect(s.simulation.mysticMastery).toBe(5);
 });
+
+test('profession search filters 45 entries and can be reset without changing progress',async({page})=>{
+ await chooseBaby(page);
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('.career-vacancy')).toHaveCount(45);
+ const filter=page.locator('[data-career-search]');
+ await filter.fill('dentista');
+ await expect(page.locator('.career-vacancy:visible')).toHaveCount(1);
+ await expect(page.locator('.career-vacancy:visible')).toContainText('Dentista');
+ await filter.fill('');
+ await expect(page.locator('.career-vacancy:visible')).toHaveCount(45);
+});
+test('senior is visually distinct from adult while inheriting the same profile',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=69;s.stats.health=85;s.simulation.ended=false;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.identity-portrait .stage-senior')).toBeVisible();
+ await expect(page.locator('.identity-portrait [data-part="senior-details"]')).toHaveCount(1);
+ await expect(page.locator('.storyboard-senior')).toBeVisible();
+});

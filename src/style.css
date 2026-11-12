@@ -637,3 +637,15 @@ body{background:var(--bg);color:var(--ink);}
  .newborn-v3 [data-part="eyes-open"]{opacity:1}
  .newborn-v3 [data-part="eyes-closed"]{opacity:0}
 }
+
+/* Career search and distinct special destiny presentation */
+.career-search{display:grid;gap:6px;font-weight:800;font-size:12px;color:#2659a5;}
+.career-search input{width:100%;padding:11px 13px;border:1px solid #bed1ef;border-radius:9px;
+ font:inherit;background:#fff;color:#1b3866;}
+.career-search input:focus-visible{outline:2px solid #3A86FF;outline-offset:2px;}
+.career-vacancy[hidden]{display:none!important;}
+.special-origin{display:flex;justify-content:space-between;gap:12px;align-items:center;
+ background:#f6f4fc;border:1px solid #a9b7f3;border-left:4px solid #ff0044;
+ padding:11px 12px;border-radius:10px;color:#2c416b;margin-top:12px;}
+.special-origin strong{font-size:12px;font-weight:900;}
+.special-origin span{font-size:11px;color:#61719e;}
