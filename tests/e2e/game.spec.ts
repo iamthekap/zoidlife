@@ -1506,3 +1506,25 @@ test('an imported locked talent scenario cannot be played without earned experie
  const save=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
  expect(save.chronicle.at(-1).eventId).toBe('quiet-year');
 });
+
+test('the living portrait reacts to happiness and health while identity genes remain unchanged',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=25;saved.stats={happiness:92,health:92,smarts:64,looks:56};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.identity-portrait [data-part="age-expression-cheerful"]')).toBeVisible();
+ let saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ const genes=[saved.profile.skin,saved.profile.hairColor,saved.profile.eyes];
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.stats.health=18;s.stats.happiness=22;localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.identity-portrait [data-part="age-expression-thoughtful"]')).toBeVisible();
+ await expect(page.locator('.game-side [data-part="age-expression-thoughtful"]')).toBeVisible();
+ saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect([saved.profile.skin,saved.profile.hairColor,saved.profile.eyes]).toEqual(genes);
+});
