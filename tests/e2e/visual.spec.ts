@@ -86,3 +86,33 @@ test('save visual acceptance captures for newborns, growth and life journal',asy
  await expect(page.locator('.game-identity')).toContainText('Lucia Costa');
  await page.screenshot({path:'test-results/visual/09-second-generation.png',fullPage:true});
 });
+
+test('capture real, translated multi-year decisions and narrative consequence frames',async({page})=>{
+ test.setTimeout(115_000);
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ await page.locator('[data-do="preset-0"]').click();
+ for(let age=1;age<=10;age++){
+  await page.locator('.dock-age').click();
+  await expect(page.locator('.event-modal-overlay')).toBeVisible();
+  await page.locator('[data-choice="1"]').click();
+ }
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.pendingEvent={id:'computer-club'};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Um clube de tecnologia');
+ await page.screenshot({path:'test-results/visual/19-original-computer-club-mobile.png',fullPage:false});
+ await page.locator('[data-choice="0"]').click();
+ await page.locator('.dock-age').click();
+ await expect(page.locator('[data-story-arc="arc-coding-club-1"]')).toBeVisible();
+ await page.screenshot({path:'test-results/visual/20-coding-story-followup-mobile.png',fullPage:false});
+ await page.locator('[data-choice="0"]').click();
+ await expect(page.locator('[data-chronicle-event="arc-coding-club-1"]')).toBeVisible();
+ await page.screenshot({path:'test-results/visual/21-persistent-coding-story.png',fullPage:true});
+ await page.locator('.dock-age').click();
+ await expect(page.locator('[data-story-arc="arc-coding-club-2"]')).toBeVisible();
+ await page.screenshot({path:'test-results/visual/22-second-coding-followup-mobile.png',fullPage:false});
+});
