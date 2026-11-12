@@ -68,3 +68,22 @@ test('babies inherit colors and hair identity while hair remains infant-style',(
  assert.notEqual(baby,portraitLife({...character,eyes:'blue'},0));
  assert.notEqual(baby,portraitLife(character,4));
 });
+
+test('real health and happiness select visible expressions without rewriting identity genes',async()=>{
+ const {moodFromStats}=await import('../src/life-art.ts');
+ const happy=moodFromStats({happiness:92,health:90});
+ const worried=moodFromStats({happiness:12,health:90});
+ const focused=moodFromStats({happiness:54,health:95});
+ const curious=moodFromStats({happiness:52,health:61});
+ assert.deepEqual([happy,worried,focused,curious],['cheerful','thoughtful','determined','curious']);
+ const h=portraitLife(character,28,'card',happy),w=portraitLife(character,28,'card',worried);
+ assert.notEqual(h,w);
+ assert.ok(h.includes('data-part="age-expression-cheerful"'));
+ assert.ok(w.includes('data-part="age-expression-thoughtful"'));
+ assert.equal(avatarFingerprint(character),avatarFingerprint({...character}));
+ for(const svg of [h,w]){
+  assert.ok(svg.includes('data-part="age-face"'));
+  assert.ok(svg.includes('data-part="legs"'));
+  assert.ok(svg.includes('#38836b'));assert.ok(svg.includes('#d3a45b'));
+ }
+});
