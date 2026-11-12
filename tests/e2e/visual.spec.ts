@@ -116,3 +116,41 @@ test('capture real, translated multi-year decisions and narrative consequence fr
  await expect(page.locator('[data-story-arc="arc-coding-club-2"]')).toBeVisible();
  await page.screenshot({path:'test-results/visual/22-second-coding-followup-mobile.png',fullPage:false});
 });
+
+test('capture soundtrack preferences, earned talents and emotional adult poses in mobile and desktop',async({page})=>{
+ test.setTimeout(120_000);
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ await page.locator('.welcome-audio-toolbar [data-do="toggle-sound"]').click();
+ await page.locator('[data-do="preset-0"]').click();
+ await page.locator('.game-menu').click();
+ await expect(page.locator('[data-audio-preferences]')).toBeVisible();
+ await page.screenshot({path:'test-results/visual/23-opt-in-sound-preferences-mobile.png',fullPage:false});
+ await page.locator('[data-do="close-menu"]').click();
+ for(let age=1;age<=6;age++){
+  await page.locator('.dock-age').click();await page.locator('[data-choice="0"]').click();
+ }
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-hobby-card]')).toHaveCount(6);
+ await page.screenshot({path:'test-results/visual/24-real-six-hobby-paths-mobile.png',fullPage:true});
+ await page.locator('[data-hobby="coding"]').click();
+ await expect(page.locator('[data-hobby-card="coding"] [role="progressbar"]')).toHaveAttribute('aria-valuenow','10');
+ await page.screenshot({path:'test-results/visual/25-earned-coding-progress-mobile.png',fullPage:true});
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=29;s.stats.happiness=91;s.stats.health=93;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.setViewportSize({width:1440,height:900});
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.identity-portrait [data-part="age-expression-cheerful"]')).toBeVisible();
+ await page.screenshot({path:'test-results/visual/26-adult-cheerful-expression-desktop.png',fullPage:false});
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.stats.happiness=15;s.stats.health=29;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.identity-portrait [data-part="age-expression-thoughtful"]')).toBeVisible();
+ await page.screenshot({path:'test-results/visual/27-adult-thoughtful-expression-desktop.png',fullPage:false});
+});
