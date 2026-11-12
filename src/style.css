@@ -742,3 +742,19 @@ body{background:var(--bg);color:var(--ink);}
 }
 .mature-v3{shape-rendering:crispEdges;image-rendering:pixelated;}
 .identity-portrait .mature-v3,.person-art .mature-v3{max-width:100%;}
+
+/* Desktop-first: use actual screen width while preserving a readable two-column
+ * game sheet and a small anchored inspector; on phones keep edge-to-edge UI. */
+@media(min-width:1024px){
+ .game-content-layout{width:min(100%,1370px);grid-template-columns:minmax(0,1fr) 280px;
+  gap:22px;padding:16px clamp(18px,2vw,32px) 40px;}
+ .game-main{padding:0 0 36px;}
+ .game-side{top:88px;}
+ .storyboard-scene{min-height:202px;}
+ .game-feed .storyboard-heading h2{font-size:clamp(21px,2.2vw,28px);}
+}
+@media(max-width:799px){
+ .game-content-layout{width:100%;}
+ .game-main{padding-left:clamp(9px,2.8vw,16px);padding-right:clamp(9px,2.8vw,16px);}
+ .game-feed .storyboard-timeline{width:100%;}
+}

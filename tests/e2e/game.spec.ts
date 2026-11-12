@@ -822,3 +822,16 @@ test('child, teen, adult and senior have new independent body anatomy and stage-
  }
  await expect(page.locator('.storyboard-senior .stage-senior')).toBeVisible();
 });
+
+test('desktop uses available width for the life timeline without losing the inspector column',async({page})=>{
+ await page.setViewportSize({width:1440,height:900});
+ await chooseBaby(page);
+ const box=await page.locator('.game-content-layout').boundingBox();
+ const sidebar=await page.locator('.game-side').boundingBox();
+ const story=await page.locator('.storyboard-timeline').boundingBox();
+ expect(box&&sidebar&&story).toBeTruthy();
+ expect(box.width).toBeGreaterThan(1210);
+ expect(story.width).toBeGreaterThan(850);
+ expect(sidebar.width).toBeLessThan(330);
+ await expect.poll(async()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(1442);
+});
