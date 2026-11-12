@@ -96,10 +96,31 @@ function outfit(d:Canvas,stage:MatureStage,cloth:Pal,skin:Pal,key:number):void{
    d.r(x,rig.leg-9,2,7,cloth.light);
    d.r(x+w-2,rig.leg-9,2,7,cloth.light);
   }
-  d.r(x-6,y+6,8,19,cloth.dark);d.r(x-5,y+7,7,17,cloth.mid);
-  d.r(x+w-1,y+6,8,19,cloth.dark);d.r(x+w,y+7,7,17,cloth.mid);
-  d.r(x-5,y+25,7,8,skin.dark);d.r(x-4,y+25,5,7,skin.light);
-  d.r(x+w,y+25,7,8,skin.dark);d.r(x+w+1,y+25,5,7,skin.light);
+  const pose=stage==='senior'?0:key%3;
+  d.g('age-pose-'+(['neutral','thoughtful','greeting'][pose]),()=>{
+    const leftArm=()=>{
+      d.r(x-6,y+6,8,19,cloth.dark);d.r(x-5,y+7,7,17,cloth.mid);
+      d.r(x-5,y+25,7,8,skin.dark);d.r(x-4,y+25,5,7,skin.light);
+    };
+    const rightArm=()=>{
+      d.r(x+w-1,y+6,8,19,cloth.dark);d.r(x+w,y+7,7,17,cloth.mid);
+      d.r(x+w,y+25,7,8,skin.dark);d.r(x+w+1,y+25,5,7,skin.light);
+    };
+    if(pose===1){
+      // Bent elbow and hand visible across chest, without creating a third arm.
+      d.r(x-6,y+6,8,13,cloth.dark);d.r(x-5,y+7,7,11,cloth.mid);
+      d.r(x-5,y+17,14,7,cloth.dark);d.r(x-4,y+18,13,5,cloth.mid);
+      d.r(x+7,y+17,7,7,skin.dark);d.r(x+8,y+18,5,5,skin.light);
+      rightArm();
+    }else if(pose===2){
+      leftArm();
+      // Raised right arm, bent at the elbow and waving beside the head.
+      d.r(x+w-1,y+6,8,11,cloth.dark);d.r(x+w,y+7,7,9,cloth.mid);
+      d.r(x+w+3,y-7,7,18,cloth.dark);d.r(x+w+4,y-6,5,16,cloth.mid);
+      d.r(x+w+3,y-15,8,10,skin.dark);d.r(x+w+4,y-14,6,8,skin.light);
+      d.r(x+w+5,y-17,2,5,skin.light);d.r(x+w+8,y-16,2,5,skin.light);
+    }else{leftArm();rightArm();}
+  });
   // Shirt collar and neck keep the face independent from wardrobe.
   d.r(44,y-5,9,6,skin.dark);d.r(45,y-5,7,5,skin.light);
   if(stage==='child'){
@@ -203,7 +224,7 @@ function scalpBehind(d:Canvas,stage:MatureStage,p:CharacterProfile,h:Pal):void{
   });
  }
 }
-function face(d:Canvas,stage:MatureStage,p:CharacterProfile,skin:Pal,hair:Pal):void{
+function face(d:Canvas,stage:MatureStage,p:CharacterProfile,skin:Pal,hair:Pal,seed:number):void{
  const {x,y,w,h}=RIG[stage],cx=Math.round(x+w/2);
  const eyeY=y+(stage==='child'?13:stage==='teen'?9:stage==='adult'?7:9),size=stage==='child'?5:4;
  const left=x+6,right=x+w-6-size;
@@ -229,18 +250,30 @@ function face(d:Canvas,stage:MatureStage,p:CharacterProfile,skin:Pal,hair:Pal):v
   d.r(x+4,eyeY+8,4,2,'#eb8e93',' opacity=".51"');
   d.r(x+w-8,eyeY+8,4,2,'#eb8e93',' opacity=".51"');
   d.r(cx,eyeY+7,1,2,skin.mid);
-  if(stage==='child'){
-    // Slight upturned smile, high round cheeks — expressive without smoothing pixels.
-    d.r(cx-4,eyeY+11,2,1,'#ad6770');
-    d.r(cx+3,eyeY+11,2,1,'#ad6770');
-    d.r(cx-3,eyeY+12,7,1,'#ac5e6a');
-    d.r(cx-1,eyeY+13,3,1,'#faefea');
-  }else if(stage==='teen'){
-    d.r(cx-2,eyeY+12,6,1,'#995664');d.r(cx,eyeY+13,3,1,'#e19697');
-  }else{
-    d.r(cx-2,eyeY+12,5,1,'#a75f69');
-    d.r(cx-1,eyeY+13,3,1,'#e19697');
-  }
+  const mood=seed%4,expression=['cheerful','curious','determined','thoughtful'][mood];
+  d.g('age-expression-'+expression,()=>{
+   const mouthY=Math.min(y+h-5,eyeY+(stage==='child'?11:10));
+   if(mood===0){
+     d.r(cx-4,mouthY,2,1,'#a45e67');
+     d.r(cx+3,mouthY,2,1,'#a45e67');
+     d.r(cx-3,mouthY+1,7,1,'#9b5060');
+     d.r(cx-1,mouthY+2,3,1,'#f5dfd9');
+   }else if(mood===1){
+     d.r(cx-3,mouthY,6,2,'#a95862');
+     d.r(cx-2,mouthY+2,4,1,'#e88f9d');
+     d.r(left-1,eyeY-5,size+2,1,hair.mid);
+     d.r(right-1,eyeY-5,size+2,1,hair.mid);
+   }else if(mood===2){
+     d.r(cx-3,mouthY,7,1,'#79475a');
+     d.r(cx-3,eyeY-4,5,1,hair.dark);
+     d.r(right,eyeY-4,5,1,hair.dark);
+   }else{
+     d.r(cx-2,mouthY,5,1,'#9a616c');
+     d.r(cx+1,mouthY+1,2,1,'#be8288');
+     d.r(left,eyeY-5,size+1,1,hair.dark);
+     d.r(right,eyeY-4,size+1,1,hair.dark);
+   }
+  });
  });
  if(stage==='senior')d.g('senior-details',()=>{
   d.r(x+3,eyeY+7,4,1,skin.mid);d.r(x+w-7,eyeY+7,4,1,skin.mid);
@@ -314,10 +347,11 @@ export function renderMatureCharacter(p:CharacterProfile,stage:MatureStage,size=
  if(size!=='story-actor')backdrop(d,key);
  scalpBehind(d,stage,p,hair);
  outfit(d,stage,cloth,skin,key);
- face(d,stage,p,skin,hair);
+ face(d,stage,p,skin,hair,key);
  hairstyle(d,stage,p,hair,key);
  return '<svg class="portrait portrait-'+size+' stage-'+stage+' mature-v3" viewBox="0 0 96 118" '+
   'xmlns="http://www.w3.org/2000/svg" role="img" '+
   'aria-label="Original Zoid Life '+stage+' pixel art" data-renderer="mature-v3" '+
-  'data-style="clean-pixel-simulation-v2" shape-rendering="crispEdges">'+d.d.join('')+'</svg>';
+  'data-style="clean-pixel-simulation-v3" data-pose="'+(stage==='senior'?'neutral':['neutral','thoughtful','greeting'][key%3])+
+  '" shape-rendering="crispEdges">'+d.d.join('')+'</svg>';
 }
