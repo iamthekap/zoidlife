@@ -89,7 +89,7 @@ test('scene illustrations and journal use original pixel visual language',async 
  await expect(scene.locator('.scene-avatar svg.stage-baby')).toBeVisible();
  await expect(scene.locator('.scene-props .pixel-icon')).toHaveCount(2);
  await page.locator('[data-choice="0"]').click();
- await expect(page.locator('.entry-glyph svg')).toHaveCount(2);
+ await expect(page.locator('.entry-glyph svg')).toHaveCount(3); // birth + lived year + resolved decision
  await page.locator('[data-tab="finances"]').click();
  await expect(page.getByText('Patrimônio líquido',{exact:true})).toBeVisible();
  // Childhood finance controls are intentionally absent, not merely disabled.
