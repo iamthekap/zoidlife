@@ -59,3 +59,29 @@ test('stale overdue stories are rejected rather than resurfacing one year late',
  assert.equal(normalizeStoryArc(phase2,14)?.phase,2);
  assert.equal(normalizeStoryArc(phase2,15),null);
 });
+
+test('second follow-up accurately remembers which earlier route the player took',()=>{
+ for(const id of STORY_ARC_IDS){
+  const origin= id==='school-team'||id==='coding-club'?12:40;
+  const trigger= id==='school-team'?'school-new-class':id==='coding-club'?'computer-club':
+    id==='old-friend'?'best-friend-message':id==='family-plan'?'family-difficult-talk':
+    id==='career-lead'?'work-project-lead':'medical-prevention';
+  const index=id==='family-plan'?1:0;
+  const first=startStoryArc(trigger,index,origin,null);
+  assert.ok(first,id);
+  const firstEvent=storyArcEvent(first,'pt-BR');
+  const route0=afterStoryArcChoice(first,firstEvent.id,0,origin+1);
+  const route1=afterStoryArcChoice(first,firstEvent.id,1,origin+1);
+  assert.equal(route0.branch,0);
+  assert.equal(route1.branch,1);
+  const pt0=storyArcEvent(route0,'pt-BR'),pt1=storyArcEvent(route1,'pt-BR');
+  const en0=storyArcEvent(route0,'en'),en1=storyArcEvent(route1,'en');
+  assert.equal(pt0.id,pt1.id);
+  assert.notEqual(pt0.description,pt1.description);
+  assert.notEqual(en0.description,en1.description);
+  assert.deepEqual(normalizeStoryArc(route0,origin+1),route0);
+  assert.deepEqual(normalizeStoryArc(route1,origin+2),route1);
+  assert.equal(normalizeStoryArc({...route1,branch:2},origin+2),null);
+  assert.equal(normalizeStoryArc({...first,branch:0},origin),null);
+ }
+});
