@@ -937,10 +937,18 @@ test('school friend retains the same identity and encounter memory after turning
  await chooseBaby(page);
  await page.evaluate(()=>{
   const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=5;localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.dock-age').click();
+ await page.locator('[data-choice="0"]').click();
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
   s.age=14;localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
  });
  await page.reload();await page.locator('[data-do="continue"]').click();
  await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('[data-person="classmate-school"][data-kind="compliment"]')).toBeEnabled();
  await page.locator('[data-person="classmate-school"][data-kind="compliment"]').click();
  const before=await page.evaluate(()=>{
   const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
@@ -971,6 +979,23 @@ test('life journal is the top content and illustrated chapters collapse without 
  await expect(page.locator('.story-primary [data-choice="0"]')).toBeEnabled();
  await page.locator('.story-primary [data-choice="0"]').click();
  await expect(page.locator('.life-journal .life-entry').first()).toBeVisible();
+ await expect(page.locator('.story-chapters')).not.toHaveAttribute('open','');
  await page.locator('.story-chapters-toggle').click();
+ await expect(page.locator('.story-chapters')).toHaveAttribute('open','');
  await expect(page.locator('.storyboard-baby')).toBeVisible();
+});
+
+test('adult streetwear, blazer and casual jacket use distinct identity-based pixel layers',async({page})=>{
+ await page.goto('/');
+ // Verified at source level by unit test; browser must render independent staged clothes.
+ await page.locator('[data-do="preset-0"]').click();
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=30;s.simulation.ended=false;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ const avatar=page.locator('.identity-portrait [data-renderer="mature-v3"]');
+ await expect(avatar).toBeVisible();
+ await expect(avatar.locator('[data-part^="adult-"]')).toHaveCount(1);
 });

@@ -159,6 +159,7 @@ let life: Life | null = loadLife();
 let scene: Scene = "welcome";
 let tab: Tab = "story";
 let menuOpen=false;
+let chaptersOpen=true;
 let menuError="";
 let candidates = randomCandidates(3);
 let custom:CharacterProfile = { ...randomCharacter(), name: "", origin:"custom", nature:"human" };
@@ -663,7 +664,7 @@ function renderStory():string {
   const chapterTitle=language==='pt-BR'?'Capítulos ilustrados da vida':'Illustrated life chapters';
   return '<section class="story-layout game-feed" data-story-first="journal">'+
     '<div class="story-primary" data-story-priority="current">'+eventHtml+timelineEntries()+'</div>'+
-    '<details class="story-chapters" open><summary class="story-chapters-toggle">'+
+    '<details class="story-chapters"'+(chaptersOpen?' open':'')+'><summary class="story-chapters-toggle">'+
       '<span>'+safe(chapterTitle)+'</span><span aria-hidden="true">▾</span></summary>'+
       renderStoryboardTimeline(life.profile,life.age,life.history,language)+
     '</details></section>';
@@ -1123,6 +1124,11 @@ function handleAction(value:string):void {
 const appEl=document.querySelector<HTMLDivElement>("#app");
 appEl?.addEventListener("click",e=>{
   const target=e.target as HTMLElement;
+  const chapters=target.closest<HTMLElement>('.story-chapters-toggle');
+  if(chapters){
+    chaptersOpen=!Boolean(chapters.closest<HTMLDetailsElement>('.story-chapters')?.open);
+    return;
+  }
   const descendant=target.closest<HTMLButtonElement>("[data-descendant]");
   if(descendant){continueAsDescendant(descendant.dataset.descendant||'');return;}
   const person=target.closest<HTMLButtonElement>("[data-person]");

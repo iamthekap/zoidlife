@@ -789,3 +789,17 @@ body{background:var(--bg);color:var(--ink);}
 @media(prefers-reduced-motion:reduce){
  .story-chapters-toggle>span:last-child{transition:none;}
 }
+
+/* More readable characters in every pixel storyboard panel.
+ * The stage actor should be foreground-scale, not a tiny figure stranded
+ * in the center of a large room. */
+.storyboard-scene-child .storyboard-actor{left:26%;bottom:0;width:54%;height:100%;}
+.storyboard-scene-teen .storyboard-actor{left:25%;bottom:0;width:52%;height:100%;}
+.storyboard-scene-adult .storyboard-actor{left:24%;bottom:0;width:52%;height:100%;}
+.storyboard-scene-senior .storyboard-actor{left:25%;bottom:0;width:52%;height:100%;}
+@media(max-width:430px){
+ .storyboard-scene-child .storyboard-actor,
+ .storyboard-scene-teen .storyboard-actor,
+ .storyboard-scene-adult .storyboard-actor,
+ .storyboard-scene-senior .storyboard-actor{height:96%;}
+}

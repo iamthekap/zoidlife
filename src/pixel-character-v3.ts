@@ -118,13 +118,37 @@ function outfit(d:Canvas,stage:MatureStage,cloth:Pal,skin:Pal,key:number):void{
    d.r(x+3,rig.leg-5,w-6,3,cloth.dark);
    if(key%2===0){d.r(x+w+2,y+26,7,12,'#293345');d.r(x+w+3,y+27,5,9,'#6a8dbe');}
   }else if(stage==='adult'){
-   // Distinct professional blazer: sharp lapels, light shirt and left pocket.
-   d.r(x+Math.floor(w*.33),y+3,Math.floor(w*.34),rig.leg-y-5,'#fff8f0');
-   d.r(x+5,y+5,10,5,cloth.light);d.r(x+w-15,y+5,10,5,cloth.light);
-   d.r(x+7,y+10,5,19,cloth.dark);d.r(x+w-12,y+10,5,19,cloth.dark);
-   d.r(47,y+7,2,6,cloth.dark);d.r(48,y+12,2,13,cloth.mid);
-   d.r(52,y+25,3,2,'#eee0c5');
-   d.r(x+4,rig.leg-4,w-8,4,cloth.dark);
+   // Three independent everyday styles — no more universal identical suit.
+   // Stable from the person's identity, including after outfit-color changes.
+   const adultStyle=key%3;
+   if(adultStyle===0)d.g('adult-blazer',()=>{
+     d.r(x+Math.floor(w*.33),y+3,Math.floor(w*.34),rig.leg-y-5,'#fff8f0');
+     d.r(x+5,y+5,10,5,cloth.light);d.r(x+w-15,y+5,10,5,cloth.light);
+     d.r(x+7,y+10,5,19,cloth.dark);d.r(x+w-12,y+10,5,19,cloth.dark);
+     d.r(47,y+7,2,6,cloth.dark);d.r(48,y+12,2,13,cloth.mid);
+     d.r(52,y+25,3,2,'#eee0c5');
+     d.r(x+4,rig.leg-4,w-8,4,cloth.dark);
+   });
+   else if(adultStyle===1)d.g('adult-casual-jacket',()=>{
+     d.r(x+Math.floor(w*.34),y+4,Math.floor(w*.32),rig.leg-y-9,'#f5f1eb');
+     d.r(x+4,y+5,10,rig.leg-y-10,cloth.dark);
+     d.r(x+w-14,y+5,10,rig.leg-y-10,cloth.dark);
+     d.r(x+5,y+6,7,rig.leg-y-12,cloth.mid);
+     d.r(x+w-12,y+6,7,rig.leg-y-12,cloth.mid);
+     d.r(x+6,y+7,8,4,cloth.light);d.r(x+w-14,y+7,8,4,cloth.light);
+     d.r(x+7,y+22,6,5,cloth.dark);d.r(x+w-13,y+22,6,5,cloth.dark);
+     d.r(47,y+13,2,4,'#ded7cf');
+     d.r(x+5,rig.leg-5,w-10,4,cloth.light);
+   });
+   else d.g('adult-streetwear',()=>{
+     d.r(x+8,y-3,w-16,8,cloth.dark);
+     d.r(x+10,y,Math.max(1,w-20),7,cloth.light);
+     d.r(x+11,y+6,2,14,'#f3f2ea');
+     d.r(x+w-13,y+6,2,14,'#f3f2ea');
+     d.r(x+7,y+24,w-14,10,cloth.dark);
+     d.r(x+9,y+25,w-18,8,cloth.light,' opacity=".55"');
+     d.r(x+2,rig.leg-5,w-4,4,cloth.dark);
+   });
   }else{
    // Cardigan over a warm shirt, short sleeves and a gentle posture.
    d.r(x+Math.floor(w*.33),y+4,Math.floor(w*.34),rig.leg-y-5,'#f8e5d3');
@@ -185,8 +209,18 @@ function face(d:Canvas,stage:MatureStage,p:CharacterProfile,skin:Pal,hair:Pal):v
   d.r(x+4,eyeY+8,4,2,'#eb8e93',' opacity=".51"');
   d.r(x+w-8,eyeY+8,4,2,'#eb8e93',' opacity=".51"');
   d.r(cx,eyeY+7,1,2,skin.mid);
-  d.r(cx-2,eyeY+12,5,1,'#a75f69');
-  d.r(cx-1,eyeY+13,3,1,'#e19697');
+  if(stage==='child'){
+    // Slight upturned smile, high round cheeks — expressive without smoothing pixels.
+    d.r(cx-4,eyeY+11,2,1,'#ad6770');
+    d.r(cx+3,eyeY+11,2,1,'#ad6770');
+    d.r(cx-3,eyeY+12,7,1,'#ac5e6a');
+    d.r(cx-1,eyeY+13,3,1,'#faefea');
+  }else if(stage==='teen'){
+    d.r(cx-2,eyeY+12,6,1,'#995664');d.r(cx,eyeY+13,3,1,'#e19697');
+  }else{
+    d.r(cx-2,eyeY+12,5,1,'#a75f69');
+    d.r(cx-1,eyeY+13,3,1,'#e19697');
+  }
  });
  if(stage==='senior')d.g('senior-details',()=>{
   d.r(x+3,eyeY+7,4,1,skin.mid);d.r(x+w-7,eyeY+7,4,1,skin.mid);

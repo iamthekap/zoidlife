@@ -45,3 +45,16 @@ test('child haircut and clothing have deliberately shorter cut and shorts, not a
  assert.ok(adult.includes('data-part="legs"'));
  assert.ok(child.includes('data-part="age-hair"'));
 });
+
+test('adult clothing varies across identities while genetic hair/eyes remain intact',()=>{
+ const styles=new Set();
+ const base={...profile,skin:'tan',hair:'short',eyes:'brown'};
+ for(const name of ['Ana Moraes','Bia Costa','Joana Souza','Luisa Vale','Davi Cruz','Marcos Dias','Pedro Lima','Maya Neves','Isadora Luz','Caio Melo','Raul Nunes','Alma Duarte']){
+  const svg=renderMatureCharacter({...base,name},'adult');
+  const kind=/data-part="(adult-blazer|adult-casual-jacket|adult-streetwear)"/.exec(svg)?.[1];
+  assert.ok(kind);
+  styles.add(kind);
+  assert.ok(svg.includes('fill="#74452e"'));
+ }
+ assert.equal(styles.size,3);
+});
