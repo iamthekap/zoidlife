@@ -618,3 +618,22 @@ body{background:var(--bg);color:var(--ink);}
 .recap-descendants button strong{font-size:12px;overflow-wrap:anywhere;}
 .recap-descendants button small{margin-left:auto;font-size:10px;color:#607d9b;white-space:nowrap;}
 .recap-ancestors p{font-size:11px;padding:5px 0;color:#4f6480;}
+
+/* Original expressive newborn pixel motion, respectful of reduced motion. */
+.newborn-v3 [data-part="eyes-open"]{animation:zoid-newborn-open 5.2s infinite;}
+.newborn-v3 [data-part="eyes-closed"]{opacity:0;animation:zoid-newborn-closed 5.2s infinite;}
+.newborn-v3 [data-part="pacifier"]{transform-box:fill-box;transform-origin:center;
+ animation:zoid-pacifier 1.9s ease-in-out infinite;}
+@keyframes zoid-newborn-open{0%,89%,95%,100%{opacity:1}90%,94%{opacity:0}}
+@keyframes zoid-newborn-closed{0%,89%,95%,100%{opacity:0}90%,94%{opacity:1}}
+@keyframes zoid-pacifier{0%,100%{transform:scale(1)}48%{transform:scale(.96)}}
+.origin-explanation{padding:12px 14px;border:1px solid #bbcffa;border-left:3px solid #ff0044;
+ background:#f5f9ff;border-radius:10px;display:grid;gap:5px;}
+.origin-explanation strong{font-size:12px;color:#2459a8;}
+.origin-explanation p{font-size:11px;color:#536b87;line-height:1.5;}
+@media(prefers-reduced-motion:reduce){
+ .newborn-v3 [data-part="eyes-open"],.newborn-v3 [data-part="eyes-closed"],
+ .newborn-v3 [data-part="pacifier"]{animation:none!important}
+ .newborn-v3 [data-part="eyes-open"]{opacity:1}
+ .newborn-v3 [data-part="eyes-closed"]{opacity:0}
+}

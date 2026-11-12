@@ -6,6 +6,7 @@
  * No third party assets. Every sprite is a self-contained SVG.
  */
 import {OUTFITS,type CharacterProfile} from './characters.ts';
+import {renderPixelBaby} from './pixel-baby-v3.ts';
 
 export type PixelStage='baby'|'child'|'teen'|'adult'|'senior';
 type Palette={light:string;mid:string;dark:string};
@@ -323,6 +324,7 @@ function hairstyle(d:Painter,stage:PixelStage,p:CharacterProfile,hair:Palette,se
  });
 }
 export function renderPixelCharacter(p:CharacterProfile,stage:PixelStage,size='card',seed?:number):string{
+ if(stage==='baby')return renderPixelBaby(p,size);
  const skin=skins[p.skin],hair=hairColors[p.hairColor];
  const hash=seed??fixedHash([p.name,p.gender,p.country,p.skin,p.hair,p.hairColor,p.eyes].join('|'));
  const cloth=outfits[p.outfit?OUTFITS.indexOf(p.outfit):hash%outfits.length];

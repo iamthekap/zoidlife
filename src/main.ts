@@ -1,5 +1,5 @@
 import "./style.css";
-import { randomCandidates, randomCharacter, normalizeProfile, portraitSvg, CITIES, COUNTRIES, GENDERS, SKINS, HAIRS, HAIR_COLORS, EYES, OUTFITS, type Country, type CharacterProfile } from "./characters";
+import { randomCandidates, randomCharacter, normalizeProfile, portraitSvg, CITIES, COUNTRIES, GENDERS, SKINS, HAIRS, HAIR_COLORS, EYES, OUTFITS, NATURES, type Country, type CharacterProfile } from "./characters";
 import { extraEvents, eventAllowed } from "./events-plus";
 import { extendedEvents, extendedAllowed } from "./events-extended";
 import { advancedEvents } from "./events-advanced";
@@ -158,7 +158,7 @@ let tab: Tab = "story";
 let menuOpen=false;
 let menuError="";
 let candidates = randomCandidates(3);
-let custom = { ...randomCharacter(), name: "" };
+let custom:CharacterProfile = { ...randomCharacter(), name: "", origin:"custom", nature:"human" };
 let customStats: Stats = {happiness: 70, health: 80, smarts: 55, looks: 60};
 const titles: Record<Language, Record<string,string>> = {
   "pt-BR": {
@@ -321,6 +321,7 @@ function createLife(profile: CharacterProfile, stats: Stats): void {
     'Começar uma nova vida vai substituir o progresso salvo neste navegador. Exporte seu save no menu antes, se quiser guardá-lo. Continuar?':
     'A new life will replace this browser save. Export it from the menu first if you want to keep it. Continue?'))return;
   const normalized=normalizeProfile(profile,profile.name);
+  if(normalized.origin!=='custom')normalized.nature='human';
   life={ name:normalized.name, profile:normalized, familyMembers:makeFamily(normalized.name),
     social:initialSocial(normalized),
     birthYear:new Date().getFullYear(),age:0,
@@ -408,6 +409,11 @@ function renderSelection(): string { return renderWelcome(); }
 function option(value: string,label: string, selected: boolean): string {
   return '<option value="'+safe(value)+'"'+(selected?' selected':'')+'>'+safe(label)+'</option>';
 }
+function natureLabel(value:string):string {
+ const pt:Record<string,string>={human:'Humano',vampire:'Vampiro',werewolf:'Lobisomem',mage:'Mago(a)'};
+ const en:Record<string,string>={human:'Human',vampire:'Vampire',werewolf:'Werewolf',mage:'Mage'};
+ return (language==='en'?en:pt)[value]||value;
+}
 function outfitLabel(value:string):string{
  const pt:Record<string,string>={blue:'Azul',red:'Vermelho',mint:'Verde-água',ochre:'Ocre',purple:'Roxo',rose:'Rosa'};
  const en:Record<string,string>={blue:'Blue',red:'Red',mint:'Mint',ochre:'Ochre',purple:'Purple',rose:'Rose'};
@@ -416,7 +422,7 @@ function outfitLabel(value:string):string{
 function selectField(name: string,label: string, options: string[]): string {
   const current=String((custom as unknown as Record<string,string|number>)[name]);
   return '<label class="form-field"><span>'+safe(label)+'</span><select name="'+safe(name)+'" data-custom="'+safe(name)+'">'+
-   options.map(v=>option(v,name==='country'?countryName(v as Country):name==='outfit'?outfitLabel(v):u(v),v===current)).join('')+
+   options.map(v=>option(v,name==='country'?countryName(v as Country):name==='outfit'?outfitLabel(v):name==='nature'?natureLabel(v):u(v),v===current)).join('')+
    '</select></label>';
 }
 function renderCustom(): string {
@@ -435,7 +441,10 @@ function renderCustom(): string {
     selectField("city",u("city"),[...CITIES[custom.country]])+
     selectField("skin",u("skin"),SKINS)+selectField("hair",u("hair"),HAIRS)+
     selectField("hairColor",u("hairColor"),HAIR_COLORS)+selectField("eyes",u("eyes"),EYES)+
-    selectField("outfit",language==="pt-BR"?"Roupa do personagem":"Character outfit",OUTFITS)+numeric+
+    selectField("outfit",language==="pt-BR"?"Roupa do personagem":"Character outfit",OUTFITS)+
+    '<div class="origin-explanation wide"><strong>'+safe(language==='pt-BR'?'Destino especial exclusivo da criação':'Custom-only special destiny')+'</strong>'+
+    '<p>'+safe(language==='pt-BR'?'Vampiro, lobisomem e mago só podem ser escolhidos ao criar sua pessoa do zero. Os três bebês sorteados sempre começam como humanos.':'Vampire, werewolf and mage are only available when you create a character. All three random babies always start human.')+'</p></div>'+
+    selectField("nature",language==="pt-BR"?"Natureza do personagem":"Character nature",NATURES)+numeric+
     '<fieldset class="stats-editor wide"><legend>'+safe(u("overview"))+'</legend>'+
     sliders.map(k=>'<label class="slider-field"><span>'+safe(u(k))+'</span><input data-stat="'+k+'" name="'+k+
       '" type="range" min="10" max="100" step="5" value="'+customStats[k]+'"/><output data-value="'+k+'">'+customStats[k]+'%</output></label>').join('')+
@@ -965,7 +974,7 @@ function handleAction(value:string):void {
   if(value==="new-life"){newLife();return;}
   if(value==="selection"){scene="welcome";render();return;}
   if(value==="reroll"){candidates=randomCandidates(3);scene="welcome";render();return;}
-  if(value==="custom"){custom={...randomCharacter(),name:""};customStats={happiness:70,health:80,smarts:55,looks:60};scene="custom";render();return;}
+  if(value==="custom"){custom={...randomCharacter(),name:"",origin:"custom",nature:"human"};customStats={happiness:70,health:80,smarts:55,looks:60};scene="custom";render();return;}
   if(value==="continue"){scene="playing";tab="story";render();return;}
   if(value==="age-up"){ageUp();return;}
   if(value.startsWith("preset-")){

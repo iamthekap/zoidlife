@@ -5,6 +5,8 @@ export type Hair = 'short' | 'waves' | 'curls' | 'long';
 export type HairColor = 'black' | 'brown' | 'blonde' | 'red';
 export type Eye = 'brown' | 'blue' | 'green';
 export type Outfit = 'blue' | 'red' | 'mint' | 'ochre' | 'purple' | 'rose';
+export type Origin = 'generated' | 'custom';
+export type Nature = 'human' | 'vampire' | 'werewolf' | 'mage';
 export type Country = 'BR' | 'US' | 'PT' | 'UK' | 'CA';
 export type CharacterProfile = {
   name: string;
@@ -17,6 +19,8 @@ export type CharacterProfile = {
   eyes: Eye;
   /** Optional to retain stable appearance of saves created before the outfit selector. */
   outfit?: Outfit;
+  origin?: Origin;
+  nature?: Nature;
   birthday: number;
   birthMonth: number;
 };
@@ -33,6 +37,7 @@ export const HAIRS: Hair[] = ['short', 'waves', 'curls', 'long'];
 export const HAIR_COLORS: HairColor[] = ['black', 'brown', 'blonde', 'red'];
 export const EYES: Eye[] = ['brown', 'blue', 'green'];
 export const OUTFITS: Outfit[]=['blue','red','mint','ochre','purple','rose'];
+export const NATURES: Nature[]=['human','vampire','werewolf','mage'];
 export const GENDERS: Gender[] = ['woman', 'man', 'nonbinary'];
 const firstNames: Record<Gender, string[]> = {
   woman: ['Luiza','Luna','Marina','Camila','Bianca','Sofia','Elisa','Isabela','Nina','Cecília'],
@@ -47,7 +52,7 @@ export function randomCharacter(): CharacterProfile {
   const country=pick(COUNTRIES);
   return { name: pick(firstNames[gender]) + ' ' + pick(surnames), gender,
     country, city: pick(CITIES[country]), skin: pick(SKINS), hair: pick(HAIRS),
-    hairColor: pick(HAIR_COLORS), eyes: pick(EYES), outfit:pick(OUTFITS),
+    hairColor: pick(HAIR_COLORS), eyes: pick(EYES), outfit:pick(OUTFITS),origin:'generated',nature:'human',
     birthday: 1 + Math.floor(Math.random()*28), birthMonth: 1 + Math.floor(Math.random()*12) };
 }
 export function randomCandidates(count = 3): CharacterProfile[] {
@@ -89,6 +94,8 @@ export function normalizeProfile(raw: unknown, fallbackName='Pessoa'): Character
     hairColor: isOneOf(r.hairColor, HAIR_COLORS) ? r.hairColor : defaults.hairColor,
     eyes: isOneOf(r.eyes,EYES) ? r.eyes : defaults.eyes,
     ...(isOneOf(r.outfit,OUTFITS)?{outfit:r.outfit}:{}),
+    origin:r.origin==='custom'?'custom':'generated',
+    nature:r.origin==='custom'&&isOneOf(r.nature,NATURES)?r.nature:'human',
     birthday: typeof r.birthday === 'number' && r.birthday >= 1 && r.birthday <= 28 ? Math.floor(r.birthday) : defaults.birthday,
     birthMonth: typeof r.birthMonth === 'number' && r.birthMonth >= 1 && r.birthMonth <= 12 ? Math.floor(r.birthMonth) : defaults.birthMonth
   };

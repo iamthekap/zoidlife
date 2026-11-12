@@ -61,3 +61,16 @@ test('three default newborns receive distinct outfits and user appearance surviv
  const legacy={...original};delete legacy.outfit;
  assert.equal(normalizeProfile(legacy,legacy.name).outfit,undefined);
 });
+
+test('special destiny is exclusively available to custom-created characters',()=>{
+ for(let i=0;i<60;i++){
+  const trio=randomCandidates(3);
+  assert.ok(trio.every(p=>p.origin==='generated'&&p.nature==='human'));
+ }
+ const human=normalizeProfile({...randomCharacter(),origin:'generated',nature:'vampire'});
+ assert.equal(human.nature,'human');
+ const special=normalizeProfile({...randomCharacter(),origin:'custom',nature:'vampire'});
+ assert.equal(special.nature,'vampire');
+ assert.equal(special.origin,'custom');
+ assert.equal(normalizeProfile({...special,nature:'scripting'}).nature,'human');
+});

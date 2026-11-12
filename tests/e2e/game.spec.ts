@@ -526,3 +526,33 @@ test('descendant inherits appearance and starts a second playable generation aft
  await page.reload();await page.locator('[data-do="continue"]').click();
  await expect(page.locator('.game-identity')).toContainText('Ana Costa');
 });
+
+test('random newborns stay human while only the custom creator offers supernatural destiny',async({page})=>{
+ await page.goto('/');
+ await expect(page.locator('[data-custom="nature"]')).toHaveCount(0);
+ await page.locator('[data-do="preset-0"]').click();
+ const generated=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(generated.profile.nature).toBe('human');
+ expect(generated.profile.origin).toBe('generated');
+ await page.locator('.game-menu').click();await page.locator('[data-do="home"]').click();
+ await page.locator('[data-do="custom"]').click();
+ await expect(page.locator('[data-custom="nature"]')).toBeVisible();
+ await page.locator('[data-custom="nature"]').selectOption('vampire');
+ await page.locator('[name="name"]').fill('Luna Sombria');
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('#creator-form button[type="submit"]').click();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.profile.origin).toBe('custom');expect(saved.profile.nature).toBe('vampire');
+});
+test('newborn v3 draw uses lively baby anatomy and accessible reduced-motion behavior',async({page})=>{
+ await page.goto('/');
+ await expect(page.locator('.newborn-v3')).toHaveCount(3);
+ for(const n of await page.locator('.newborn-v3').all()){
+  await expect(n.locator('[data-part="infant-face"]')).toHaveCount(1);
+  await expect(n.locator('[data-part="eyes-open"]')).toHaveCount(1);
+  await expect(n.locator('[data-part="seated-onesie"]')).toHaveCount(1);
+  await expect(n.locator('[data-part="facial-hair"]')).toHaveCount(0);
+ }
+ await page.emulateMedia({reducedMotion:'reduce'});
+ await expect(page.locator('.newborn-v3 [data-part="eyes-open"]').first()).toHaveCSS('animation-name','none');
+});
