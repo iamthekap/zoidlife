@@ -903,7 +903,16 @@ function renderCareer(): string {
 function renderFinances(): string {
   if(!life)return '';
   const s=life.simulation;
-  return '<section class="content-panel"><div class="panel-heading"><h2>'+safe(u("finances"))+'</h2></div>'+
+  if(life.age<16){
+    return '<section class="content-panel youth-finances" data-finances-mode="youth">'+
+     '<div class="panel-heading"><h2>'+safe(language==='pt-BR'?'Dinheiro e patrimônio':'Money & assets')+'</h2>'+
+     '<p>'+safe(language==='pt-BR'?'Seu patrimônio já existe, mas as decisões financeiras complexas só serão liberadas quando você crescer.':'Your assets already exist, but advanced financial decisions unlock when you are older.')+'</p></div>'+
+     '<div class="data-list">'+pair(u("balance"),cash(s.balance))+
+     pair(u("investments"),cash(s.investments))+
+     pair(u("netWorth"),cash(s.balance+s.investments+s.homeValue-s.debt))+'</div>'+
+     '<p class="school-reminder">'+safe(language==='pt-BR'?'Continue sua história e cuide dos seus relacionamentos.':'Continue your life and build your relationships.')+'</p></section>';
+  }
+  return '<section class="content-panel" data-finances-mode="adult"><div class="panel-heading"><h2>'+safe(u("finances"))+'</h2></div>'+
     '<div class="money-headline"><div><span>'+safe(u("balance"))+'</span><strong>'+safe(cash(s.balance))+'</strong></div>'+
     '<div><span>'+safe(u("debt"))+'</span><strong>'+safe(cash(s.debt))+'</strong></div></div>'+
     '<div class="data-list">'+pair(u("income"),cash(annualSalary(s)))+
@@ -911,7 +920,7 @@ function renderFinances(): string {
     pair(u("netWorth"),cash(s.balance+s.investments+s.homeValue-s.debt))+
     pair(u("expenses"),cash((life.age>=65?8500:10500)+(s.homeOwned?1800:0)+2000*s.children))+'</div>'+
     (s.debt>=30000?'<p class="debt-warning">'+safe(u("warningDebt"))+'</p>':'')+
-    '<div class="activity-grid">'+actionButton("budget")+actionButton("invest")+actionButton("home")+'</div></section>';
+    '<div class="activity-grid">'+actionButton("budget")+(life.age>=18?actionButton("invest")+actionButton("home"):'')+'</div></section>';
 }
 function quietEvent(): LifeEvent {
   const pt=language==="pt-BR";

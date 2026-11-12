@@ -835,3 +835,30 @@ test('desktop uses available width for the life timeline without losing the insp
  expect(sidebar.width).toBeLessThan(330);
  await expect.poll(async()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(1442);
 });
+
+test('children see their money but not adult finance operations or mortgage buttons',async({page})=>{
+ await chooseBaby(page);
+ await page.locator('.game-dock [data-tab="finances"]').click();
+ await expect(page.locator('[data-finances-mode="youth"]')).toBeVisible();
+ await expect(page.locator('[data-action="home"]')).toHaveCount(0);
+ await expect(page.locator('[data-action="invest"]')).toHaveCount(0);
+ await expect(page.locator('.youth-finances .data-list')).toBeVisible();
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=17;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="finances"]').click();
+ await expect(page.locator('[data-finances-mode="adult"]')).toBeVisible();
+ await expect(page.locator('[data-action="budget"]')).toHaveCount(1);
+ await expect(page.locator('[data-action="home"]')).toHaveCount(0);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=18;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="finances"]').click();
+ await expect(page.locator('[data-action="home"]')).toHaveCount(1);
+});
