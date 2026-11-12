@@ -1,5 +1,5 @@
 /** Original bilingual multi-year decision chains; only actual player choices schedule continuations. */
-import type {Stats,WorldImpact} from './simulation.ts';
+import type {Stats,WorldImpact,Simulation} from './simulation.ts';
 export type StoryArcId='school-team'|'coding-club'|'old-friend'|'family-plan'|'career-lead'|'health-routine';
 export type StoryArc={id:StoryArcId;phase:1|2;originAge:number;dueAge:number};
 type Text=[string,string];
@@ -71,6 +71,18 @@ const story:Record<StoryArcId,ArcInfo>={
  ]}
 };
 export const STORY_ARC_IDS=Object.keys(story) as StoryArcId[];
+/** Story resolutions cannot refer to a school or job that no longer exists. */
+const latestOrigin:Record<StoryArcId,number>={
+ 'school-team':15,'coding-club':15,'old-friend':107,
+ 'family-plan':85,'career-lead':62,'health-routine':107
+};
+export function storyArcAllowed(arc:StoryArc|null,state:Simulation,age:number):boolean {
+ if(!arc||!Number.isInteger(age)||age<arc.originAge||age>110)return false;
+ if((arc.id==='school-team'||arc.id==='coding-club')&&
+    (age>=18||(age>=6&&state.education!=='school')))return false;
+ if(arc.id==='career-lead'&&['none','retired'].includes(state.job))return false;
+ return true;
+}
 const local=(line:Text,language:'pt-BR'|'en')=>line[language==='en'?1:0];
 export function normalizeStoryArc(raw:unknown,age:number):StoryArc|null {
  if(!raw||typeof raw!=='object'||Array.isArray(raw))return null;
@@ -78,13 +90,13 @@ export function normalizeStoryArc(raw:unknown,age:number):StoryArc|null {
  if(!STORY_ARC_IDS.includes(r.id as StoryArcId)||(r.phase!==1&&r.phase!==2)||
   !Number.isInteger(r.originAge)||!Number.isInteger(r.dueAge)||!Number.isInteger(age)||
   age<0||age>110||!(r.originAge!>=0&&r.originAge!<=age)||
-  !(r.dueAge!>r.originAge!&&r.dueAge!<=110)||r.dueAge!>age+1||age-r.dueAge!>1)return null;
+  !(r.dueAge===r.originAge!+r.phase!&&r.dueAge<=110)||r.dueAge!>age+1||age-r.dueAge!>1)return null;
  return {id:r.id!,phase:r.phase!,originAge:r.originAge!,dueAge:r.dueAge!};
 }
 export function startStoryArc(id:string,index:number,age:number,current:StoryArc|null):StoryArc|null {
  if(current||!Number.isInteger(age)||age<0||age>=108)return current;
  const key=STORY_ARC_IDS.find(k=>story[k].trigger===id&&story[k].choice===index);
- return key?{id:key,phase:1,originAge:age,dueAge:age+1}:null;
+ return key&&age<=latestOrigin[key]?{id:key,phase:1,originAge:age,dueAge:age+1}:null;
 }
 export function storyArcEvent(state:StoryArc|null,language:'pt-BR'|'en'):{
  id:string;minAge:number;maxAge:number;title:string;description:string;category:string;
