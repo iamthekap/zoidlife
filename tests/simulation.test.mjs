@@ -94,3 +94,37 @@ test('first paycheck respects teen work-age limit and never overwrites an existi
  assert.equal(working.state.occupation,'chef');
  assert.equal(working.state.balance,600);
 });
+
+test('resignation is age-gated, keeps experience and stops annual salary without stale occupation',()=>{
+ const person={...createSimulation(),education:'secondary',credits:12,experience:5,balance:2500};
+ const stats={happiness:70,health:80,smarts:70,looks:60};
+ const denied=takeAction(person,stats,15,'resign');
+ assert.equal(denied.ok,false);
+ const employed=applyCareer(person,stats,24,'retail');
+ assert.equal(employed.ok,true);
+ assert.equal(employed.state.occupation,'retail');
+ const left=takeAction(employed.state,employed.stats,24,'resign');
+ assert.equal(left.ok,true);
+ assert.equal(left.state.job,'none');
+ assert.equal(left.state.occupation,null);
+ assert.equal(left.state.experience,employed.state.experience);
+ assert.equal(annualSalary(left.state),0);
+ assert.equal(takeAction(left.state,left.stats,24,'resign').ok,false);
+ const next=passYear(left.state,left.stats,25);
+ assert.equal(next.ok,true);
+ assert.ok(next.notes.every(x=>!x.startsWith('income:')));
+});
+test('narrative job changes never leave a misleading occupation attached',()=>{
+ const stats={happiness:60,health:80,smarts:65,looks:50};
+ const employed={...createSimulation(),job:'professional',occupation:'doctor',education:'college',experience:9,
+   credits:40,studyTrack:'medicine'};
+ const offer=applyNarrativeChoice(employed,stats,30,'work',0,{happiness:2});
+ assert.equal(offer.ok,true);
+ assert.equal(offer.state.job,'professional');
+ assert.equal(offer.state.occupation,'doctor');
+ assert.ok(offer.state.careerMomentum>employed.careerMomentum);
+ const switched=applyNarrativeChoice(employed,stats,30,'career-switch',0,{happiness:-1});
+ assert.equal(switched.state.job,'service');
+ assert.equal(switched.state.occupation,null);
+ assert.equal(switched.state.careerLevel,0);
+});

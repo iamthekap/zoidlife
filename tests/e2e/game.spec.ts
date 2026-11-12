@@ -1080,3 +1080,39 @@ test('a forged pending event is replaced with canonical decisions on reload',asy
  expect(after.simulation.balance).toBe(0);
  expect(after.chronicle.some(x=>x.eventId==='fabricated-event')).toBe(false);
 });
+
+test('job resignation is a real reversible career decision with persistent effects',async({page})=>{
+ await chooseBaby(page);
+ await advance(page,18);
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('[data-career="retail"]')).toBeVisible();
+ await page.locator('[data-career="retail"]').click();
+ const working=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(working.simulation.occupation).toBe('retail');
+ await expect(page.locator('[data-action="resign"]')).toBeEnabled();
+ await page.locator('[data-action="resign"]').click();
+ const resigned=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(resigned.simulation.job).toBe('none');
+ expect(resigned.simulation.occupation).toBe(null);
+ expect(resigned.simulation.experience).toBe(working.simulation.experience);
+ expect(resigned.chronicle.some(x=>x.eventId==='activity-resign')).toBe(true);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('[data-action="resign"]')).toHaveCount(0);
+});
+test('mandatory dialog traps focus, has no interactable background and reflects real stat changes',async({page})=>{
+ await chooseBaby(page);
+ await page.locator('.dock-age').click();
+ const dialog=page.getByRole('dialog');
+ await expect(dialog).toBeVisible();
+ await expect(page.locator('.game-dock')).toHaveAttribute('inert','');
+ await expect(page.locator('.life-journal')).toHaveAttribute('aria-hidden','true');
+ await page.keyboard.press('Tab');
+ expect(await page.evaluate(()=>document.activeElement?.closest('[role="dialog"]')!==null)).toBe(true);
+ await dialog.locator('[data-choice="2"]').click();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.chronicle).toHaveLength(1);
+ const card=saved.chronicle[0];
+ expect(saved.history[card.historyIndex]).toContain(card.result);
+ expect(card.result).toMatch(/Saúde|Felicidade|Inteligência|Aparência|Sem mudança/);
+});

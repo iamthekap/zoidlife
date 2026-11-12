@@ -6,7 +6,7 @@ const range=(v:unknown,lo:number,hi:number)=>typeof v==='number'&&Number.isFinit
 const short=(v:unknown,max=250):v is string=>typeof v==='string'&&v.length<=max;
 const stats=['happiness','health','smarts','looks'] as const;
 export function validateLifeSave(json:string):ImportResult {
- if(typeof json!=='string'||json.length>MAX_SAVE_BYTES)return {ok:false,error:'file-size'};
+ if(typeof json!=='string'||new TextEncoder().encode(json).length>MAX_SAVE_BYTES)return {ok:false,error:'file-size'};
  let value:unknown;
  try{value=JSON.parse(json);}catch{return {ok:false,error:'invalid-json'};}
  if(!record(value)||!short(value.name,52)||!value.name.trim()||

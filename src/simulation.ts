@@ -9,7 +9,7 @@ export type Education = 'none' | 'school' | 'secondary' | 'college';
 export type StudyTrack='general'|'medicine'|'law'|'science'|'arts';
 export const STUDY_TRACKS:readonly StudyTrack[]=['general','medicine','law','science','arts'];
 export type Relation = 'single' | 'dating' | 'married';
-export type Action = 'study' | 'job' | 'socialize' | 'care' | 'budget' | 'retire' | 'invest' | 'home' | 'child' | 'crime' | 'train' | 'mystic' | 'work' | 'style';
+export type Action = 'study' | 'job' | 'socialize' | 'care' | 'budget' | 'retire' | 'invest' | 'home' | 'child' | 'crime' | 'train' | 'mystic' | 'work' | 'style' | 'resign';
 export type Simulation = {
   schema: 2; balance: number; debt: number; education: Education; credits: number; studyTrack:StudyTrack;
   job: Job; occupation:OccupationId|null; experience: number; family: number; friends: number; partner: number;
@@ -29,7 +29,7 @@ export const annualSalary=(s:Simulation):number=>{
  const bonus=(s.job==='none'||s.job==='retired')?0:Math.round(amount*.12*Math.min(5,s.careerLevel??0));
  return amount+bonus+(s.job==='none'||s.job==='retired'?0:Math.min(s.experience,30)*360);
 };
-export const ALL_ACTIONS: Action[]=['study','job','socialize','care','budget','retire','invest','home','child','crime','train','mystic','work','style'];
+export const ALL_ACTIONS: Action[]=['study','job','socialize','care','budget','retire','invest','home','child','crime','train','mystic','work','style','resign'];
 function normalizeActionLedger(raw:unknown,lastActionAge:unknown):Partial<Record<Action,number>> {
   const ledger:Partial<Record<Action,number>>={};
   if(raw&&typeof raw==='object'&&!Array.isArray(raw)){
@@ -52,7 +52,7 @@ export function actionAgeAllowed(age:number,action:Action):boolean {
  switch(action){
   case 'study':case 'train':return age>=6;
   case 'style':case 'mystic':case 'crime':return age>=12;
-  case 'job':case 'work':case 'budget':return age>=16&&age<65;
+  case 'job':case 'work':case 'budget':case 'resign':return age>=16&&age<65;
   case 'invest':return age>=18;
   case 'home':return age>=21;
   case 'child':return age>=20&&age<=55;
@@ -83,7 +83,8 @@ export function loadSimulation(raw: unknown): Simulation {
   return { ...initial, balance: money(r.balance ?? 0), debt: money(r.debt ?? 0),
     education: degrees.includes(r.education as Education) ? r.education! : initial.education,
     credits: money(r.credits ?? 0),studyTrack:track, job: jobs.includes(r.job as Job) ? r.job! : initial.job,
-    occupation:careerById(r.occupation)?.id??null,
+    occupation:(r.job==='none'||r.job==='retired'||!jobs.includes(r.job as Job))?null:
+      (careerById(r.occupation)?.job===r.job?careerById(r.occupation)?.id??null:null),
     experience: money(r.experience ?? 0), family: bound(r.family ?? 70), friends: bound(r.friends ?? 30),
     partner: bound(r.partner ?? 0), relationship: relations.includes(r.relationship as Relation) ? r.relationship! : initial.relationship,
     lastActionAge: Number.isInteger(r.lastActionAge) ? r.lastActionAge! : -1,
@@ -216,6 +217,9 @@ export function takeAction(raw: Simulation, rawStats: Stats, age: number, action
     notes.push('career-effort:'+s.careerMomentum);
   } else if(action==='mystic'){
     return {state:raw,stats:rawStats,notes:[],ok:false};
+  } else if (action === 'resign' && age >= 16 && age < 65 && !['none','retired'].includes(s.job)) {
+    s.job='none';s.occupation=null;s.careerLevel=0;s.careerTenure=0;s.careerMomentum=0;
+    stats=updatedStats(stats,{happiness:2,health:1});notes.push('career-resigned');
   } else if (action === 'job' && age >= 16 && age < 65) {
     const next = eligibility(age, s.education);
     s.job = next;s.occupation=null;s.careerLevel=0;s.careerTenure=0;s.careerMomentum=0;
@@ -334,7 +338,11 @@ export function applyNarrativeChoice(raw: Simulation, rawStats: Stats, age: numb
       if(index===1)s.credits+=2;
       break;
     case 'work':
-      if (index === 0 && age >= 18 && age < 65) { s.job = eligibility(age, s.education); s.experience += 1; notes.push('job:' + s.job); }
+      if (index === 0 && age >= 18 && age < 65) {
+        if(s.job==='none'){s.job=eligibility(age,s.education);s.occupation=null;notes.push('job:'+s.job);}
+        else if(s.job!=='retired')s.careerMomentum=Math.min(100,s.careerMomentum+5);
+        s.experience+=1;
+      }
       if (index === 1) s.family = bound(s.family + 6);
       break;
     case 'relationship':
@@ -398,7 +406,8 @@ export function applyNarrativeChoice(raw: Simulation, rawStats: Stats, age: numb
       if (index===2) s.family=bound(s.family-15);
       break;
     case 'career-switch':
-      if (index===0) {s.job='service';s.experience=0;notes.push('job:service');}
+      if (index===0) {s.job='service';s.occupation=null;s.experience=0;
+        s.careerLevel=0;s.careerTenure=0;s.careerMomentum=0;notes.push('job:service');}
       if (index===1) s.experience+=2;
       break;
     case 'old-friend':

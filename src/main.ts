@@ -194,7 +194,7 @@ const titles: Record<Language, Record<string,string>> = {
     mystic:"Exercitar poderes",mysticInfo:"Treine habilidades únicas da sua origem.",
     work:"Dedicar-se ao trabalho",workInfo:"Aumente a experiência e conquiste promoções.",
     style:"Mudar aparência",styleInfo:"Mude roupas ou cabelo sem alterar sua história.",
-    study:"Estudar", job:"Procurar emprego", socialize:"Socializar",
+    study:"Estudar", job:"Procurar emprego", resign:"Pedir demissão",resignInfo:"Encerre seu emprego atual; experiência anterior será preservada.", socialize:"Socializar",
     invest:"Investir", home:"Comprar imóvel", child:"Ter um filho",
     care:"Cuidar da saúde", budget:"Organizar finanças", retire:"Aposentar",
     studyInfo:"Aprenda e avance na formação.", jobInfo:"Tente conseguir uma ocupação compatível com sua experiência.",
@@ -257,7 +257,7 @@ const titles: Record<Language, Record<string,string>> = {
     mystic:"Practice powers",mysticInfo:"Develop abilities from your special origin.",
     work:"Work harder",workInfo:"Build experience and earn promotions.",
     style:"Change appearance",styleInfo:"Change clothes or hair without losing your story.",
-    study:"Study", job:"Find work", socialize:"Socialize",
+    study:"Study", job:"Find work",resign:"Resign",resignInfo:"Leave your current job while keeping earned experience.", socialize:"Socialize",
     invest:"Invest", home:"Buy a home", child:"Have a child", care:"Look after health", budget:"Manage finances", retire:"Retire",
     studyInfo:"Keep learning and work toward your degree.", jobInfo:"Find work that matches your experience.",
     socializeInfo:"Strengthen bonds with people who matter.", careInfo:"Improve well-being, with costs for adults.",
@@ -437,6 +437,12 @@ function render(): void {
    '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.9.0 · PT / EN</span></footer></div>';
   app.innerHTML=shell;
   if(scene==='playing'&&life?.pendingEvent&&tab==='story'){
+    // Prevent keyboard and assistive-technology interaction with the obscured game.
+    for(const selector of ['.game-status','.game-dock','.game-side','.story-chapters',
+      '.life-journal','.mobile-vitals','.current-phase']){
+      const background=app.querySelector<HTMLElement>(selector);
+      if(background){background.inert=true;background.setAttribute('aria-hidden','true');}
+    }
     app.querySelector<HTMLButtonElement>('.event-choices .choice')?.focus({preventScroll:true});
   }
 }
@@ -730,11 +736,11 @@ function renderStory():string {
     '</details></section>';
 }
 
-const actionTypes: Action[]=['study','job','work','train','socialize','care','budget','invest','home','child','retire'];
+const actionTypes: Action[]=['study','job','work','resign','train','socialize','care','budget','invest','home','child','retire'];
 function canAction(action: Action): boolean {
   if (!life || life.simulation.ended || life.pendingEvent || !canTakeAction(life.simulation,life.age,action))return false;
   return action==='study'?life.age>=6:action==='style'?life.age>=12:action==='work'?life.age>=16&&!['none','retired'].includes(life.simulation.job):action==='train'?life.age>=6&&life.age<85:
-    action==='mystic'?life.age>=12&&isMysticOrigin(life.profile):action==='job'?life.age>=16&&life.age<65:
+    action==='mystic'?life.age>=12&&isMysticOrigin(life.profile):action==='resign'?life.age>=16&&life.age<65&&!['none','retired'].includes(life.simulation.job):action==='job'?life.age>=16&&life.age<65:
     action==='budget'?life.age>=16:action==='invest'?life.age>=18&&life.simulation.balance>=1000:
     action==='home'?life.age>=21&&!life.simulation.homeOwned&&life.simulation.balance>=25000:
     action==='child'?life.age>=20&&life.age<=55&&life.simulation.relationship!=='single'&&life.simulation.partner>=50&&life.simulation.children<8:
@@ -962,7 +968,7 @@ function renderCareer(): string {
    pair(language==='pt-BR'?'Nível profissional':'Career level',String(s.careerLevel??0))+
    pair(language==='pt-BR'?'Dedicação':'Work effort',String(s.careerMomentum??0))+
    pair(language==='pt-BR'?'Vitórias esportivas':'Sports victories',String(s.sportsVictories??0))+'</div>'+
-   '<div class="activity-grid">'+actionButton("study")+'</div>'+
+   '<div class="activity-grid">'+actionButton("study")+(!['none','retired'].includes(s.job)?actionButton('resign'):'')+'</div>'+
    '<section class="academic-track"><h3>'+safe(language==='pt-BR'?'Escolha sua formação':'Choose your academic track')+'</h3>'+
    '<p>'+safe(language==='pt-BR'?'Depois de concluir o ensino superior, escolha uma especialização estudando. Medicina, direito e ciências exigem a área correspondente. Uma escolha por ano.':'After completing college, study a specialization. Medical, legal and science careers require the matching focus. One selection per year.')+'</p>'+
    '<div><select data-study-track aria-label="'+safe(language==='pt-BR'?'Área acadêmica':'Academic track')+'">'+
@@ -1079,7 +1085,7 @@ function describeActualChanges(before:Simulation,after:Simulation,prior:Stats,ne
  return changes.join(' · ')||(pt?'Sem mudança imediata nos indicadores.':'No immediate change to indicators.');
 }
 const activityCategory:Record<Action,string>={
- study:'school',job:'work',socialize:'friend',care:'health',budget:'money',retire:'retirement',
+ study:'school',job:'work',resign:'work',socialize:'friend',care:'health',budget:'money',retire:'retirement',
  invest:'money',home:'money',child:'family',crime:'city',train:'leisure',mystic:'leisure',work:'work',style:'leisure'
 };
 
@@ -1118,14 +1124,16 @@ function ageUp(): void {
 function choose(index:number): void {
   if (!life?.pendingEvent)return;
   const event=life.pendingEvent;const choice=event.choices[index];if(!choice)return;
+  const before=life.simulation,prior=life.stats;
   const result=applyNarrativeChoice(life.simulation,life.stats,life.age,event.id,index,choice.effects,choice.world);
   if(!result.ok)return;
   life.simulation=result.state;life.stats=result.stats;
   syncLifePeople();
   const historyIndex=life.history.length;
-  life.history.push(life.age+": "+choice.result);
+  const realResult=choice.result+' · '+describeActualChanges(before,life.simulation,prior,life.stats);
+  life.history.push(life.age+": "+realResult);
   life.chronicle.push({historyIndex,age:life.age,eventId:event.id,title:event.title,
-    description:event.description,choice:choice.label,result:choice.result,
+    description:event.description,choice:choice.label,result:realResult,
     ...(event.category?{category:event.category}:{})});
   for(const n of result.notes)life.history.push(life.age+": "+caption(n));
   if(event.id!=="quiet-year"){

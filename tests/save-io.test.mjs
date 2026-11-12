@@ -61,3 +61,10 @@ test('import rejects fabricated world-effects and malformed chronicle records',(
  const validEvent={...event,choices:[{...event.choices[0],world:{cash:1200}},...event.choices.slice(1)]};
  assert.equal(validateLifeSave(JSON.stringify({...life,pendingEvent:validEvent})).ok,true);
 });
+
+test('UTF-8 byte limit includes multibyte text and does not confuse code units with bytes',()=>{
+ const max=MAX_SAVE_BYTES;
+ const text='🌱'.repeat(Math.ceil(max/4));
+ assert.equal(validateLifeSave(text).ok,false);
+ assert.equal(validateLifeSave('🌱'.repeat(Math.floor(max/4)+1)).ok,false);
+});
