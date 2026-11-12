@@ -2,6 +2,7 @@ import {createJustice,loadJustice,judgeOffense,type JusticeState,type OffenseId}
 import {normalizeConditions,advanceHealth,treatHealth,type Condition} from './health.ts';
 import {careerById,careerAvailable,type OccupationId} from './careers.ts';
 import type {CharacterProfile} from './characters.ts';
+import {HOBBY_IDS,normalizeHobbyBook,progressHobby,hobbyCost,hobbyCareer,type HobbyBook,type HobbyId} from './hobbies.ts';
 /** Original Zoid Life simulation engine; independent of third-party game code or assets. */
 export type Stats = Record<'happiness' | 'health' | 'smarts' | 'looks', number>;
 export type Job = 'none' | 'parttime' | 'service' | 'office' | 'professional' | 'retired';
@@ -16,7 +17,7 @@ export type Simulation = {
   relationship: Relation; lastActionAge: number; lastYearNotes: string[]; ended: boolean;
   /** Most recent age that each activity was performed. Allows different activities in one year. */
   actionLedger: Partial<Record<Action,number>>;
-  investments: number; homeOwned: boolean; homeValue: number; children: number; training:number;mysticMastery:number;careerLevel:number;careerTenure:number;careerMomentum:number;sportsVictories:number; conditions:Condition[];justice:JusticeState;
+  investments: number; homeOwned: boolean; homeValue: number; children: number; training:number;mysticMastery:number;careerLevel:number;careerTenure:number;careerMomentum:number;sportsVictories:number; conditions:Condition[];justice:JusticeState;hobbies:HobbyBook;
 };
 export type WorldImpact={cash?:number;debt?:number;investments?:number;family?:number;friends?:number;partner?:number;credits?:number;experience?:number;careerMomentum?:number;training?:number;mysticMastery?:number;relationship?:Relation};
 export type Outcome = { state: Simulation; stats: Stats; notes: string[]; ok: boolean };
@@ -68,7 +69,7 @@ export function createSimulation(): Simulation {
   return { schema: 2, balance: 0, debt: 0, education: 'none', credits: 0, studyTrack:'general',job: 'none', occupation:null,
     experience: 0, family: 70, friends: 30, partner: 0, relationship: 'single',
     lastActionAge: -1, actionLedger: {}, lastYearNotes: [], ended: false,
-    investments: 0, homeOwned: false, homeValue: 0, children: 0,training:0,mysticMastery:0,careerLevel:0,careerTenure:0,careerMomentum:0,sportsVictories:0,conditions:[],justice:createJustice() };
+    investments: 0, homeOwned: false, homeValue: 0, children: 0,training:0,mysticMastery:0,careerLevel:0,careerTenure:0,careerMomentum:0,sportsVictories:0,conditions:[],justice:createJustice(),hobbies:normalizeHobbyBook(null) };
 }
 /** Migrate v1 saves safely without rewriting older life history. */
 export function loadSimulation(raw: unknown): Simulation {
@@ -95,7 +96,7 @@ export function loadSimulation(raw: unknown): Simulation {
     homeValue: r.homeOwned===true ? money(r.homeValue??0) : 0,
     children: Math.min(20,money(r.children??0)),training:Math.min(100,money(r.training??0)),mysticMastery:Math.min(100,money(r.mysticMastery??0)),
  careerLevel:Math.min(5,money(r.careerLevel??0)),careerTenure:Math.min(110,money(r.careerTenure??0)),
- careerMomentum:Math.min(100,money(r.careerMomentum??0)),sportsVictories:Math.min(1000,money(r.sportsVictories??0)),conditions:normalizeConditions(r.conditions),justice:loadJustice(r.justice) };
+ careerMomentum:Math.min(100,money(r.careerMomentum??0)),sportsVictories:Math.min(1000,money(r.sportsVictories??0)),conditions:normalizeConditions(r.conditions),justice:loadJustice(r.justice),hobbies:normalizeHobbyBook(r.hobbies) };
 }
 const updatedStats = (stats: Stats, effects: Partial<Stats>): Stats => ({
   happiness: bound(stats.happiness + (effects.happiness ?? 0)),
@@ -270,6 +271,43 @@ export function takeAction(raw: Simulation, rawStats: Stats, age: number, action
   s.lastActionAge = age;
   s.actionLedger = {...raw.actionLedger,[action]:age};
   return { state: s, stats, notes, ok: true };
+}
+
+/** Hobby sessions are deliberate choices with a two-session/year opportunity cost.
+ * Progress, awards and career benefits are earned, never cosmetic-only.
+ */
+export function practiceHobby(raw:Simulation,rawStats:Stats,age:number,id:HobbyId):Outcome{
+ const book=normalizeHobbyBook(raw.hobbies);
+ if(raw.ended||!HOBBY_IDS.includes(id)||age<6||age>110||
+  loadJustice(raw.justice).incarceratedUntil>age)
+  return {state:raw,stats:rawStats,notes:[],ok:false};
+ const progress=progressHobby(book,age,id);
+ if(!progress.ok)return {state:raw,stats:rawStats,notes:[],ok:false};
+ const s:Simulation={...raw,hobbies:progress.book,lastYearNotes:[...raw.lastYearNotes]};
+ const effects:Partial<Stats>=id==='music'?{happiness:4,smarts:2}:
+  id==='art'?{looks:3,happiness:3}:
+  id==='coding'?{smarts:4,happiness:1}:
+  id==='sports'?{health:4,happiness:2}:
+  id==='writing'?{smarts:3,happiness:2}:{happiness:3,health:1};
+ let stats=updatedStats(rawStats,effects);
+ const notes=['hobby:'+id+':'+progress.level];
+ if(age>=18&&hobbyCost(id)>0)charge(s,hobbyCost(id));
+ if(id==='sports')s.training=Math.min(100,s.training+3);
+ if(id==='volunteering'){s.family=bound(s.family+5);s.friends=bound(s.friends+3);}
+ if(s.occupation&&hobbyCareer[id]?.includes(s.occupation)&&
+   !['none','retired'].includes(s.job)){
+  s.careerMomentum=Math.min(100,s.careerMomentum+7);
+  s.experience=Math.min(110,s.experience+1);
+  notes.push('hobby-career:'+id);
+ }
+ if(progress.newAwards>0){
+  // A real milestone event, awarded once upon crossing each 25-point tier.
+  const tier=Math.floor(progress.level/25);
+  if(age>=18&&id!=='volunteering')receive(s,tier*650);
+  else if(id==='volunteering')s.family=bound(s.family+7);
+  notes.push('hobby-award:'+id+':'+tier);
+ }
+ return {state:s,stats,notes,ok:true};
 }
 
 /** Selecting an academic specialization consumes the yearly study activity;
