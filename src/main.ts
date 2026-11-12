@@ -656,10 +656,7 @@ function renderStory():string {
       '<div class="event-choices">'+event.choices.map((c,i)=>'<button type="button" data-choice="'+i+
       '" class="choice"><span>'+safe(c.label)+'</span><span class="choice-index">'+(i+1)+'</span></button>').join('')+
       '</div></div></section>':
-    life.simulation.ended?renderLifeRecap():
-    '<div class="age-ready"><span class="ready-spark">✦</span>'+
-     '<span>'+safe(language==='pt-BR'?'Um novo ano espera por você. Use + Idade no centro da barra inferior.':
-      'A new year is waiting. Press + Age in the center below.')+'</span></div>';
+    life.simulation.ended?renderLifeRecap():'';
   return '<section class="story-layout game-feed" data-story-first="storyboard">'+
     renderStoryboardTimeline(life.profile,life.age,life.history,language,eventHtml)+
     timelineEntries()+'</section>';

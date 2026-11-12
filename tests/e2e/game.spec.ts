@@ -872,3 +872,12 @@ test('timeline branding and loading wordmark never paint both brand words the sa
  expect(colors.blue).toBe('rgb(58, 134, 255)');
  expect(colors.red).toBe('rgb(255, 0, 68)');
 });
+
+test('an idle life starts directly with the illustrated chronology, never a generic readiness banner',async({page})=>{
+ await chooseBaby(page);
+ await expect(page.locator('.storyboard-timeline')).toBeVisible();
+ await expect(page.locator('.storyboard-timeline .storyboard-track')).toBeVisible();
+ await expect(page.locator('.age-ready')).toHaveCount(0);
+ await expect(page.locator('[data-storyboard-current]')).toHaveCount(0);
+ await expect(page.locator('.storyboard-baby .storyboard-scene')).toBeVisible();
+});
