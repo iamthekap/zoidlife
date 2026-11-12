@@ -9,6 +9,7 @@ import { selectEvent, recordEvent, migrateLedger, type EventLedger } from "./eve
 import { eventScene, iconSvg } from "./event-scenes";
 import { portraitLife, lifeStage } from "./life-art";
 import { renderStoryboardTimeline } from "./storyboard";
+import {normalizeChronicle,livedHistory,type ChronicleEvent} from "./chronicle";
 import { makeLifeReport,reportAsText } from "./life-summary";
 import { healthLabel,type ConditionId } from "./health";
 import { OFFENSES,justiceLabel,legalStatus,type OffenseId } from "./justice";
@@ -31,6 +32,7 @@ type Life = {
   stats: Stats;
   pendingEvent: LifeEvent | null;
   history: string[];
+  chronicle: ChronicleEvent[];
   seenEventIds: string[];
   eventLedger: EventLedger;
   lastEventId: string | null;
@@ -160,6 +162,7 @@ let scene: Scene = "welcome";
 let tab: Tab = "story";
 let menuOpen=false;
 let chaptersOpen=true;
+let journalVisibleCount=60;
 let menuError="";
 let candidates = randomCandidates(3);
 let custom:CharacterProfile = { ...randomCharacter(), name: "", origin:"custom", nature:"human" };
@@ -304,10 +307,11 @@ function loadLife(): Life|null {
     const fallbackFamily=makeFamily(name);
     const profile=normalizeProfile(r.profile,name);
     const simulation=loadSimulation(r.simulation);
+    const history=Array.isArray(r.history)?r.history.filter((x):x is string=>typeof x==='string').slice(-6000):[];
     const restored:Life={ name,birthYear:Number.isInteger(r.birthYear)?Number(r.birthYear):new Date().getFullYear(),
       age:Math.min(110,Math.max(0,r.age)),stats,
       pendingEvent:r.pendingEvent && typeof r.pendingEvent==='object' ? r.pendingEvent:null,
-      history:Array.isArray(r.history)?r.history.filter((x):x is string=>typeof x==='string').slice(-300):[],
+      history,chronicle:normalizeChronicle(r.chronicle,history,Math.max(0,Math.min(110,r.age))),
       seenEventIds:Array.isArray(r.seenEventIds)?r.seenEventIds.filter((x):x is string=>typeof x==='string'):[],
       eventLedger:migrateLedger(r.eventLedger,r.seenEventIds),
       lastEventId:typeof r.lastEventId==='string'?r.lastEventId:null,
@@ -346,7 +350,7 @@ function createLife(profile: CharacterProfile, stats: Stats): void {
   life={ name:normalized.name, profile:normalized, familyMembers:makeFamily(normalized.name),
     social:initialSocial(normalized),
     birthYear:new Date().getFullYear(),age:0,
-    stats:{...stats},pendingEvent:null,history:[u("birthNote")+" "+normalized.city+", "+countryName(normalized.country)+"."],
+    stats:{...stats},pendingEvent:null,history:[u("birthNote")+" "+normalized.city+", "+countryName(normalized.country)+"."],chronicle:[],
     seenEventIds:[],eventLedger:{},lastEventId:null,simulation:createSimulation(),ancestors:[] };
   tab="story";scene="playing";saveLife();render();
 }
@@ -412,6 +416,9 @@ function render(): void {
      scene==="custom"?renderCustom():renderPlay())+
    '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.9.0 · PT / EN</span></footer></div>';
   app.innerHTML=shell;
+  if(scene==='playing'&&life?.pendingEvent&&tab==='story'){
+    app.querySelector<HTMLButtonElement>('.event-choices .choice')?.focus({preventScroll:true});
+  }
 }
 function renderWelcome(): string {
   const hasSave=Boolean(life);
@@ -550,25 +557,42 @@ function renderVitals(): string {
    conditionHtml+'</section>';
 }
 /** Timeline is a chronological record, not a random event card with no history. */
+/** One chronological source of truth: every saved action is kept, with story cards for actual decisions. */
 function timelineEntries():string {
-  if(!life)return '';
-  const entries=life.history.slice(-100).reverse();
-  const item=(line:string)=>{
-    const parsed=/^(\d{1,3}):\s*(.*)$/.exec(line);
-    const age=parsed?Number(parsed[1]):0,text=parsed?parsed[2]:line;
-    const icon=/escol|estud|schol|faculdade|educa|curso|gradua|univer|aprend/i.test(text)?'book':
+ if(!life)return '';
+ const records=livedHistory(life.history,life.age);
+ const entries=records.slice(-journalVisibleCount).reverse();
+ const stories=new Map(life.chronicle.map(entry=>[entry.historyIndex,entry]));
+ const item=(entry:typeof entries[number])=>{
+   const age=entry.age,text=entry.text;
+   const detail=stories.get(entry.historyIndex);
+   const kind=detail?' story-decision':'';
+   const symbol=/escol|estud|schol|faculdade|educa|curso|gradua|univer|aprend/i.test(text)?'book':
       /trabal|empreg|carreira|job|work|profiss/i.test(text)?'briefcase':
       /dinheiro|saldo|receb|dívida|invest|income|debt|cash|financ/i.test(text)?'wallet':
       /saúde|health|médic|doença|hospital/i.test(text)?'medkit':
       /amig|famíl|relacion|casou|namor|child|partner|friend/i.test(text)?'heart':'star';
-    return '<li class="life-entry"><span class="entry-glyph">'+iconSvg(icon,24)+'</span>'+
-      '<div class="entry-content"><span class="entry-age">'+safe(u("age"))+': '+age+'</span>'+
-      '<p>'+safe(text)+'</p></div></li>';
-  };
-  return '<section class="life-journal"><div class="journal-heading"><h2>'+safe(u("timeline"))+'</h2>'+
-    '<span>'+entries.length+' '+safe(language==='pt-BR'?'registros':'entries')+'</span></div>'+
-    (entries.length?'<ol>'+entries.map(item).join('')+'</ol>':'<p>'+safe(u("noTimeline"))+'</p>')+'</section>';
+   const chapter=detail?
+     '<div class="chronicle-panel" data-chronicle-event="'+safe(detail.eventId)+'">'+
+     '<div class="chronicle-illustration">'+eventScene(detail.eventId,life!.profile,language,age,detail.category)+'</div>'+
+     '<div class="chronicle-story"><h3>'+safe(detail.title)+'</h3>'+
+     '<p class="chronicle-prompt">'+safe(detail.description)+'</p>'+
+     '<p class="chronicle-choice"><strong>'+safe(language==='pt-BR'?'Sua escolha:':'Your choice:')+'</strong> '+safe(detail.choice)+'</p>'+
+     '<p class="chronicle-result"><strong>'+safe(language==='pt-BR'?'Consequência:':'Outcome:')+'</strong> '+safe(detail.result)+'</p>'+
+     '</div></div>':'<p>'+safe(text)+'</p>';
+   return '<li class="life-entry'+kind+'" data-history-index="'+entry.historyIndex+'">'+
+     '<span class="entry-glyph">'+iconSvg(symbol,24)+'</span>'+
+     '<div class="entry-content"><span class="entry-age">'+safe(u("age"))+': '+age+'</span>'+
+     chapter+'</div></li>';
+ };
+ const remaining=records.length-entries.length;
+ return '<section class="life-journal" aria-label="'+safe(u("timeline"))+'"><div class="journal-heading"><h2>'+safe(u("timeline"))+'</h2>'+
+    '<span>'+records.length+' '+safe(language==='pt-BR'?'registros':'entries')+'</span></div>'+
+    (entries.length?'<ol>'+entries.map(item).join('')+'</ol>':'<p>'+safe(u("noTimeline"))+'</p>')+
+    (remaining>0?'<button type="button" class="journal-more" data-do="more-history">'+
+      safe(language==='pt-BR'?'Ver registros anteriores':'Show older records')+' ('+remaining+')</button>':'')+'</section>';
 }
+
 function continueAsDescendant(id:string):void{
  if(!life||!life.simulation.ended)return;
  const previous=life;
@@ -603,7 +627,7 @@ function continueAsDescendant(id:string):void{
    name:childProfile.name,profile:childProfile,birthYear:previous.birthYear+child.bornAtPlayerAge,
    age:nextAge,stats:{happiness:65,health:Math.max(40,80-Math.floor(nextAge/5)),smarts:55,looks:60},
    history:[nextAge+': '+(language==='pt-BR'?'Você assumiu o próximo capítulo da família.':
-    'You began the next chapter of your family.')],
+    'You began the next chapter of your family.')],chronicle:[],
    pendingEvent:null,seenEventIds:[],eventLedger:{},lastEventId:null,simulation,
    social:family,familyMembers:makeFamily(childProfile.name),ancestors
  };
@@ -660,14 +684,16 @@ function downloadLifeRecap():void{
 function renderStory():string {
   if(!life)return '';
   const event=life.pendingEvent;
-  const eventHtml=event?'<section class="story-event decision-card">'+
+  const eventHtml=event?'<div class="event-modal-overlay" data-event-modal="true">'+
+   '<section class="story-event decision-card" role="dialog" aria-modal="true" aria-labelledby="current-event-title">'+
       eventScene(event.id,life.profile,language,life.age,event.category)+
       '<div class="decision-body"><span class="story-label">'+safe(u("event"))+' · '+safe(ageText(life.age))+'</span>'+
-      '<h2>'+safe(event.title)+'</h2><p>'+safe(event.description)+'</p>'+
+      '<h2 id="current-event-title">'+safe(event.title)+'</h2><p>'+safe(event.description)+'</p>'+
       '<div class="event-choices">'+event.choices.map((c,i)=>'<button type="button" data-choice="'+i+
       '" class="choice"><span>'+safe(c.label)+'</span><span class="choice-index">'+(i+1)+'</span></button>').join('')+
-      '</div></div></section>':
+      '</div></div></section></div>':
     life.simulation.ended?renderLifeRecap():'';
+
   // The latest choice and actual chronological journal come first.
   // Illustrated chapters are the supporting storybook, not a giant landing banner.
   const chapterTitle=language==='pt-BR'?'Capítulos ilustrados da vida':'Illustrated life chapters';
@@ -995,6 +1021,7 @@ function ageUp(): void {
   const transition=passYear(life.simulation,life.stats,age);
   if(!transition.ok)return;
   life.age=age;life.simulation=transition.state;life.stats=transition.stats;
+  life.history.push(age+': '+(language==='pt-BR'?'Você completou mais um ano de vida.':'You reached another year of life.'));
   syncLifePeople();
   transition.notes.forEach(n=>life!.history.push(age+": "+caption(n)));
   if (!transition.state.ended) {
@@ -1010,7 +1037,11 @@ function choose(index:number): void {
   if(!result.ok)return;
   life.simulation=result.state;life.stats=result.stats;
   syncLifePeople();
+  const historyIndex=life.history.length;
   life.history.push(life.age+": "+choice.result);
+  life.chronicle.push({historyIndex,age:life.age,eventId:event.id,title:event.title,
+    description:event.description,choice:choice.label,result:choice.result,
+    ...(event.category?{category:event.category}:{})});
   for(const n of result.notes)life.history.push(life.age+": "+caption(n));
   if(event.id!=="quiet-year"){
     if(!life.seenEventIds.includes(event.id))life.seenEventIds.push(event.id);
@@ -1112,6 +1143,7 @@ function newLife(): void {
 }
 function handleAction(value:string):void {
   if(value==="language"){changeLanguage();return;}
+  if(value==="more-history"){journalVisibleCount=Math.min(6000,journalVisibleCount+60);render();return;}
   if(value==="toggle-menu"){menuOpen=!menuOpen;menuError="";render();return;}
   if(value==="close-menu"){menuOpen=false;menuError="";render();return;}
   if(value==="export-save"){downloadLife();return;}
@@ -1149,7 +1181,8 @@ appEl?.addEventListener("click",e=>{
   const career=target.closest<HTMLButtonElement>("[data-career]");
   if(career){applyToCareer(career.dataset.career||'');return;}
   const nav=target.closest<HTMLButtonElement>("[data-tab]");
-  if(nav){tab=nav.dataset.tab as Tab;render();return;}
+  if(nav){if(life?.pendingEvent){tab='story';render();return;}
+    tab=nav.dataset.tab as Tab;render();return;}
   const choice=target.closest<HTMLButtonElement>("[data-choice]");
   if(choice){choose(Number(choice.dataset.choice));return;}
   const action=target.closest<HTMLButtonElement>("[data-action]");
@@ -1210,6 +1243,22 @@ appEl?.addEventListener("submit",e=>{
   createLife(result,customStats);
 });
 document.addEventListener("keydown",e=>{
+  if(life?.pendingEvent&&scene==='playing'){
+    if(e.key==='Escape'){e.preventDefault();return;}
+    if(e.key==='Tab'){
+      const dialog=appEl?.querySelector<HTMLElement>('.story-event[role="dialog"]');
+      const buttons=Array.from(dialog?.querySelectorAll<HTMLButtonElement>('.event-choices button:not(:disabled)')??[]);
+      if(buttons.length){
+        const first=buttons[0],last=buttons[buttons.length-1];
+        if(e.shiftKey&&(document.activeElement===first||!dialog?.contains(document.activeElement))){
+          e.preventDefault();last.focus();
+        }else if(!e.shiftKey&&(document.activeElement===last||!dialog?.contains(document.activeElement))){
+          e.preventDefault();first.focus();
+        }
+      }
+    }
+    return;
+  }
   if(e.key==="Escape"&&menuOpen){menuOpen=false;menuError="";render();}
 });
 /** Visible app boot state, removed once the game model is ready. */
