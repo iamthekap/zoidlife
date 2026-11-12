@@ -52,7 +52,7 @@ function backdrop(d:Canvas,key:number):void{
   d.r(15,113,65,2,'#a7afc4',' opacity=".42"');
  });
 }
-function trousers(d:Canvas,stage:MatureStage,cloth:Pal,key:number,legY:number):void{
+function trousers(d:Canvas,stage:MatureStage,cloth:Pal,skin:Pal,key:number,legY:number):void{
  const pants=stage==='child'?
   {light:'#9bc0d6',mid:'#6087ac',dark:'#3b5b81'}:
   {light:'#7799b5',mid:'#445e7d',dark:'#293c58'};
@@ -60,9 +60,17 @@ function trousers(d:Canvas,stage:MatureStage,cloth:Pal,key:number,legY:number):v
  const w=stage==='child'?12:12,feet=112;
  d.g('legs',()=>{
   for(const x of [left,right]){
-   d.r(x-1,legY,14,feet-legY-2,pants.dark);
-   d.r(x,legY,12,feet-legY-4,pants.mid);
-   d.r(x+2,legY+4,4,Math.max(2,feet-legY-11),pants.light,' opacity=".52"');
+   if(stage==='child'){
+     d.r(x-1,legY,14,10,cloth.dark);
+     d.r(x,legY+1,12,8,cloth.mid);
+     d.r(x,legY+9,12,feet-legY-15,skin.mid);
+     d.r(x+1,legY+10,10,feet-legY-16,skin.light);
+     d.r(x,feet-10,12,5,'#f6f3ee');
+   }else{
+     d.r(x-1,legY,14,feet-legY-2,pants.dark);
+     d.r(x,legY,12,feet-legY-4,pants.mid);
+     d.r(x+2,legY+4,4,Math.max(2,feet-legY-11),pants.light,' opacity=".52"');
+   }
    d.r(x-2,feet-7,16,7,'#4a5267');
    d.r(x-1,feet-6,17,5,key%3===0?'#8d99b2':'#e4e5eb');
    d.r(x,feet-5,15,2,'#f5f5f3');
@@ -76,12 +84,16 @@ function trousers(d:Canvas,stage:MatureStage,cloth:Pal,key:number,legY:number):v
 }
 function outfit(d:Canvas,stage:MatureStage,cloth:Pal,skin:Pal,key:number):void{
  const rig=RIG[stage],x=Math.floor(48-rig.torsoW/2),w=rig.torsoW,y=rig.torso;
- trousers(d,stage,cloth,key,rig.leg);
+ trousers(d,stage,cloth,skin,key,rig.leg);
  d.g('body-outfit',()=>{
   // Rounded shoulders, two independent arms, tapered torso.
   d.r(x+2,y-2,w-4,4,cloth.dark);d.r(x,y+1,w,rig.leg-y,cloth.dark);
   d.r(x+1,y+2,w-2,rig.leg-y-3,cloth.mid);
   d.r(x+3,y+3,w-6,4,cloth.light);
+  if(stage==='child'){
+   d.r(x,rig.leg-9,2,7,cloth.light);
+   d.r(x+w-2,rig.leg-9,2,7,cloth.light);
+  }
   d.r(x-6,y+6,8,19,cloth.dark);d.r(x-5,y+7,7,17,cloth.mid);
   d.r(x+w-1,y+6,8,19,cloth.dark);d.r(x+w,y+7,7,17,cloth.mid);
   d.r(x-5,y+25,7,8,skin.dark);d.r(x-4,y+25,5,7,skin.light);
@@ -128,10 +140,15 @@ function scalpBehind(d:Canvas,stage:MatureStage,p:CharacterProfile,h:Pal):void{
  const z=RIG[stage],{x,y,w}=z;
  if(p.hair==='long'){
   d.g('hair-behind',()=>{
-   d.r(x-4,y+10,8,stage==='child'?49:55,h.dark);
-   d.r(x+w-4,y+10,8,stage==='child'?49:55,h.dark);
-   d.r(x-2,y+14,5,stage==='child'?47:50,h.mid);
-   d.r(x+w-3,y+14,5,stage==='child'?47:50,h.mid);
+   const strands=stage==='child'?27:stage==='teen'?36:stage==='adult'?48:42;
+   d.r(x-4,y+10,7,strands,h.dark);
+   d.r(x+w-3,y+10,7,strands,h.dark);
+   d.r(x-3,y+14,4,strands-4,h.mid);
+   d.r(x+w-1,y+14,4,strands-4,h.mid);
+   if(stage==='child'){
+     d.r(x-5,y+29,9,5,h.dark);
+     d.r(x+w-4,y+29,9,5,h.dark);
+   }
    d.r(x+3,y+6,w-6,12,h.dark);
   });
  }
@@ -203,10 +220,24 @@ function hairstyle(d:Canvas,stage:MatureStage,p:CharacterProfile,h:Pal,seed:numb
    }
    d.r(x+9,top+11,w-17,6,h.mid);
   }else{
-   d.r(x+5,top+4,w-10,8,h.dark);d.r(x+10,top+1,w-19,6,h.mid);
-   d.r(x+2,top+10,7,20,h.dark);d.r(x+w-9,top+10,7,20,h.dark);
-   d.r(x+7,top+9,w-14,6,h.mid);d.r(x+10,top+4,9,2,h.light);
-   d.r(x+8,top+14,8,3,h.mid);
+   // Hair grows in staggered tufts; child's cut is a bob, not a giant adult helmet.
+   d.r(x+8,top+3,w-16,4,h.dark);
+   d.r(x+4,top+7,w-8,6,h.dark);
+   d.r(x+3,top+11,6,6,h.mid);
+   d.r(x+w-9,top+11,6,6,h.mid);
+   d.r(x+9,top+5,w-18,4,h.mid);
+   d.r(x+12,top+2,6,2,h.light);
+   d.r(x+19,top+5,5,2,h.light);
+   d.r(x+7,top+11,10,4,h.mid);
+   d.r(x+10,top+13,8,3,h.dark); // deliberate curved fringe above left brow
+   const length=stage==='child'?11:stage==='teen'?16:stage==='adult'?23:20;
+   d.r(x+1,top+15,4,length,h.dark);
+   d.r(x+w-5,top+15,4,length,h.dark);
+   d.r(x+2,top+17,2,Math.max(3,length-3),h.mid);
+   d.r(x+w-4,top+17,2,Math.max(3,length-3),h.mid);
+   if(stage==='child'){
+     d.r(x-2,top+23,7,4,h.dark);d.r(x+w-5,top+23,7,4,h.dark);
+   }
   }
   // A few gray strands signify aging without replacing inherited hair pigment.
   if(senior){

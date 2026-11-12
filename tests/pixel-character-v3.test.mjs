@@ -36,3 +36,12 @@ test('aging does not replace original hair or skin colors, seniors gain age deta
  assert.ok(senior.includes('fill="#252735"'));
  assert.ok(child.includes('fill="#252735"'));
 });
+
+test('child haircut and clothing have deliberately shorter cut and shorts, not adult trousers',()=>{
+ const child=renderMatureCharacter(profile,'child');
+ const adult=renderMatureCharacter(profile,'adult');
+ assert.notEqual(child,adult);
+ assert.ok(child.includes('data-part="legs"'));
+ assert.ok(adult.includes('data-part="legs"'));
+ assert.ok(child.includes('data-part="age-hair"'));
+});
