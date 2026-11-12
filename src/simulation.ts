@@ -3,6 +3,7 @@ import {normalizeConditions,advanceHealth,treatHealth,type Condition} from './he
 import {careerById,careerAvailable,type OccupationId} from './careers.ts';
 import type {CharacterProfile} from './characters.ts';
 import {HOBBY_IDS,normalizeHobbyBook,progressHobby,hobbyCost,hobbyCareer,type HobbyBook,type HobbyId} from './hobbies.ts';
+import {destination,canTravel,normalizeTravelState,recordTravel,type TravelState,type JourneyId} from './travel.ts';
 /** Original Zoid Life simulation engine; independent of third-party game code or assets. */
 export type Stats = Record<'happiness' | 'health' | 'smarts' | 'looks', number>;
 export type Job = 'none' | 'parttime' | 'service' | 'office' | 'professional' | 'retired';
@@ -10,14 +11,14 @@ export type Education = 'none' | 'school' | 'secondary' | 'college';
 export type StudyTrack='general'|'medicine'|'law'|'science'|'arts';
 export const STUDY_TRACKS:readonly StudyTrack[]=['general','medicine','law','science','arts'];
 export type Relation = 'single' | 'dating' | 'married';
-export type Action = 'study' | 'job' | 'socialize' | 'care' | 'budget' | 'retire' | 'invest' | 'home' | 'child' | 'crime' | 'train' | 'mystic' | 'work' | 'style' | 'resign' | 'withdraw';
+export type Action = 'study' | 'job' | 'socialize' | 'care' | 'budget' | 'retire' | 'invest' | 'home' | 'child' | 'crime' | 'train' | 'mystic' | 'work' | 'style' | 'resign' | 'withdraw' | 'travel';
 export type Simulation = {
   schema: 2; balance: number; debt: number; education: Education; credits: number; studyTrack:StudyTrack;
   job: Job; occupation:OccupationId|null; experience: number; family: number; friends: number; partner: number;
   relationship: Relation; lastActionAge: number; lastYearNotes: string[]; ended: boolean;
   /** Most recent age that each activity was performed. Allows different activities in one year. */
   actionLedger: Partial<Record<Action,number>>;
-  investments: number; homeOwned: boolean; homeValue: number; children: number; training:number;mysticMastery:number;careerLevel:number;careerTenure:number;careerMomentum:number;sportsVictories:number; conditions:Condition[];justice:JusticeState;hobbies:HobbyBook;
+  investments: number; homeOwned: boolean; homeValue: number; children: number; training:number;mysticMastery:number;careerLevel:number;careerTenure:number;careerMomentum:number;sportsVictories:number; conditions:Condition[];justice:JusticeState;hobbies:HobbyBook;travel:TravelState;
 };
 export type WorldImpact={cash?:number;debt?:number;investments?:number;family?:number;friends?:number;partner?:number;credits?:number;experience?:number;careerMomentum?:number;training?:number;mysticMastery?:number;relationship?:Relation};
 export type Outcome = { state: Simulation; stats: Stats; notes: string[]; ok: boolean };
@@ -30,7 +31,7 @@ export const annualSalary=(s:Simulation):number=>{
  const bonus=(s.job==='none'||s.job==='retired')?0:Math.round(amount*.12*Math.min(5,s.careerLevel??0));
  return amount+bonus+(s.job==='none'||s.job==='retired'?0:Math.min(s.experience,30)*360);
 };
-export const ALL_ACTIONS: Action[]=['study','job','socialize','care','budget','retire','invest','home','child','crime','train','mystic','work','style','resign','withdraw'];
+export const ALL_ACTIONS: Action[]=['study','job','socialize','care','budget','retire','invest','home','child','crime','train','mystic','work','style','resign','withdraw','travel'];
 function normalizeActionLedger(raw:unknown,lastActionAge:unknown):Partial<Record<Action,number>> {
   const ledger:Partial<Record<Action,number>>={};
   if(raw&&typeof raw==='object'&&!Array.isArray(raw)){
@@ -54,7 +55,7 @@ export function actionAgeAllowed(age:number,action:Action):boolean {
   case 'study':case 'train':return age>=6;
   case 'style':case 'mystic':case 'crime':return age>=12;
   case 'job':case 'work':case 'budget':case 'resign':return age>=16&&age<65;
-  case 'invest':case 'withdraw':return age>=18;
+  case 'invest':case 'withdraw':case 'travel':return age>=18;
   case 'home':return age>=21;
   case 'child':return age>=20&&age<=55;
   case 'retire':return age>=60;
@@ -69,7 +70,7 @@ export function createSimulation(): Simulation {
   return { schema: 2, balance: 0, debt: 0, education: 'none', credits: 0, studyTrack:'general',job: 'none', occupation:null,
     experience: 0, family: 70, friends: 30, partner: 0, relationship: 'single',
     lastActionAge: -1, actionLedger: {}, lastYearNotes: [], ended: false,
-    investments: 0, homeOwned: false, homeValue: 0, children: 0,training:0,mysticMastery:0,careerLevel:0,careerTenure:0,careerMomentum:0,sportsVictories:0,conditions:[],justice:createJustice(),hobbies:normalizeHobbyBook(null) };
+    investments: 0, homeOwned: false, homeValue: 0, children: 0,training:0,mysticMastery:0,careerLevel:0,careerTenure:0,careerMomentum:0,sportsVictories:0,conditions:[],justice:createJustice(),hobbies:normalizeHobbyBook(null),travel:normalizeTravelState(null) };
 }
 /** Migrate v1 saves safely without rewriting older life history. */
 export function loadSimulation(raw: unknown): Simulation {
@@ -96,7 +97,7 @@ export function loadSimulation(raw: unknown): Simulation {
     homeValue: r.homeOwned===true ? money(r.homeValue??0) : 0,
     children: Math.min(20,money(r.children??0)),training:Math.min(100,money(r.training??0)),mysticMastery:Math.min(100,money(r.mysticMastery??0)),
  careerLevel:Math.min(5,money(r.careerLevel??0)),careerTenure:Math.min(110,money(r.careerTenure??0)),
- careerMomentum:Math.min(100,money(r.careerMomentum??0)),sportsVictories:Math.min(1000,money(r.sportsVictories??0)),conditions:normalizeConditions(r.conditions),justice:loadJustice(r.justice),hobbies:normalizeHobbyBook(r.hobbies) };
+ careerMomentum:Math.min(100,money(r.careerMomentum??0)),sportsVictories:Math.min(1000,money(r.sportsVictories??0)),conditions:normalizeConditions(r.conditions),justice:loadJustice(r.justice),hobbies:normalizeHobbyBook(r.hobbies),travel:normalizeTravelState(r.travel) };
 }
 const updatedStats = (stats: Stats, effects: Partial<Stats>): Stats => ({
   happiness: bound(stats.happiness + (effects.happiness ?? 0)),
@@ -308,6 +309,20 @@ export function practiceHobby(raw:Simulation,rawStats:Stats,age:number,id:HobbyI
   notes.push('hobby-award:'+id+':'+tier);
  }
  return {state:s,stats,notes,ok:true};
+}
+
+/** Optional yearly journey: actually charge the fare, update bonds and remember the trip. */
+export function takeJourney(raw:Simulation,rawStats:Stats,age:number,id:JourneyId):Outcome{
+ const trip=destination(id),diary=normalizeTravelState(raw.travel);
+ if(!trip||!canTakeAction(raw,age,'travel')||!canTravel(diary,age,id,raw.balance))
+  return {state:raw,stats:rawStats,notes:[],ok:false};
+ const s:Simulation={...raw,travel:recordTravel(diary,age,id),
+  lastYearNotes:[...raw.lastYearNotes],actionLedger:{...raw.actionLedger,travel:age},lastActionAge:age};
+ charge(s,trip.cost);
+ s.family=bound(s.family+trip.family);s.friends=bound(s.friends+trip.friends);
+ s.credits=Math.max(0,s.credits+trip.credits);
+ const stats=updatedStats(rawStats,trip.effects);
+ return {state:s,stats,notes:['trip:'+id,'trip-cost:'+trip.cost],ok:true};
 }
 
 /** Selecting an academic specialization consumes the yearly study activity;
