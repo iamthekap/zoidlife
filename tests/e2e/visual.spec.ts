@@ -11,6 +11,18 @@ test('save visual acceptance captures for newborns, growth and life journal',asy
  await page.locator('[data-do="preset-0"]').click();
  await expect(page.locator('.storyboard-baby')).toBeVisible();
  await page.screenshot({path:'test-results/visual/03-life-journal-newborn.png',fullPage:true});
+ await page.locator('.dock-age').click();
+ await expect(page.getByRole('dialog')).toBeVisible();
+ await page.screenshot({path:'test-results/visual/16-annual-decision-modal-mobile.png',fullPage:true});
+ await page.locator('[data-choice="1"]').click();
+ await expect(page.locator('.life-journal .chronicle-panel')).toHaveCount(1);
+ await page.screenshot({path:'test-results/visual/17-lived-choice-story-card.png',fullPage:true});
+ await page.setViewportSize({width:1440,height:900});
+ await page.locator('.dock-age').click();
+ await expect(page.getByRole('dialog')).toBeVisible();
+ await page.screenshot({path:'test-results/visual/18-annual-decision-modal-desktop.png',fullPage:true});
+ await page.locator('[data-choice="0"]').click();
+
  await page.evaluate(()=>{
    const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
    saved.age=24;saved.simulation.education='college';saved.simulation.credits=16;
