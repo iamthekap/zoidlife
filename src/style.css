@@ -928,3 +928,33 @@ body:has(.event-modal-overlay){overflow:hidden;}
  .sound-toggle-mini{font-size:15px;min-width:31px;flex-basis:31px;}
  .game-status{gap:5px;}
 }
+
+/* Earned creative, athletic and community talents: real progress, not a decorative stat sheet. */
+.talent-studio{margin:22px 0 12px;border-top:2px solid #d6e5f8;padding-top:18px;display:grid;gap:15px;}
+.talent-intro{display:grid;gap:6px;}
+.talent-intro h3{font-size:clamp(15px,3vw,20px);color:#1d4379;font-weight:900;line-height:1.2;}
+.talent-intro p{font-size:12px;line-height:1.6;color:#526c8b;}
+.talent-intro>span{width:max-content;padding:5px 9px;background:#e9f2ff;border-radius:8px;
+ color:#245caa;font-size:11px;font-weight:800;}
+.talent-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;}
+.talent-card{min-width:0;display:grid;gap:9px;padding:14px 12px;border:1px solid #d4e2f3;
+ border-radius:13px;background:linear-gradient(155deg,#ffffff,#f4f8ff);}
+.talent-head,.talent-details{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0;}
+.talent-head strong{font-size:13px;line-height:1.3;color:#183c70;overflow-wrap:anywhere;}
+.talent-head>span{font-size:12px;color:#2467b9;font-weight:900;font-variant-numeric:tabular-nums;}
+.talent-details{flex-wrap:wrap;}
+.talent-details small{font-size:10px;color:#6682a3;}
+.talent-track{background:#d9e6f6;border-radius:20px;height:10px;overflow:hidden;position:relative;}
+.talent-track>span{display:block;height:100%;border-radius:20px;background:linear-gradient(90deg,#3a86ff,#ff0044);}
+.talent-card button{border:1px solid #94b7eb;border-radius:8px;min-height:39px;padding:8px 9px;
+ color:white;background:#3a86ff;font-weight:850;font-size:11px;cursor:pointer;}
+.talent-card button:disabled{background:#e9eff8;color:#7e92ad;border-color:#d0deed;cursor:not-allowed;}
+.talent-card button:focus-visible{outline:3px solid #ff0044;outline-offset:2px;}
+@media(max-width:540px){.talent-grid{grid-template-columns:1fr 1fr;gap:7px;}
+ .talent-card{padding:11px 8px;gap:8px;}
+ .talent-head{flex-wrap:wrap;gap:2px;}
+ .talent-head strong{font-size:11px;}
+ .talent-details{gap:3px;}
+ .talent-details small{font-size:9px;}
+}
+@media(max-width:350px){.talent-grid{grid-template-columns:1fr;}}
