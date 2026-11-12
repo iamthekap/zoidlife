@@ -80,3 +80,13 @@ test('growth retains recognizable eyes, skin and age-specific clothing without a
   assert.ok(!sprite.includes('data-part="facial-hair"'));
  }
 });
+
+test('curly hair renders connected tufts rather than a disconnected box crown',()=>{
+ const curly=renderMatureCharacter({...profile,hair:'curls'},'child');
+ const short=renderMatureCharacter({...profile,hair:'short'},'child');
+ assert.notEqual(curly,short);
+ assert.ok(curly.includes('data-part="age-hair"'));
+ assert.ok(curly.includes('data-part="age-face"'));
+ assert.ok(curly.includes('fill="#38836b"'));
+ assert.ok(!curly.includes('<image')&&!curly.includes('href='));
+});

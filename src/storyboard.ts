@@ -30,7 +30,7 @@ export function readHistory(line:string):{age:number;text:string}|null {
 }
 export function milestonesUntil(age:number,history:readonly string[],locale:Locale):LifeMilestone[] {
  const current=Math.max(0,Math.min(110,Math.floor(Number.isFinite(age)?age:0)));
- const parsed=history.slice(-300).map(readHistory).filter((x):x is {age:number;text:string}=>x!==null && x.age<=current);
+ const parsed=history.map(readHistory).filter((x):x is {age:number;text:string}=>x!==null && x.age<=current);
  return stages.filter(s=>s.age<=current).map((s,i)=>{
    const next=stages[i+1]?.age??111;
    const notes=parsed.filter(x=>x.age>=s.age&&x.age<next).map(x=>x.text);

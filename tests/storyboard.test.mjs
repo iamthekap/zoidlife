@@ -49,3 +49,15 @@ test('timeline localizes labels without rewriting user history',()=>{
  assert.ok(html.includes('Child'));
  assert.ok(html.includes('A primeira prova.'));
 });
+
+test('long real lives keep earliest stage-specific memories despite thousands of newer events',()=>{
+ const history=['0: Primeiros dias em Recife.'];
+ for(let i=0;i<750;i++)history.push('25: Registro profissional '+i+'.');
+ history.push('69: Visitou a família.');
+ history.push('99: Este acontecimento ainda não aconteceu.');
+ const chapters=milestonesUntil(70,history,'pt-BR');
+ assert.equal(chapters.find(x=>x.stage==='baby')?.summary,'Primeiros dias em Recife.');
+ assert.equal(chapters.find(x=>x.stage==='adult')?.summary,'Registro profissional 749.');
+ assert.equal(chapters.find(x=>x.stage==='senior')?.summary,'Visitou a família.');
+ assert.ok(chapters.every(x=>!x.summary.includes('ainda não aconteceu')));
+});

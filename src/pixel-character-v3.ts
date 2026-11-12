@@ -267,12 +267,18 @@ function hairstyle(d:Canvas,stage:MatureStage,p:CharacterProfile,h:Pal,seed:numb
    d.r(x+7,top+3,5,2,h.light);d.r(x+16,top+1,6,2,h.light);
    d.r(x+8,top+12,w-17,3,h.mid);
   }else if(p.hair==='curls'){
-   for(const [dx,dy] of [[2,10],[5,3],[12,-2],[20,-3],[27,3],[29,11],[6,15]]){
-    const px=x+Math.min(dx,w-9),py=top+dy;
-    d.r(px,py,8,7,h.dark);d.r(px+1,py+1,6,5,h.mid);
-    d.r(px+2,py+1,3,2,h.light);
+   // Graduated, connected ringlets avoid the tall separated box-crown look.
+   // Hair, face and body keep independent layers for genetic continuity.
+   d.r(x+5,top+8,w-10,10,h.dark);
+   const clusters=[[1,11],[4,5],[10,2],[16,1],[22,5],[24,12]] as const;
+   for(const [i,offset] of clusters.entries()){
+    const [dx,dy]=offset,px=x+Math.min(dx,w-8),py=top+dy;
+    d.r(px,py,7,6,h.dark);
+    d.r(px+1,py+1,5,4,h.mid);
+    if(i%2===0)d.r(px+2,py+1,2,2,h.light);
    }
-   d.r(x+9,top+11,w-17,6,h.mid);
+   d.r(x+7,top+15,w-14,3,h.mid);
+   d.r(x+10,top+16,Math.max(2,w-21),2,h.dark);
   }else{
    // Hair grows in staggered tufts; child's cut is a bob, not a giant adult helmet.
    d.r(x+8,top+3,w-16,4,h.dark);
