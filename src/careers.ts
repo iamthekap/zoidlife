@@ -1,6 +1,7 @@
 /** Distinct, original careers for the Zoid Life simulation. */
 import type {Job,Education,Simulation,StudyTrack} from './simulation.ts';
 import type {CharacterProfile} from './characters.ts';
+import {hobbyCreditAlternative,normalizeHobbyBook} from './hobbies.ts';
 export type OccupationId='barista'|'retail'|'courier'|'assistant'|'designer'|'developer'|'nurse'|'teacher'|'manager'|'engineer'|'founder'|'paramedic'|'chef'|'police'|'firefighter'|'mechanic'|'pilot'|'musician'|'actor'|'journalist'|'photographer'|'architect'|'accountant'|'psychologist'|'dentist'|'doctor'|'surgeon'|'lawyer'|'judge'|'scientist'|'pharmacist'|'veterinarian'|'footballer'|'basketballer'|'athlete'|'trainer'|'coach'|'streamer'|'influencer'|'investor'|'politician'|'diplomat'|'arcane-healer'|'night-healer'|'moon-guardian';
 export type Career={id:OccupationId;job:Job;salary:number;age:number;education:Education;credits:number;xp:number;capital:number;stress:number;pt:string;en:string;training?:number;track?:StudyTrack;nature?:'vampire'|'mage'|'werewolf';mastery?:number};
 export const CAREERS:readonly Career[]=[
@@ -57,7 +58,7 @@ export function careerById(raw:unknown):Career|null{
 export function careerAvailable(s:Simulation,age:number,role:Career,profile?:CharacterProfile):boolean{
  return !s.ended&&Number.isInteger(age)&&age>=role.age&&age<65&&
  (s.justice?.incarceratedUntil??0)<=age&&edu[s.education]>=edu[role.education]&&
- s.credits>=role.credits&&s.experience>=role.xp&&s.balance>=role.capital&&
+ (s.credits>=role.credits||(role.credits<=20&&hobbyCreditAlternative(role.id,normalizeHobbyBook(s.hobbies))))&&s.experience>=role.xp&&s.balance>=role.capital&&
  (s.training??0)>=(role.training??0)&&(s.mysticMastery??0)>=(role.mastery??0)&&
  (!role.track||s.studyTrack===role.track)&&
  (!role.nature||(profile?.origin==='custom'&&profile.nature===role.nature));
