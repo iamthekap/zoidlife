@@ -616,3 +616,17 @@ test('dedicated work action persists momentum and appears in the career dashboar
  await page.locator('.game-dock [data-tab="career"]').click();
  await expect(page.locator('.career-page')).toContainText('Dedicação');
 });
+
+test('candidate pixel characters occupy the card art region on narrow viewports',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ await expect(page.locator('.newborn-card')).toHaveCount(3);
+ const metrics=await page.locator('.newborn-art').evaluateAll(items=>items.map(x=>{
+  const b=x.getBoundingClientRect();return {w:b.width,h:b.height};
+ }));
+ for(const m of metrics){
+  expect(m.h/m.w).toBeGreaterThan(1.1);
+  expect(m.h/m.w).toBeLessThan(1.5);
+ }
+ await expect.poll(async()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
+});

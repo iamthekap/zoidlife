@@ -649,3 +649,28 @@ body{background:var(--bg);color:var(--ink);}
  padding:11px 12px;border-radius:10px;color:#2c416b;margin-top:12px;}
 .special-origin strong{font-size:12px;font-weight:900;}
 .special-origin span{font-size:11px;color:#61719e;}
+
+
+/* Art direction: let the actual full-body sprite fill each candidate card.
+   Previously a 144:176 SVG was letterboxed inside a very tall panel, wasting
+   almost half the mobile viewport and reducing babies to tiny thumbnails. */
+.newborn-art{height:auto;min-height:0;aspect-ratio:144 / 176;align-items:stretch;}
+.newborn-art .portrait{width:100%;height:100%;max-width:none;}
+.newborn-card{border-radius:14px;}
+.newborn-card:hover{border-color:#3A86FF;}
+.newborn-select{min-height:44px;display:grid;place-items:center;background:#3A86FF;}
+.welcome-logo{font-family:ui-monospace,"Cascadia Code",Consolas,monospace;
+ font-weight:950;letter-spacing:-2.5px;text-shadow:2px 2px 0 #213f6d33;}
+.welcome-logo span{font-weight:950;text-shadow:2px 2px 0 #61203c55;}
+@media(min-width:701px){
+ .newborn-art{aspect-ratio:144 / 170;}
+ .newborn-art .portrait{object-fit:contain;}
+}
+@media(max-width:700px){
+ .welcome-screen{justify-content:flex-start;padding-top:clamp(24px,5vh,42px);}
+ .newborn-choice{gap:12px;}
+ .newborn-art{aspect-ratio:144 / 176;}
+ .newborn-number{letter-spacing:.15px;}
+ .newborn-card strong{font-size:clamp(11px,3.1vw,15px);}
+ .newborn-select{font-size:clamp(10px,2.6vw,12px);padding:8px 3px;}
+}
