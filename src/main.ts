@@ -775,9 +775,9 @@ function renderPeople(): string {
        ' class="person-visit social-'+kind+'">'+safe(label)+(cost?' · '+safe(cash(cost)):'')+'</button>';
    }).join('');
    const last=recentSocialMemory(life!.social,p.id);
-   const memory=last?'<small class="person-last-memory">'+last.age+
+   const memory=last?'<span class="person-last-memory">'+last.age+
      (language==='pt-BR'?' anos · ':' yrs · ')+safe(interactionLabel(last.kind,language))+
-     ' · '+(last.bondChange>0?'+':'')+last.bondChange+'%</small>':'';
+     ' · '+(last.bondChange>0?'+':'')+last.bondChange+'%</span>':'';
    return '<article class="person-card"><div class="person-art">'+portraitLife(p.profile,age,"tiny")+'</div>'+
     '<div class="person-details"><strong>'+safe(p.profile.name)+'</strong>'+
     '<span>'+safe(personLabel(p.role,language))+' · '+safe(ageText(age))+

@@ -34,6 +34,13 @@ test('save visual acceptance captures for newborns, growth and life journal',asy
  await page.reload();await page.locator('[data-do="continue"]').click();
  await expect(page.locator('.health-condition').first()).toContainText('Cansaço persistente');
  await page.screenshot({path:'test-results/visual/07-health.png',fullPage:true});
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('[data-person="mother-primary"][data-kind="compliment"]')).toBeEnabled();
+ await page.screenshot({path:'test-results/visual/10-social-options.png',fullPage:true});
+ await page.locator('[data-person="mother-primary"][data-kind="compliment"]').click();
+ await expect(page.locator('.person-last-memory').first()).toContainText('Elogiar');
+ await page.screenshot({path:'test-results/visual/11-social-consequence.png',fullPage:true});
+
  await page.evaluate(()=>{
    const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
    s.age=78;s.simulation.ended=true;s.simulation.children=1;
