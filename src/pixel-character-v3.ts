@@ -1,0 +1,232 @@
+/** Independently drawn age-accurate pixel character rig v3.
+ * Designed from body/face proportions, not a cropped adult avatar.
+ * Immutable genetics across ages: complexion, eyes, and hair pigment.
+ * Every shape is a crisp, editable SVG primitive; no reference-game assets.
+ */
+import type {CharacterProfile} from './characters.ts';
+export type MatureStage='child'|'teen'|'adult'|'senior';
+type Pal={light:string;mid:string;dark:string};
+const SKIN:Record<CharacterProfile['skin'],Pal>={
+ light:{light:'#f6d3b4',mid:'#e9af91',dark:'#ac735f'},
+ tan:{light:'#e5b487',mid:'#ce956f',dark:'#925e4c'},
+ brown:{light:'#ba8362',mid:'#9a654c',dark:'#694434'},
+ deep:{light:'#916048',mid:'#73462f',dark:'#492f29'}
+};
+const HAIR:Record<CharacterProfile['hairColor'],Pal>={
+ black:{light:'#464550',mid:'#252735',dark:'#151827'},
+ brown:{light:'#856151',mid:'#614234',dark:'#3b2a28'},
+ blonde:{light:'#f5d180',mid:'#d3a45b',dark:'#987244'},
+ red:{light:'#cf8b60',mid:'#a65b41',dark:'#6e3934'}
+};
+const IRIS:Record<CharacterProfile['eyes'],string>={blue:'#397cc0',green:'#38836b',brown:'#74452e'};
+const CLOTH:Record<string,Pal>={
+ blue:{light:'#8fc0f7',mid:'#4383d0',dark:'#234e8b'},
+ red:{light:'#f7a8a8',mid:'#dc6471',dark:'#8c4052'},
+ mint:{light:'#a5d9d4',mid:'#62a5a0',dark:'#387274'},
+ ochre:{light:'#f2d397',mid:'#c29662',dark:'#8b633f'},
+ purple:{light:'#c7b7ef',mid:'#8c78c5',dark:'#604b95'},
+ rose:{light:'#f6b4bd',mid:'#d47c8c',dark:'#985166'}
+};
+type Rig={x:number;y:number;w:number;h:number;torso:number;torsoW:number;leg:number};
+const RIG:Record<MatureStage,Rig>={
+ child:{x:32,y:9,w:32,h:33,torso:44,torsoW:29,leg:79},
+ teen:{x:33,y:6,w:30,h:29,torso:38,torsoW:33,leg:78},
+ adult:{x:35,y:5,w:26,h:27,torso:35,torsoW:37,leg:77},
+ senior:{x:34,y:7,w:28,h:29,torso:39,torsoW:36,leg:80}
+};
+const hash=(s:string):number=>[...s].reduce((v,c)=>(Math.imul(v,31)+c.charCodeAt(0))>>>0,2166136261);
+const rect=(x:number,y:number,w:number,h:number,c:string,extra='')=>
+ '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" fill="'+c+'"'+extra+'/>';
+class Canvas{
+ d:string[]=[];
+ r(x:number,y:number,w:number,h:number,c:string,attr=''):void{if(w>0&&h>0)this.d.push(rect(x,y,w,h,c,attr));}
+ g(name:string,fn:()=>void):void{this.d.push('<g data-part="'+name+'">');fn();this.d.push('</g>');}
+}
+function backdrop(d:Canvas,key:number):void{
+ const pal=['#e6f1fc','#f5e8ef','#edf3e9','#f6eee2','#eeebf8'];
+ const base=pal[key%pal.length];
+ d.g('background',()=>{
+  d.r(0,0,96,118,base);d.r(5,5,86,108,'#ffffff',' opacity=".37"');
+  d.r(8,8,80,100,base,' opacity=".57"');
+  for(let i=0;i<12;i++)d.r(10+(i*13)%72,11+(i*23)%89,1,1,'#ffffff',' opacity=".38"');
+  d.r(15,113,65,2,'#a7afc4',' opacity=".42"');
+ });
+}
+function trousers(d:Canvas,stage:MatureStage,cloth:Pal,key:number,legY:number):void{
+ const pants=stage==='child'?
+  {light:'#9bc0d6',mid:'#6087ac',dark:'#3b5b81'}:
+  {light:'#7799b5',mid:'#445e7d',dark:'#293c58'};
+ const left=stage==='child'?32:31,right=stage==='child'?51:52;
+ const w=stage==='child'?12:12,feet=112;
+ d.g('legs',()=>{
+  for(const x of [left,right]){
+   d.r(x-1,legY,14,feet-legY-2,pants.dark);
+   d.r(x,legY,12,feet-legY-4,pants.mid);
+   d.r(x+2,legY+4,4,Math.max(2,feet-legY-11),pants.light,' opacity=".52"');
+   d.r(x-2,feet-7,16,7,'#4a5267');
+   d.r(x-1,feet-6,17,5,key%3===0?'#8d99b2':'#e4e5eb');
+   d.r(x,feet-5,15,2,'#f5f5f3');
+   d.r(x-2,feet-2,18,2,'#44536c');
+  }
+  if(stage==='child'){
+   d.r(left-1,legY-1,14,8,cloth.dark);d.r(left,legY,12,6,cloth.mid);
+   d.r(right-1,legY-1,14,8,cloth.dark);d.r(right,legY,12,6,cloth.mid);
+  }
+ });
+}
+function outfit(d:Canvas,stage:MatureStage,cloth:Pal,skin:Pal,key:number):void{
+ const rig=RIG[stage],x=Math.floor(48-rig.torsoW/2),w=rig.torsoW,y=rig.torso;
+ trousers(d,stage,cloth,key,rig.leg);
+ d.g('body-outfit',()=>{
+  // Rounded shoulders, two independent arms, tapered torso.
+  d.r(x+2,y-2,w-4,4,cloth.dark);d.r(x,y+1,w,rig.leg-y,cloth.dark);
+  d.r(x+1,y+2,w-2,rig.leg-y-3,cloth.mid);
+  d.r(x+3,y+3,w-6,4,cloth.light);
+  d.r(x-6,y+6,8,19,cloth.dark);d.r(x-5,y+7,7,17,cloth.mid);
+  d.r(x+w-1,y+6,8,19,cloth.dark);d.r(x+w,y+7,7,17,cloth.mid);
+  d.r(x-5,y+25,7,8,skin.dark);d.r(x-4,y+25,5,7,skin.light);
+  d.r(x+w,y+25,7,8,skin.dark);d.r(x+w+1,y+25,5,7,skin.light);
+  // Shirt collar and neck keep the face independent from wardrobe.
+  d.r(44,y-5,9,6,skin.dark);d.r(45,y-5,7,5,skin.light);
+  if(stage==='child'){
+   // Separate tee + shorts, embroidered playful motif and tiny cuff.
+   d.r(x+5,y+4,w-10,4,cloth.light);
+   d.r(x+5,rig.leg-4,w-10,4,cloth.dark);
+   const emblem=key%4;
+   if(emblem===0){d.r(46,y+14,5,5,'#fff3d5');d.r(47,y+15,3,3,'#e18186');}
+   if(emblem===1){d.r(43,y+14,10,3,'#fff9ef');d.r(46,y+12,4,8,'#fff9ef');}
+   if(emblem===2){d.r(44,y+12,9,8,'#ffe4c4');d.r(47,y+14,3,3,'#e8a96f');}
+   if(emblem===3){for(const k of [0,6,12])d.r(x+7,y+11+k,Math.max(4,w-14),2,'#e8f5fc');}
+  }else if(stage==='teen'){
+   // Hoodie with contrasting hood, drawstrings, kangaroo pouch and optional phone.
+   d.r(x+7,y-1,w-14,8,cloth.dark);
+   d.r(x+10,y+1,w-20,5,cloth.light);
+   d.r(x+11,y+4,2,13,'#f0eee9');d.r(x+w-13,y+4,2,13,'#f0eee9');
+   d.r(x+8,y+23,w-16,9,cloth.dark);d.r(x+10,y+24,w-20,7,cloth.light,' opacity=".42"');
+   d.r(x+3,rig.leg-5,w-6,3,cloth.dark);
+   if(key%2===0){d.r(x+w+2,y+26,7,12,'#293345');d.r(x+w+3,y+27,5,9,'#6a8dbe');}
+  }else if(stage==='adult'){
+   // Distinct professional blazer: sharp lapels, light shirt and left pocket.
+   d.r(x+Math.floor(w*.33),y+3,Math.floor(w*.34),rig.leg-y-5,'#fff8f0');
+   d.r(x+5,y+5,10,5,cloth.light);d.r(x+w-15,y+5,10,5,cloth.light);
+   d.r(x+7,y+10,5,19,cloth.dark);d.r(x+w-12,y+10,5,19,cloth.dark);
+   d.r(47,y+7,2,6,cloth.dark);d.r(48,y+12,2,13,cloth.mid);
+   d.r(52,y+25,3,2,'#eee0c5');
+   d.r(x+4,rig.leg-4,w-8,4,cloth.dark);
+  }else{
+   // Cardigan over a warm shirt, short sleeves and a gentle posture.
+   d.r(x+Math.floor(w*.33),y+4,Math.floor(w*.34),rig.leg-y-5,'#f8e5d3');
+   d.r(x+7,y+8,7,rig.leg-y-13,cloth.dark);
+   d.r(x+w-14,y+8,7,rig.leg-y-13,cloth.dark);
+   d.r(47,y+10,2,12,'#dfbc9e');
+   d.r(x+5,rig.leg-6,w-10,4,cloth.light);
+   d.r(x+5,y+3,w-10,2,cloth.light);
+  }
+ });
+}
+function scalpBehind(d:Canvas,stage:MatureStage,p:CharacterProfile,h:Pal):void{
+ const z=RIG[stage],{x,y,w}=z;
+ if(p.hair==='long'){
+  d.g('hair-behind',()=>{
+   d.r(x-4,y+10,8,stage==='child'?49:55,h.dark);
+   d.r(x+w-4,y+10,8,stage==='child'?49:55,h.dark);
+   d.r(x-2,y+14,5,stage==='child'?47:50,h.mid);
+   d.r(x+w-3,y+14,5,stage==='child'?47:50,h.mid);
+   d.r(x+3,y+6,w-6,12,h.dark);
+  });
+ }
+ if(p.hair==='curls'){
+  d.g('hair-behind',()=>{
+   d.r(x-6,y+14,8,17,h.dark);d.r(x+w-2,y+14,8,17,h.dark);
+   d.r(x-4,y+17,6,14,h.mid);d.r(x+w-2,y+17,6,14,h.mid);
+  });
+ }
+}
+function face(d:Canvas,stage:MatureStage,p:CharacterProfile,skin:Pal,hair:Pal):void{
+ const {x,y,w,h}=RIG[stage],cx=Math.round(x+w/2);
+ const eyeY=y+(stage==='child'?17:14),size=stage==='child'?5:4;
+ const left=x+6,right=x+w-6-size;
+ d.g('age-face',()=>{
+  // Stepped oval rather than the old block head, narrow chin and soft cheeks.
+  d.r(x+9,y,w-18,2,skin.dark);d.r(x+5,y+2,w-10,4,skin.dark);
+  d.r(x+3,y+5,w-6,h-13,skin.dark);d.r(x+1,y+10,w-2,h-21,skin.dark);
+  d.r(x+6,y+h-8,w-12,5,skin.dark);d.r(x+10,y+h-3,w-20,2,skin.dark);
+  d.r(x+9,y+1,w-18,3,skin.mid);d.r(x+5,y+4,w-10,4,skin.mid);
+  d.r(x+3,y+8,w-6,h-16,skin.mid);d.r(x+6,y+h-8,w-12,4,skin.mid);
+  d.r(x+6,y+5,w-12,5,skin.light);d.r(x+4,y+10,w-8,h-19,skin.light);
+  d.r(x+8,y+h-9,w-16,5,skin.light);
+  d.r(x-1,y+14,4,7,skin.dark);d.r(x,y+15,3,5,skin.mid);
+  d.r(x+w-3,y+14,4,7,skin.dark);d.r(x+w-2,y+15,3,5,skin.mid);
+  // Brow and expressive oval eyes with one-pixel internal glint.
+  for(const ex of [left,right]){
+   d.r(ex,eyeY-3,size+1,1,hair.dark);
+   d.r(ex,eyeY,size,6,'#fff7e8');
+   d.r(ex+1,eyeY+1,size-2,5,IRIS[p.eyes]);
+   d.r(ex+2,eyeY+1,1,2,'#ffffff');
+   d.r(ex,eyeY+6,size,1,skin.mid);
+  }
+  d.r(x+4,eyeY+8,4,2,'#eb8e93',' opacity=".51"');
+  d.r(x+w-8,eyeY+8,4,2,'#eb8e93',' opacity=".51"');
+  d.r(cx,eyeY+7,1,2,skin.mid);
+  d.r(cx-2,eyeY+12,5,1,'#a75f69');
+  d.r(cx-1,eyeY+13,3,1,'#e19697');
+ });
+ if(stage==='senior')d.g('senior-details',()=>{
+  d.r(x+3,eyeY+7,4,1,skin.mid);d.r(x+w-7,eyeY+7,4,1,skin.mid);
+  d.r(x+6,eyeY-6,5,1,skin.mid);d.r(x+w-11,eyeY-6,5,1,skin.mid);
+  d.r(x+9,y+h-5,w-18,1,skin.mid);
+  // Walking cane alongside the body; not an accessory on the face.
+  d.r(80,66,3,46,'#5b4a44');d.r(77,64,7,4,'#82624e');
+  d.r(77,66,2,4,'#82624e');d.r(79,112,6,2,'#5b4a44');
+ });
+}
+function hairstyle(d:Canvas,stage:MatureStage,p:CharacterProfile,h:Pal,seed:number):void{
+ const {x,y,w}=RIG[stage],top=y-6,senior=stage==='senior';
+ d.g('age-hair',()=>{
+  // The contour is broken into hair tufts, never one giant rectangular cap.
+  if(p.hair==='short'){
+   d.r(x+5,top+3,w-10,5,h.dark);d.r(x+10,top,w-18,4,h.dark);
+   d.r(x+3,top+6,w-6,5,h.mid);d.r(x+1,top+10,6,7,h.dark);
+   d.r(x+w-7,top+10,6,7,h.dark);d.r(x+8,top+3,w-17,3,h.light);
+   d.r(x+11,top+10,8,2,h.mid);
+  }else if(p.hair==='waves'){
+   d.r(x+3,top+6,w-6,8,h.dark);
+   d.r(x+6,top+2,8,8,h.mid);d.r(x+13,top-1,9,9,h.dark);
+   d.r(x+20,top+1,7,7,h.mid);d.r(x+w-8,top+5,7,11,h.dark);
+   d.r(x+7,top+3,5,2,h.light);d.r(x+16,top+1,6,2,h.light);
+   d.r(x+8,top+12,w-17,3,h.mid);
+  }else if(p.hair==='curls'){
+   for(const [dx,dy] of [[2,10],[5,3],[12,-2],[20,-3],[27,3],[29,11],[6,15]]){
+    const px=x+Math.min(dx,w-9),py=top+dy;
+    d.r(px,py,8,7,h.dark);d.r(px+1,py+1,6,5,h.mid);
+    d.r(px+2,py+1,3,2,h.light);
+   }
+   d.r(x+9,top+11,w-17,6,h.mid);
+  }else{
+   d.r(x+5,top+4,w-10,8,h.dark);d.r(x+10,top+1,w-19,6,h.mid);
+   d.r(x+2,top+10,7,20,h.dark);d.r(x+w-9,top+10,7,20,h.dark);
+   d.r(x+7,top+9,w-14,6,h.mid);d.r(x+10,top+4,9,2,h.light);
+   d.r(x+8,top+14,8,3,h.mid);
+  }
+  // A few gray strands signify aging without replacing inherited hair pigment.
+  if(senior){
+   d.r(x+6,top+8,4,2,'#bfc2c9');
+   d.r(x+w-12,top+11,4,2,'#d7d5d6');
+   if(seed%2===0)d.r(x+14,top+3,3,2,'#c4c4c9');
+  }
+ });
+}
+export function renderMatureCharacter(p:CharacterProfile,stage:MatureStage,size='card'):string{
+ const key=hash([p.name,p.gender,p.country,p.skin,p.hair,p.hairColor,p.eyes].join('|'));
+ const d=new Canvas(),skin=SKIN[p.skin],hair=HAIR[p.hairColor];
+ const cloth=CLOTH[p.outfit??'']??CLOTH.blue;
+ if(size!=='story-actor')backdrop(d,key);
+ scalpBehind(d,stage,p,hair);
+ outfit(d,stage,cloth,skin,key);
+ face(d,stage,p,skin,hair);
+ hairstyle(d,stage,p,hair,key);
+ return '<svg class="portrait portrait-'+size+' stage-'+stage+' mature-v3" viewBox="0 0 96 118" '+
+  'xmlns="http://www.w3.org/2000/svg" role="img" '+
+  'aria-label="Original Zoid Life '+stage+' pixel art" data-renderer="mature-v3" '+
+  'data-style="clean-pixel-simulation-v2" shape-rendering="crispEdges">'+d.d.join('')+'</svg>';
+}

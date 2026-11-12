@@ -802,3 +802,23 @@ test('new events are rendered inside the first timeline section and remain click
  await expect(page.locator('.storyboard-timeline .storyboard-track')).toBeVisible();
  await expect(page.locator('.life-journal .life-entry').first()).toBeVisible();
 });
+
+test('child, teen, adult and senior have new independent body anatomy and stage-specific faces',async({page})=>{
+ await chooseBaby(page);
+ for(const [age,stage] of [[4,'child'],[14,'teen'],[28,'adult'],[72,'senior']]){
+  await page.evaluate(n=>{
+   const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+   saved.age=n;saved.simulation.ended=false;
+   localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+  },age);
+  await page.reload();await page.locator('[data-do="continue"]').click();
+  const avatar=page.locator('.identity-portrait .stage-'+stage);
+  await expect(avatar).toHaveAttribute('data-renderer','mature-v3');
+  await expect(avatar.locator('[data-part="age-face"]')).toHaveCount(1);
+  await expect(avatar.locator('[data-part="age-hair"]')).toHaveCount(1);
+  await expect(avatar.locator('[data-part="body-outfit"]')).toHaveCount(1);
+  await expect(avatar.locator('[data-part="facial-hair"]')).toHaveCount(0);
+  if(stage==='senior')await expect(avatar.locator('[data-part="senior-details"]')).toHaveCount(1);
+ }
+ await expect(page.locator('.storyboard-senior .stage-senior')).toBeVisible();
+});

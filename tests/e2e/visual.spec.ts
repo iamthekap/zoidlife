@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 test('save visual acceptance captures for newborns, growth and life journal',async({page})=>{
- test.setTimeout(60_000);
+ test.setTimeout(140_000);
  await page.setViewportSize({width:390,height:844});
  await page.goto('/');
  await expect(page.locator('.newborn-card')).toHaveCount(3);
@@ -20,6 +20,22 @@ test('save visual acceptance captures for newborns, growth and life journal',asy
  await page.reload();await page.locator('[data-do="continue"]').click();
  await expect(page.locator('.storyboard-adult')).toBeVisible();
  await page.screenshot({path:'test-results/visual/04-life-journal-adult.png',fullPage:true});
+ for(const [age,stage,file] of [[4,'child','12-child-v3'],[14,'teen','13-teen-v3'],[28,'adult','14-adult-v3'],[72,'senior','15-senior-v3']] as const){
+   await page.evaluate(n=>{
+    const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+    s.age=n;s.simulation.ended=false;
+    localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+   },age);
+   await page.reload();await page.locator('[data-do="continue"]').click();
+   await expect(page.locator('.identity-portrait .stage-'+stage+'[data-renderer="mature-v3"]')).toBeVisible();
+   await page.screenshot({path:'test-results/visual/'+file+'.png',fullPage:true});
+ }
+ await page.evaluate(()=>{
+   const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+   s.age=24;localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+
  await page.locator('.game-dock [data-tab="career"]').click();
  await expect(page.locator('.career-vacancy')).toHaveCount(45);
  await page.screenshot({path:'test-results/visual/05-career-board.png',fullPage:true});
