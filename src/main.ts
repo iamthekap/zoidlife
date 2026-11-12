@@ -14,7 +14,7 @@ import { makeLifeReport,reportAsText } from "./life-summary";
 import { healthLabel,type ConditionId } from "./health";
 import { OFFENSES,justiceLabel,legalStatus,type OffenseId } from "./justice";
 import { CAREERS,careerById,careerAvailable,careerLabel,careerRequirements,type OccupationId } from "./careers";
-import { validateLifeSave, serializeLife, saveFilename } from "./save-io";
+import { validateLifeSave, serializeLife, saveFilename, MAX_SAVE_BYTES } from "./save-io";
 import { initialSocial, normalizeSocial, syncSocial, personAge, personLabel, type SocialState } from "./social";
 import {SOCIAL_KINDS,interactionLabel,interactionCost,canInteract,resolveSocialEncounter,recentSocialMemory,type Lang} from "./social-interactions";
 
@@ -156,7 +156,8 @@ const STORAGE_KEY = "zoid-life-save-v1";
 const LANG_KEY = "zoid-life-language";
 type Scene = "welcome" | "selection" | "custom" | "playing";
 type Tab = "story" | "actions" | "people" | "career" | "finances";
-let language: Language = localStorage.getItem(LANG_KEY) === "en" ? "en" : "pt-BR";
+let language: Language = (()=>{try{return localStorage.getItem(LANG_KEY)==='en'?'en':'pt-BR';}
+  catch{return 'pt-BR';}})();
 let life: Life | null = loadLife();
 let scene: Scene = "welcome";
 let tab: Tab = "story";
@@ -164,6 +165,7 @@ let menuOpen=false;
 let chaptersOpen=true;
 let journalVisibleCount=60;
 let menuError="";
+let saveError=false;
 let candidates = randomCandidates(3);
 let custom:CharacterProfile = { ...randomCharacter(), name: "", origin:"custom", nature:"human" };
 let customStats: Stats = {happiness: 70, health: 80, smarts: 55, looks: 60};
@@ -334,7 +336,10 @@ function loadLife(): Life|null {
     return restored;
   } catch { return null; }
 }
-function saveLife(): void { try { if(life) localStorage.setItem(STORAGE_KEY,JSON.stringify(life)); } catch { /* Browser may restrict local saves */ } }
+function saveLife(): void {
+ try {if(life)localStorage.setItem(STORAGE_KEY,JSON.stringify(life));saveError=false;}
+ catch {saveError=true;} // Never claim a successful save after quota/security failure.
+}
 function makeFamily(name: string): Life['familyMembers'] {
   const last=name.trim().split(/\s+/).slice(-1)[0]||"Costa";
   return [{name:"Ana "+last,kind:"mother",birthAge:26+Math.floor(Math.random()*13)},
@@ -528,6 +533,9 @@ function renderPlay(): string {
      '<button type="button" class="game-language" data-do="language" aria-label="'+safe(u("languages"))+'">'+(language==='pt-BR'?'EN':'PT')+'</button>'+
      '<button type="button" data-do="toggle-menu" class="game-menu" title="'+safe(u("newLife"))+'" aria-label="'+safe(u("newLife"))+'">☰</button>'+
     '</header>'+
+    (saveError?'<p class="save-warning" role="alert">'+safe(language==='pt-BR'?
+     'Não foi possível salvar neste navegador. Exporte sua vida para não perder o progresso.':
+     'Could not save in this browser. Export your life to avoid losing progress.')+'</p>':'')+
     '<div class="game-content-layout"><section class="game-main">'+
       '<div class="current-phase"><span class="subtle-label">'+safe(language==='pt-BR'?'SUA HISTÓRIA':'YOUR STORY')+'</span>'+
       '<span>'+safe(phase)+'</span></div>'+
@@ -1089,7 +1097,8 @@ function renderGameMenu():string {
  return '<div class="game-menu-backdrop"><section class="game-menu-panel" role="dialog" aria-modal="true" aria-label="'+
   safe(language==='pt-BR'?'Menu da vida':'Life menu')+'">'+
   '<div class="menu-title"><div><span class="subtle-label">ZOID LIFE</span><h2>'+
-  safe(language==='pt-BR'?'Sua vida está salva':'Your life is saved')+'</h2></div>'+
+  safe(saveError?(language==='pt-BR'?'Salvamento indisponível':'Saving unavailable'):
+   (language==='pt-BR'?'Sua vida está salva':'Your life is saved'))+'</h2></div>'+
   '<button type="button" data-do="close-menu" class="menu-close" aria-label="'+safe(u("back"))+'">×</button></div>'+
   '<p>'+safe(language==='pt-BR'?'Sem cadastro: o jogo salva neste navegador. Faça uma cópia para jogar em outro dispositivo.':
   'No account needed: this browser saves your progress. Export a copy for another device.')+'</p>'+
@@ -1115,7 +1124,7 @@ function downloadLife():void {
 }
 async function importLife(file:File):Promise<void> {
  try {
-  if(file.size>1_000_000)throw Error('too-large');
+  if(file.size>MAX_SAVE_BYTES)throw Error('too-large');
   const parsed=validateLifeSave(await file.text());
   if(!parsed.ok)throw Error(parsed.error);
   const original=localStorage.getItem(STORAGE_KEY);
