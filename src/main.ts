@@ -14,6 +14,7 @@ import {normalizeStoryArc,startStoryArc,storyArcEvent,afterStoryArcChoice,storyA
 import { makeLifeReport,reportAsText } from "./life-summary";
 import {GameSound} from "./audio";
 import {HOBBY_IDS,canPracticeHobby,hobbyName,hobbyCost,hobbyCreditAlternative,type HobbyId} from "./hobbies";
+import {hobbyEvents} from "./hobby-events";
 import { healthLabel,type ConditionId } from "./health";
 import { OFFENSES,justiceLabel,legalStatus,type OffenseId } from "./justice";
 import { CAREERS,careerById,careerAvailable,careerLabel,careerRequirements,type OccupationId } from "./careers";
@@ -320,7 +321,7 @@ function restorePendingEvent(raw:unknown,profile:CharacterProfile,simulation:Sim
   return episode?.id===id&&age===episode.minAge?episode:quietEvent();
  }
  const pool:LifeEvent[]=[...(copy[language].events as LifeEvent[]),...extraEvents(language),
-  ...extendedEvents(language),...advancedEvents(language),...mysticEvents(language,profile),
+  ...extendedEvents(language),...advancedEvents(language),...hobbyEvents(language,simulation),...mysticEvents(language,profile),
   ...careerEvents(language,simulation)];
  const match=pool.find(x=>x.id===id);
  if(!match||age<match.minAge||age>match.maxAge)return quietEvent();
@@ -1123,7 +1124,7 @@ function activeEventForLanguage(): void {
    if(followup?.id===id)life.pendingEvent=followup;
    return;
   }
-  const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language),...extendedEvents(language),...advancedEvents(language),...mysticEvents(language,life?.profile),...(life?careerEvents(language,life.simulation):[])] as LifeEvent[]).find(e=>e.id===id);
+  const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language),...extendedEvents(language),...advancedEvents(language),...hobbyEvents(language,life!.simulation),...mysticEvents(language,life?.profile),...(life?careerEvents(language,life.simulation):[])] as LifeEvent[]).find(e=>e.id===id);
   if(localized)life.pendingEvent=localized;
 }
 function syncLifePeople():void {
@@ -1218,7 +1219,7 @@ function ageUp(): void {
   syncLifePeople();
   transition.notes.forEach(n=>life!.history.push(age+": "+caption(n)));
   if (!transition.state.ended) {
-    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language),...extendedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...advancedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...mysticEvents(language,life!.profile),...careerEvents(language,life!.simulation)] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
+    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language),...extendedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...advancedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...hobbyEvents(language,life!.simulation),...mysticEvents(language,life!.profile),...careerEvents(language,life!.simulation)] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
     if(life.storyArc&&!storyArcAllowed(life.storyArc,life.simulation,age))life.storyArc=null;
     const continuing=storyArcEvent(life.storyArc,language);
     life.pendingEvent=continuing&&age>=continuing.minAge?
