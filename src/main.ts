@@ -761,7 +761,10 @@ function applyStyleFromUI():void {
  life.profile={...life.profile,hair:hair as typeof HAIRS[number],
   hairColor:hairColor as typeof HAIR_COLORS[number],outfit:outfit as typeof OUTFITS[number]};
  life.simulation=result.state;life.stats=result.stats;
- life.history.push(life.age+': '+(language==='pt-BR'?'Atualizou seu visual.':'Updated their appearance.'));
+ recordStoryChoice('appearance-changed',language==='pt-BR'?'Novo visual':'New look',
+  language==='pt-BR'?'Mudança de roupa e cabelo':'Outfit and hair changes',
+  language==='pt-BR'?'Salvar novo visual':'Save new appearance',
+  language==='pt-BR'?'Atualizou seu visual.':'Updated their appearance.','leisure');
  for(const note of result.notes)life.history.push(life.age+': '+caption(note));
  saveLife();render();
 }
@@ -794,10 +797,14 @@ function chooseOffense(id:string):void{
  if(!life||life.pendingEvent||life.simulation.ended)return;
  const offense=OFFENSES.find(o=>o.id===id);
  if(!offense||life.age<offense.age)return;
+ const before=life.simulation,prior=life.stats;
  const result=applyOffense(life.simulation,life.stats,life.age,offense.id);
  if(!result.ok)return;
  life.simulation=result.state;life.stats=result.stats;
- life.history.push(life.age+': '+(language==='pt-BR'?'Decidiu cometer: ':'Decided to commit: ')+justiceLabel(offense.id,language));
+ recordStoryChoice('legal-'+offense.id,language==='pt-BR'?'Escolha legal':'Legal decision',
+  justiceLabel(offense.id,language),justiceLabel(offense.id,language),
+  (language==='pt-BR'?'Decidiu cometer: ':'Decided to commit: ')+justiceLabel(offense.id,language)+
+  ' · '+describeActualChanges(before,life.simulation,prior,life.stats),'city');
  for(const note of result.notes)life.history.push(life.age+': '+caption(note));
  saveLife();tab='actions';render();
 }
@@ -872,7 +879,10 @@ function chooseStudyTrackFromUI():void {
  const outcome=selectStudyTrack(life.simulation,life.stats,life.age,raw as StudyTrack);
  if(!outcome.ok)return;
  life.simulation=outcome.state;life.stats=outcome.stats;
- life.history.push(life.age+': '+(language==='pt-BR'?'Escolheu a área acadêmica ':'Selected academic focus ')+studyTrackLabel(raw as StudyTrack)+'.');
+ recordStoryChoice('academic-focus',language==='pt-BR'?'Escolha acadêmica':'Academic decision',
+  studyTrackLabel(raw as StudyTrack),language==='pt-BR'?'Selecionar especialização':'Choose specialization',
+  (language==='pt-BR'?'Escolheu a área acadêmica ':'Selected academic focus ')+studyTrackLabel(raw as StudyTrack)+'.',
+  'school');
  for(const note of outcome.notes)life.history.push(life.age+': '+caption(note));
  saveLife();tab='career';render();
 }
@@ -1014,14 +1024,64 @@ function syncLifePeople():void {
    life.history.push(life.age+': '+words);
  }
 }
+/** Every player-triggered decision is recorded only after the simulation accepts it. */
+function recordStoryChoice(id:string,title:string,description:string,choice:string,result:string,category:string):void{
+ if(!life)return;
+ const historyIndex=life.history.length;
+ life.history.push(life.age+': '+result);
+ life.chronicle.push({historyIndex,age:life.age,eventId:id,title,description,choice,result,category});
+}
+function describeActualChanges(before:Simulation,after:Simulation,prior:Stats,next:Stats):string{
+ const pt=language==='pt-BR',changes:string[]=[];
+ const metrics:[string,number,number][]=[
+  [pt?'Felicidade':'Happiness',prior.happiness,next.happiness],
+  [pt?'Saúde':'Health',prior.health,next.health],
+  [pt?'Inteligência':'Smarts',prior.smarts,next.smarts],
+  [pt?'Aparência':'Looks',prior.looks,next.looks],
+  [pt?'Saldo':'Balance',before.balance,after.balance],
+  [pt?'Dívida':'Debt',before.debt,after.debt],
+  [pt?'Créditos acadêmicos':'Study credits',before.credits,after.credits],
+  [pt?'Experiência':'Experience',before.experience,after.experience],
+  [pt?'Família':'Family bond',before.family,after.family],
+  [pt?'Amizades':'Friends',before.friends,after.friends],
+  [pt?'Parceria':'Partner bond',before.partner,after.partner],
+  [pt?'Filhos':'Children',before.children,after.children],
+  [pt?'Investimentos':'Investments',before.investments,after.investments],
+  [pt?'Treino':'Training',before.training,after.training],
+  [pt?'Carreira':'Career momentum',before.careerMomentum,after.careerMomentum]
+ ];
+ for(const [label,start,end] of metrics){
+  if(Number.isFinite(start)&&Number.isFinite(end)&&start!==end){
+   const change=Math.round(end-start);
+   changes.push(label+' '+(change>0?'+':'')+change);
+  }
+ }
+ if(before.education!==after.education)changes.push((pt?'Formação: ':'Education: ')+u(after.education));
+ if(before.relationship!==after.relationship)changes.push((pt?'Relação: ':'Relationship: ')+u(after.relationship));
+ if(before.job!==after.job)changes.push((pt?'Trabalho: ':'Job: ')+u(after.job));
+ if(before.homeOwned!==after.homeOwned)changes.push(pt?'Imóvel adquirido':'Property acquired');
+ if(before.studyTrack!==after.studyTrack)changes.push((pt?'Área de estudo: ':'Study track: ')+after.studyTrack);
+ return changes.join(' · ')||(pt?'Sem mudança imediata nos indicadores.':'No immediate change to indicators.');
+}
+const activityCategory:Record<Action,string>={
+ study:'school',job:'work',socialize:'friend',care:'health',budget:'money',retire:'retirement',
+ invest:'money',home:'money',child:'family',crime:'city',train:'leisure',mystic:'leisure',work:'work',style:'leisure'
+};
+
 function visitPerson(id:string,kind='talk'):void {
  if(!life||life.pendingEvent||life.simulation.ended)return;
  if(!SOCIAL_KINDS.includes(kind as typeof SOCIAL_KINDS[number]))return;
+ const person=life.social.people.find(p=>p.id===id);
+ const before=life.simulation,prior=life.stats;
  const outcome=resolveSocialEncounter(life.social,life.simulation,life.stats,life.age,id,
    kind as typeof SOCIAL_KINDS[number],language as Lang);
- if(!outcome.ok)return;
+ if(!outcome.ok||!person)return;
  life.social=outcome.social;life.simulation=outcome.simulation;life.stats=outcome.stats;
- for(const note of outcome.notes??[])life.history.push(life.age+': '+note);
+ const label=interactionLabel(kind as typeof SOCIAL_KINDS[number],language);
+ const outcomeText=(outcome.notes?.[0]??label)+ ' '+describeActualChanges(before,outcome.simulation,prior,outcome.stats);
+ recordStoryChoice('social-'+kind,label,person.profile.name+' · '+personLabel(person.role,language),
+  label,outcomeText,['mother','father','parent','child','partner'].includes(person.role)?'family':'friend');
+ for(const note of (outcome.notes??[]).slice(1))life.history.push(life.age+': '+note);
  syncLifePeople();saveLife();render();
 }
 
@@ -1067,7 +1127,11 @@ function applyToCareer(id:string):void {
  const result=applyCareer(life.simulation,life.stats,life.age,role.id as OccupationId,life.profile);
  if(!result.ok)return;
  life.simulation=result.state;life.stats=result.stats;
- life.history.push(life.age+': '+(language==='pt-BR'?'Começou a trabalhar como ':'Started working as ')+careerLabel(role,language)+'.');
+ const profession=careerLabel(role,language);
+ recordStoryChoice('career-start',language==='pt-BR'?'Novo emprego':'New job',
+   profession,language==='pt-BR'?'Candidatar-se à vaga':'Apply for vacancy',
+   (language==='pt-BR'?'Começou a trabalhar como ':'Started working as ')+profession+'.',
+   'work');
  for(const note of result.notes)life.history.push(life.age+': '+caption(note));
  saveLife();tab='career';render();
 }
@@ -1075,18 +1139,23 @@ function act(action:Action): void {
   if(!life || !canAction(action))return;
   if(action==='job'){tab='career';render();return;}
   if(action==='mystic'){
+    const before=life.simulation,prior=life.stats;
     const result=practiceMystic(life.simulation,life.stats,life.age,life.profile);
     if(!result.ok)return;
     life.simulation=result.state;life.stats=result.stats;
-    life.history.push(life.age+': '+(language==='pt-BR'?'Praticou seus poderes místicos.':'Practiced mystical powers.'));
+    recordStoryChoice('activity-mystic',u('mystic'),u('mysticInfo'),u('mystic'),
+      (language==='pt-BR'?'Praticou seus poderes místicos.':'Practiced mystical powers.')+
+      ' '+describeActualChanges(before,result.state,prior,result.stats),'leisure');
     for(const note of result.notes)life.history.push(life.age+': '+caption(note));
     saveLife();render();return;
   }
+  const before=life.simulation,prior=life.stats;
   const result=takeAction(life.simulation,life.stats,life.age,action);
   if(!result.ok)return;
   life.simulation=result.state;life.stats=result.stats;
   syncLifePeople();
-  life.history.push(life.age+": "+u(action));
+  recordStoryChoice('activity-'+action,u(action),u(action+'Info'),u(action),
+    u(action)+' · '+describeActualChanges(before,life.simulation,prior,life.stats),activityCategory[action]);
   for(const n of result.notes)life.history.push(life.age+": "+caption(n));
   saveLife();render();
 }
