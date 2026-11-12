@@ -908,3 +908,23 @@ test('a real schoolmate appears on entering school and remembers chosen social i
  await page.locator('.game-dock [data-tab="people"]').click();
  await expect(page.locator('[data-person="classmate-school"][data-kind="compliment"]')).toBeDisabled();
 });
+
+test('adult partner proposal is explicit and never available to children or parents',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=24;s.simulation.relationship='dating';s.simulation.partner=85;s.simulation.balance=500;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ const p=page.locator('[data-kind="propose"]');
+ await expect(p).toHaveCount(1);
+ await expect(p).toBeEnabled();
+ await expect(page.locator('[data-person="mother-primary"][data-kind="propose"]')).toHaveCount(0);
+ await p.click();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.relationship).toBe('married');
+ expect(saved.simulation.balance).toBe(250);
+ await expect(page.locator('[data-kind="propose"]')).toBeDisabled();
+});

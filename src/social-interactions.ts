@@ -5,7 +5,7 @@ import type {SocialState,SocialRole,SocialInteractionKind,SocialMemory} from './
 import type {Simulation,Stats} from './simulation.ts';
 import {takeAction,canTakeAction} from './simulation.ts';
 export type Lang='pt-BR'|'en';
-export const SOCIAL_KINDS: readonly SocialInteractionKind[]=['talk','compliment','invite','gift','help','argue','reconcile'];
+export const SOCIAL_KINDS: readonly SocialInteractionKind[]=['talk','compliment','invite','gift','help','argue','reconcile','propose'];
 const bounds=(n:number)=>Math.max(0,Math.min(100,Math.round(n)));
 const definitions:Record<SocialInteractionKind,{age:number;cost:number;delta:number;happiness:number;
   label:[string,string];verb:[string,string]}> = {
@@ -15,7 +15,8 @@ const definitions:Record<SocialInteractionKind,{age:number;cost:number;delta:num
  gift:{age:8,cost:200,delta:22,happiness:2,label:['Presentear','Give gift'],verb:['presenteou','gave a gift to']},
  help:{age:12,cost:0,delta:17,happiness:1,label:['Ajudar','Help'],verb:['ajudou','helped']},
  argue:{age:6,cost:0,delta:-20,happiness:-11,label:['Discutir','Argue'],verb:['discutiu com','argued with']},
- reconcile:{age:6,cost:0,delta:24,happiness:4,label:['Fazer as pazes','Make amends'],verb:['fez as pazes com','made amends with']}
+ reconcile:{age:6,cost:0,delta:24,happiness:4,label:['Fazer as pazes','Make amends'],verb:['fez as pazes com','made amends with']},
+ propose:{age:21,cost:250,delta:9,happiness:10,label:['Pedir em casamento','Propose marriage'],verb:['pediu em casamento','proposed to']}
 };
 export function interactionLabel(kind:SocialInteractionKind,language:Lang):string{
  return definitions[kind].label[language==='en'?1:0];
@@ -26,6 +27,9 @@ export function canInteract(social:SocialState,s:Simulation,age:number,id:string
  const target=social.people.find(x=>x.id===id);
  if(!def||!target||!target.alive||age<def.age||s.balance<def.cost||!canTakeAction(s,age,'socialize'))
    return false;
+ if(kind==='propose'){
+   return target.role==='partner'&&s.relationship==='dating'&&target.closeness>=78&&s.partner>=70;
+ }
  if(kind==='reconcile'){
    const memories=target.memories??[];
    const argument=[...memories].reverse().find(m=>m.kind==='argue');
@@ -61,7 +65,10 @@ export function resolveSocialEncounter(social:SocialState,s:Simulation,stats:Sta
  // Rebase the aggregate relationships on the pre-encounter values. The generic
  // "socialize" action boosts unrelated ties, which would otherwise make
  // complimenting a parent also create friendships or even a marriage.
- if(role==='partner')simulation.partner=newBond;
+ if(role==='partner'){
+   simulation.partner=newBond;
+   if(kind==='propose')simulation.relationship='married';
+ }
  else if(role==='friend'||role==='classmate')simulation.friends=bounds(s.friends+
    (kind==='argue'?-14:kind==='compliment'?7:kind==='invite'?9:kind==='gift'?6:kind==='help'?5:kind==='reconcile'?9:5));
  else simulation.family=bounds(s.family+
@@ -72,6 +79,7 @@ export function resolveSocialEncounter(social:SocialState,s:Simulation,stats:Sta
  const narrative=(pt?'Você ':'You ')+def.verb[pt?0:1]+' '+name+'.';
  const notes=[narrative];
  if(kind==='argue'&&newBond<=20)notes.push(pt?'A relação ficou abalada.':'The relationship is strained.');
+ else if(kind==='propose')notes.push(pt?'Vocês decidiram se casar!':'You decided to get married!');
  else if(kind==='reconcile')notes.push(pt?'Vocês decidiram reconstruir a confiança.':'You decided to rebuild trust.');
  else if(kind!=='argue'&&newBond>=85)notes.push(pt?'Os laços ficaram mais fortes.':'Your bond grew stronger.');
  return {ok:true,social:updated,simulation,stats:updatedStats,

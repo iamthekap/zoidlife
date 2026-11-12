@@ -44,9 +44,25 @@ function normalizeActionLedger(raw:unknown,lastActionAge:unknown):Partial<Record
   }
   return ledger;
 }
+/** Central source of truth for legal age restrictions. UI filters are presentation only;
+ * imported saves and direct simulation calls MUST respect the same rules.
+ */
+export function actionAgeAllowed(age:number,action:Action):boolean {
+ if(!Number.isInteger(age)||age<0||age>110||!ALL_ACTIONS.includes(action))return false;
+ switch(action){
+  case 'study':case 'train':return age>=6;
+  case 'style':case 'mystic':case 'crime':return age>=12;
+  case 'job':case 'work':case 'budget':return age>=16&&age<65;
+  case 'invest':return age>=18;
+  case 'home':return age>=21;
+  case 'child':return age>=20&&age<=55;
+  case 'retire':return age>=60;
+  case 'socialize':case 'care':return true;
+ }
+}
 export function canTakeAction(s:Simulation,age:number,action:Action):boolean {
-  if(s.ended||!Number.isInteger(age)||age<0||age>110||!ALL_ACTIONS.includes(action))return false;
-  return s.actionLedger?.[action]!==age && !(loadJustice(s.justice).incarceratedUntil>age&&action!=='care'&&action!=='study');
+ if(s.ended||!actionAgeAllowed(age,action))return false;
+ return s.actionLedger?.[action]!==age && !(loadJustice(s.justice).incarceratedUntil>age&&action!=='care'&&action!=='study');
 }
 export function createSimulation(): Simulation {
   return { schema: 2, balance: 0, debt: 0, education: 'none', credits: 0, studyTrack:'general',job: 'none', occupation:null,
@@ -208,7 +224,8 @@ export function takeAction(raw: Simulation, rawStats: Stats, age: number, action
   } else if (action === 'socialize') {
     if (age >= 18 && s.relationship !== 'single') {
       s.partner = bound(s.partner + 12);
-      if (s.partner >= 80 && age >= 21 && s.relationship === 'dating') { s.relationship = 'married'; notes.push('got-married'); }
+      // Marriage is a deliberate proposal via a named partner interaction,
+      // never an accidental side effect of generic socializing.
     } else { s.friends = bound(s.friends + 12); }
     s.family = bound(s.family + 4);
     stats = updatedStats(stats, { happiness: 5 });

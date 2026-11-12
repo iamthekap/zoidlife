@@ -772,7 +772,7 @@ function renderPeople(): string {
  const s=life.simulation,social=life.social.people;
  const bondRow=(p:typeof social[number])=>{
    const age=personAge(p,life!.age);
-   const actions=SOCIAL_KINDS.map(kind=>{
+   const actions=(p.role==='partner'?SOCIAL_KINDS:SOCIAL_KINDS.filter(k=>k!=='propose')).map(kind=>{
      const can=p.alive&&!life!.pendingEvent&&!s.ended&&canInteract(life!.social,s,life!.age,p.id,kind);
      const cost=interactionCost(kind),label=interactionLabel(kind,language);
      return '<button type="button" data-person="'+safe(p.id)+'" data-kind="'+safe(kind)+'"'+(can?'':' disabled')+

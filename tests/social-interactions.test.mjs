@@ -7,7 +7,7 @@ const profile={name:'Luana Costa',gender:'woman',country:'BR',city:'Recife',
  skin:'tan',hair:'waves',hairColor:'black',eyes:'green',birthday:2,birthMonth:4};
 const stats={happiness:60,health:85,smarts:63,looks:58};
 test('the six interaction choices are bilingual and available contextually',()=>{
- assert.deepEqual(SOCIAL_KINDS,['talk','compliment','invite','gift','help','argue','reconcile']);
+ assert.deepEqual(SOCIAL_KINDS,['talk','compliment','invite','gift','help','argue','reconcile','propose']);
  assert.equal(interactionLabel('compliment','pt-BR'),'Elogiar');
  assert.equal(interactionLabel('argue','en'),'Argue');
  const soc=initialSocial(profile),s=createSimulation(),id='mother-primary';
@@ -101,4 +101,23 @@ test('complimenting a friend does not alter family ties; meeting family does not
  assert.equal(parentTalk.ok,true);
  assert.equal(parentTalk.simulation.relationship,'dating');
  assert.equal(parentTalk.simulation.partner,78);
+});
+
+test('marriage requires deliberate proposal to a partner, adequate bond, age, funds and unused social action',()=>{
+ const all=syncSocial(initialSocial(profile),profile,24,'dating',0,85).social;
+ const partner=all.people.find(p=>p.role==='partner');
+ assert.ok(partner);
+ const s={...createSimulation(),relationship:'dating',partner:85,balance:300};
+ assert.equal(canInteract(all,s,20,partner.id,'propose'),false);
+ assert.equal(canInteract(all,{...s,balance:249},24,partner.id,'propose'),false);
+ assert.equal(canInteract(all,{...s,partner:69},24,partner.id,'propose'),false);
+ assert.equal(canInteract(all,s,24,'mother-primary','propose'),false);
+ const proposal=resolveSocialEncounter(all,s,stats,24,partner.id,'propose','pt-BR');
+ assert.equal(proposal.ok,true);
+ assert.equal(proposal.simulation.relationship,'married');
+ assert.equal(proposal.simulation.balance,50);
+ assert.equal(proposal.social.people.find(p=>p.id===partner.id).memories.at(-1).kind,'propose');
+ assert.equal(canInteract(proposal.social,proposal.simulation,25,partner.id,'propose'),false);
+ const normalized=normalizeSocial(proposal.social,profile,25);
+ assert.equal(normalized.people.find(p=>p.id===partner.id).memories.at(-1).kind,'propose');
 });
