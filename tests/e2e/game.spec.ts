@@ -1156,3 +1156,49 @@ test('adolescent annual finance forecast matches actual expenses charged only af
  const text18=await page.locator('.data-list').innerText();
  expect(text18).not.toMatch(/Despesas anuais previstas\s+R\$\s*0/);
 });
+
+test('invalid local save is never overwritten silently and can be recovered as raw data',async({page})=>{
+ await page.goto('/');
+ const raw='{corrupted save that must not vanish';
+ await page.evaluate(value=>localStorage.setItem('zoid-life-save-v1',value),raw);
+ await page.reload();
+ await expect(page.locator('.save-recovery[role="alert"]')).toBeVisible();
+ const downloadPromise=page.waitForEvent('download');
+ await page.locator('[data-do="export-recovery"]').click();
+ const download=await downloadPromise;
+ expect(download.suggestedFilename()).toBe('zoid-life-recovery.txt');
+ const stream=await download.createReadStream();
+ let recovered='';
+ for await(const chunk of stream)recovered+=chunk.toString();
+ expect(recovered).toBe(raw);
+ page.once('dialog',dialog=>dialog.dismiss());
+ await page.locator('[data-do="preset-0"]').click();
+ await expect(page.locator('.newborn-card')).toHaveCount(3);
+ expect(await page.evaluate(()=>localStorage.getItem('zoid-life-save-v1'))).toBe(raw);
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('[data-do="preset-0"]').click();
+ await expect(page.locator('.game-layout')).toBeVisible();
+ await expect(page.locator('.save-recovery')).toHaveCount(0);
+ const actual=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(actual.age).toBe(0);
+});
+test('a storage quota error is visible and the unsaved life can still be exported',async({page})=>{
+ await page.addInitScript(()=>{
+  const previous=Storage.prototype.setItem;
+  Storage.prototype.setItem=function(key,value){
+   if(key==='zoid-life-save-v1')throw new DOMException('QuotaExceededError','QuotaExceededError');
+   return previous.call(this,key,value);
+  };
+ });
+ await chooseBaby(page);
+ await expect(page.getByRole('alert')).toContainText('Não foi possível salvar');
+ await page.locator('.game-menu').click();
+ await expect(page.getByRole('dialog')).toContainText('Salvamento indisponível');
+ const downloadPromise=page.waitForEvent('download');
+ await page.locator('[data-do="export-save"]').click();
+ const download=await downloadPromise;
+ expect(download.suggestedFilename()).toMatch(/^zoid-life-.*\\.json$/);
+ const stream=await download.createReadStream();
+ let exported='';for await(const chunk of stream)exported+=chunk.toString();
+ expect(JSON.parse(exported).name).toBeTruthy();
+});

@@ -856,3 +856,9 @@ body:has(.event-modal-overlay){overflow:hidden;}
 .event-language{min-height:38px;min-width:46px;border:1px solid #a6c7f4;color:#1f5fac;
  background:#eff6ff;border-radius:8px;font-weight:900;font-size:12px;}
 .event-language:focus-visible{outline:3px solid #FF0044;outline-offset:2px;}
+
+.save-recovery{margin:16px auto 5px;max-width:550px;padding:14px;border:1px solid #d98798;
+ background:#fff5f7;border-radius:11px;display:grid;justify-items:start;gap:10px;}
+.save-recovery strong{color:#8f2443;font-size:13px;}
+.save-recovery p{color:#734557;font-size:12px;line-height:1.55;margin:0;}
+.save-recovery .button{min-height:43px;}

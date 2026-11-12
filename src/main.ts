@@ -158,6 +158,8 @@ type Scene = "welcome" | "selection" | "custom" | "playing";
 type Tab = "story" | "actions" | "people" | "career" | "finances";
 let language: Language = (()=>{try{return localStorage.getItem(LANG_KEY)==='en'?'en':'pt-BR';}
   catch{return 'pt-BR';}})();
+let loadError=false;
+let recoveryAvailable=false;
 let life: Life | null = loadLife();
 let scene: Scene = "welcome";
 let tab: Tab = "story";
@@ -317,8 +319,9 @@ function restorePendingEvent(raw:unknown,profile:CharacterProfile,simulation:Sim
 function loadLife(): Life|null {
   try {
     const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return null;
+    recoveryAvailable=true;
     const r=JSON.parse(raw) as Partial<Life>;
-    if(typeof r.name!=='string' || !r.name.trim() || typeof r.age!=='number' || !Number.isInteger(r.age) || !r.stats) return null;
+    if(!r||typeof r.name!=='string' || !r.name.trim() || typeof r.age!=='number' || !Number.isInteger(r.age) || !r.stats){loadError=true;return null;}
     const stats=Object.fromEntries((['happiness','health','smarts','looks'] as StatKey[]).map(k => [k,clamp(Number(r.stats?.[k]??50))])) as Stats;
     const name=r.name.trim().slice(0,52);
     const fallbackFamily=makeFamily(name);
@@ -348,11 +351,12 @@ function loadLife(): Life|null {
       try { localStorage.setItem(STORAGE_KEY,JSON.stringify(restored)); }
       catch { /* Private browsing may disallow writes; current state still works. */ }
     }
+    loadError=false;recoveryAvailable=false;
     return restored;
-  } catch { return null; }
+  } catch { loadError=true;return null; }
 }
 function saveLife(): void {
- try {if(life)localStorage.setItem(STORAGE_KEY,JSON.stringify(life));saveError=false;}
+ try {if(life)localStorage.setItem(STORAGE_KEY,JSON.stringify(life));saveError=false;loadError=false;recoveryAvailable=false;}
  catch {saveError=true;} // Never claim a successful save after quota/security failure.
 }
 function makeFamily(name: string): Life['familyMembers'] {
@@ -362,7 +366,7 @@ function makeFamily(name: string): Life['familyMembers'] {
 }
 function createLife(profile: CharacterProfile, stats: Stats): void {
   // Prevent accidental overwrites when someone picks a new baby or submits the editor.
-  if(life && !window.confirm(language==='pt-BR'?
+  if((life||loadError) && !window.confirm(language==='pt-BR'?
     'Começar uma nova vida vai substituir o progresso salvo neste navegador. Exporte seu save no menu antes, se quiser guardá-lo. Continuar?':
     'A new life will replace this browser save. Export it from the menu first if you want to keep it. Continue?'))return;
   const normalized=normalizeProfile(profile,profile.name);
@@ -464,7 +468,13 @@ function renderWelcome(): string {
     '<div class="newborn-tools">'+button(language==="pt-BR"?"↻ Sortear outros três":"↻ Reroll three","reroll","secondary")+
     button(language==="pt-BR"?"+ Criar meu personagem":"+ Create my own","custom","outline")+'</div>'+
     (hasSave?'<div class="continue-life">'+button(u("continue"),"continue","primary")+
-      '<span>'+safe(life!.name)+' · '+safe(ageText(life!.age))+'</span></div>':'')+'</section>'+
+      '<span>'+safe(life!.name)+' · '+safe(ageText(life!.age))+'</span></div>':
+      loadError?'<div class="save-recovery" role="alert"><strong>'+
+      safe(language==='pt-BR'?'Não foi possível restaurar sua vida salva.':'Could not restore your saved life.')+'</strong>'+
+      '<p>'+safe(language==='pt-BR'?'O arquivo foi mantido neste navegador. Faça um backup antes de começar outra vida.':
+       'The existing file was preserved in this browser. Back it up before starting again.')+'</p>'+
+      (recoveryAvailable?button(language==='pt-BR'?'Baixar cópia de recuperação':'Download recovery copy','export-recovery','secondary'):'')+
+      '</div>':'')+'</section>'+
     '<div class="entry-footer"><span>'+safe(u("noLogin"))+'</span><span>BLUE & RED EDITION · 0.9.0</span></div></main>';
 }
 function renderSelection(): string { return renderWelcome(); }
@@ -1216,12 +1226,25 @@ function downloadLife():void {
  document.body.appendChild(a);a.click();a.remove();
  window.setTimeout(()=>URL.revokeObjectURL(url),1200);
 }
+function downloadUnrestoredSave():void {
+ if(!recoveryAvailable)return;
+ try{
+  const raw=localStorage.getItem(STORAGE_KEY);
+  if(!raw)return;
+  const url=URL.createObjectURL(new Blob([raw],{type:'text/plain;charset=utf-8'}));
+  const anchor=document.createElement('a');
+  anchor.href=url;anchor.download='zoid-life-recovery.txt';
+  document.body.appendChild(anchor);anchor.click();anchor.remove();
+  window.setTimeout(()=>URL.revokeObjectURL(url),1200);
+ }catch { /* This browser may deny storage access; do not destroy the data. */ }
+}
 async function importLife(file:File):Promise<void> {
  try {
   if(file.size>MAX_SAVE_BYTES)throw Error('too-large');
   const parsed=validateLifeSave(await file.text());
   if(!parsed.ok)throw Error(parsed.error);
   const original=localStorage.getItem(STORAGE_KEY);
+  const previousLoadError=loadError,previousRecoveryAvailable=recoveryAvailable;
   try {
    localStorage.setItem(STORAGE_KEY,JSON.stringify(parsed.value));
    const restored=loadLife();
@@ -1230,6 +1253,7 @@ async function importLife(file:File):Promise<void> {
   }catch(error){
    if(original===null)localStorage.removeItem(STORAGE_KEY);
    else localStorage.setItem(STORAGE_KEY,original);
+   loadError=previousLoadError;recoveryAvailable=previousRecoveryAvailable;
    throw error;
   }
  }catch{
@@ -1240,8 +1264,8 @@ async function importLife(file:File):Promise<void> {
 }
 
 function newLife(): void {
-  if(life && !window.confirm(u("resetTitle")))return;
-  life=null;try{localStorage.removeItem(STORAGE_KEY);}catch{}
+  if((life||loadError) && !window.confirm(u("resetTitle")))return;
+  life=null;loadError=false;recoveryAvailable=false;try{localStorage.removeItem(STORAGE_KEY);}catch{}
   candidates=randomCandidates(3);scene="welcome";menuOpen=false;render();
 }
 function handleAction(value:string):void {
@@ -1250,6 +1274,7 @@ function handleAction(value:string):void {
   if(value==="toggle-menu"){menuOpen=!menuOpen;menuError="";render();return;}
   if(value==="close-menu"){menuOpen=false;menuError="";render();return;}
   if(value==="export-save"){downloadLife();return;}
+  if(value==="export-recovery"){downloadUnrestoredSave();return;}
   if(value==="download-recap"){downloadLifeRecap();return;}
   if(value==="import-save"){appEl?.querySelector<HTMLInputElement>("#life-save-file")?.click();return;}
   if(value==="home"){scene="welcome";menuOpen=false;render();return;}
