@@ -85,3 +85,13 @@ test('second follow-up accurately remembers which earlier route the player took'
   assert.equal(normalizeStoryArc({...first,branch:0},origin),null);
  }
 });
+
+test('a previously saved event cannot advance from an impossible year or invalid option',()=>{
+ const origin=startStoryArc('computer-club',0,10,null);
+ const id=storyArcEvent(origin,'pt-BR').id;
+ assert.equal(afterStoryArcChoice(origin,id,0,10),origin);
+ assert.equal(afterStoryArcChoice(origin,id,0,12),origin);
+ assert.equal(afterStoryArcChoice(origin,id,-1,11),origin);
+ assert.equal(afterStoryArcChoice(origin,id,3,11),origin);
+ assert.equal(afterStoryArcChoice(origin,id,1,11)?.branch,1);
+});
