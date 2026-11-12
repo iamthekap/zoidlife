@@ -1,6 +1,6 @@
 /** Reusable Zoid Life visual scenes, originally authored in SVG. No third-party assets. */
 import type {CharacterProfile} from './characters';
-import {portraitLife} from './life-art';
+import {portraitLife} from './life-art.ts';
 type SceneKind = 'family'|'school'|'work'|'money'|'health'|'city'|'friend'|'leisure'|'retirement';
 type Scene = {kind:SceneKind; props:[string,string]; labelPt:string;labelEn:string};
 const SCENES:Record<SceneKind,Scene>={
