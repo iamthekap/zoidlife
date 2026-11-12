@@ -14,7 +14,8 @@ import { healthLabel,type ConditionId } from "./health";
 import { OFFENSES,justiceLabel,legalStatus,type OffenseId } from "./justice";
 import { CAREERS,careerById,careerAvailable,careerLabel,careerRequirements,type OccupationId } from "./careers";
 import { validateLifeSave, serializeLife, saveFilename } from "./save-io";
-import { initialSocial, normalizeSocial, syncSocial, spendSocialTime, personAge, personLabel, type SocialState } from "./social";
+import { initialSocial, normalizeSocial, syncSocial, personAge, personLabel, type SocialState } from "./social";
+import {SOCIAL_KINDS,interactionLabel,interactionCost,canInteract,resolveSocialEncounter,recentSocialMemory,type Lang} from "./social-interactions";
 
 import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, applyCareer, applyOffense, type Simulation, type Action, type WorldImpact, canTakeAction } from "./simulation";
 
@@ -763,36 +764,39 @@ function progress(label: string, amount: number): string {
   '<div class="bar"><span style="width:'+clamp(amount)+'%"></span></div></div>';
 }
 function renderPeople(): string {
-  if(!life)return '';
-  const s=life.simulation;
-  const social=life.social.people;
-  const bondRow=(p:typeof social[number])=>{
-    const age=personAge(p,life!.age);
-    const canVisit=p.alive&&!life!.pendingEvent&&!s.ended&&canTakeAction(s,life!.age,"socialize");
-    const canGift=canVisit&&life!.age>=8&&s.balance>=200;
-    const canHelp=canVisit&&life!.age>=12;
-    return '<article class="person-card"><div class="person-art">'+portraitLife(p.profile,age,"tiny")+'</div>'+
-      '<div class="person-details"><strong>'+safe(p.profile.name)+'</strong>'+
-      '<span>'+safe(personLabel(p.role,language))+' · '+safe(ageText(age))+
-      (p.alive?'':(language==="pt-BR"?" · Falecido":" · Deceased"))+'</span>'+
-      '<div class="person-bond"><span style="width:'+p.closeness+'%"></span></div>'+
-      '<small>'+safe(language==="pt-BR"?"Vínculo":"Bond")+': '+p.closeness+'%</small></div>'+
-      '<div class="person-actions">'+
-       '<button type="button" data-person="'+safe(p.id)+'" data-kind="talk"'+(canVisit?'':' disabled')+
-       ' class="person-visit">'+safe(language==="pt-BR"?"Conversar":"Talk")+'</button>'+
-       '<button type="button" data-person="'+safe(p.id)+'" data-kind="gift"'+(canGift?'':' disabled')+
-       ' class="person-visit">'+safe(language==="pt-BR"?"Presentear":"Gift")+'</button>'+
-       '<button type="button" data-person="'+safe(p.id)+'" data-kind="help"'+(canHelp?'':' disabled')+
-       ' class="person-visit">'+safe(language==="pt-BR"?"Ajudar":"Help")+'</button></div></article>';
-  };
-  return '<section class="content-panel people-panel"><div class="panel-heading"><h2>'+safe(u("people"))+'</h2>'+
-   '<p>'+safe(u("relationship"))+': '+safe(u(s.relationship))+' · '+safe(language==="pt-BR"?"Cada pessoa tem uma história e um vínculo próprio.":"Every person has their own story and bond.")+'</p></div>'+
-   '<div class="relation-grid">'+progress(u("family"),s.family)+progress(u("friends"),s.friends)+
-   (s.relationship!=="single"?progress(u("partner"),s.partner):'')+'</div>'+
-   '<div class="people-list">'+social.map(bondRow).join('')+'</div>'+
-   '<div class="data-list">'+pair(u("children"),String(s.children))+'</div>'+
-   '<div class="context-action activity-grid">'+actionButton("child")+'</div></section>';
+ if(!life)return '';
+ const s=life.simulation,social=life.social.people;
+ const bondRow=(p:typeof social[number])=>{
+   const age=personAge(p,life!.age);
+   const actions=SOCIAL_KINDS.map(kind=>{
+     const can=p.alive&&!life!.pendingEvent&&!s.ended&&canInteract(life!.social,s,life!.age,p.id,kind);
+     const cost=interactionCost(kind),label=interactionLabel(kind,language);
+     return '<button type="button" data-person="'+safe(p.id)+'" data-kind="'+safe(kind)+'"'+(can?'':' disabled')+
+       ' class="person-visit social-'+kind+'">'+safe(label)+(cost?' · '+safe(cash(cost)):'')+'</button>';
+   }).join('');
+   const last=recentSocialMemory(life!.social,p.id);
+   const memory=last?'<small class="person-last-memory">'+last.age+
+     (language==='pt-BR'?' anos · ':' yrs · ')+safe(interactionLabel(last.kind,language))+
+     ' · '+(last.bondChange>0?'+':'')+last.bondChange+'%</small>':'';
+   return '<article class="person-card"><div class="person-art">'+portraitLife(p.profile,age,"tiny")+'</div>'+
+    '<div class="person-details"><strong>'+safe(p.profile.name)+'</strong>'+
+    '<span>'+safe(personLabel(p.role,language))+' · '+safe(ageText(age))+
+    (p.alive?'':(language==="pt-BR"?" · Falecido":" · Deceased"))+'</span>'+
+    '<div class="person-bond"><span style="width:'+p.closeness+'%"></span></div>'+
+    '<small>'+safe(language==="pt-BR"?"Vínculo":"Bond")+': '+p.closeness+'%</small>'+memory+'</div>'+
+    '<div class="person-actions">'+actions+'</div></article>';
+ };
+ return '<section class="content-panel people-panel"><div class="panel-heading"><h2>'+safe(u("people"))+'</h2>'+
+  '<p>'+safe(u("relationship"))+': '+safe(u(s.relationship))+' · '+safe(language==="pt-BR"?
+  "Cada personagem lembra das suas interações, com consequências para o vínculo. Uma ação social por ano.":
+  "Each character remembers interactions with lasting bond consequences. One social action per year.")+'</p></div>'+
+  '<div class="relation-grid">'+progress(u("family"),s.family)+progress(u("friends"),s.friends)+
+  (s.relationship!=="single"?progress(u("partner"),s.partner):'')+'</div>'+
+  '<div class="people-list">'+social.map(bondRow).join('')+'</div>'+
+  '<div class="data-list">'+pair(u("children"),String(s.children))+'</div>'+
+  '<div class="context-action activity-grid">'+actionButton("child")+'</div></section>';
 }
+
 function pair(label: string,value:string): string {return '<div class="data-row"><span>'+safe(label)+'</span><strong>'+safe(value)+'</strong></div>';}
 function renderCareer(): string {
   if(!life)return '';
@@ -880,32 +884,12 @@ function syncLifePeople():void {
 }
 function visitPerson(id:string,kind='talk'):void {
  if(!life||life.pendingEvent||life.simulation.ended)return;
- const person=life.social.people.find(p=>p.id===id&&p.alive);
- if(!person)return;
- const mode=kind==='gift'||kind==='help'?kind:'talk';
- if(mode==='gift'&&(life.age<8||life.simulation.balance<200))return;
- if(mode==='help'&&life.age<12)return;
- const result=takeAction(life.simulation,life.stats,life.age,'socialize');
- if(!result.ok)return;
- life.simulation=result.state;life.stats=result.stats;
- let bond=12;
- if(mode==='gift'){
-   life.simulation.balance-=200;
-   bond=22;life.stats.happiness=clamp(life.stats.happiness+2);
- }else if(mode==='help'){
-   bond=17;life.stats.health=clamp(life.stats.health-2);
-   life.stats.happiness=clamp(life.stats.happiness+3);
- }
- if(mode!=='talk'){
-   if(person.role==='partner')life.simulation.partner=clamp(life.simulation.partner+8);
-   else if(person.role==='friend')life.simulation.friends=clamp(life.simulation.friends+6);
-   else life.simulation.family=clamp(life.simulation.family+5);
- }
- life.social=spendSocialTime(life.social,id,life.age,bond);
- const verb=mode==='gift'?(language==='pt-BR'?'Você presenteou ':'You gave a gift to '):
-   mode==='help'?(language==='pt-BR'?'Você ajudou ':'You helped '):
-   (language==='pt-BR'?'Você conversou com ':'You talked with ');
- life.history.push(life.age+': '+verb+person.profile.name+'.');
+ if(!SOCIAL_KINDS.includes(kind as typeof SOCIAL_KINDS[number]))return;
+ const outcome=resolveSocialEncounter(life.social,life.simulation,life.stats,life.age,id,
+   kind as typeof SOCIAL_KINDS[number],language as Lang);
+ if(!outcome.ok)return;
+ life.social=outcome.social;life.simulation=outcome.simulation;life.stats=outcome.stats;
+ for(const note of outcome.notes??[])life.history.push(life.age+': '+note);
  syncLifePeople();saveLife();render();
 }
 

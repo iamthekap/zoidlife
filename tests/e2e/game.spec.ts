@@ -656,3 +656,44 @@ test('player can change appearance without modifying custom destiny or genetic s
  const again=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
  expect(again.profile.outfit).toBe('purple');
 });
+
+test('new relationship choices persist, change the correct NPC, and respect annual social cooldown',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const life=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  life.age=17;life.simulation.balance=400;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(life));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ const chosen=page.locator('[data-person="mother-primary"][data-kind="compliment"]');
+ await expect(chosen).toBeEnabled();
+ const prior=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ await chosen.click();
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(after.social.people[0].closeness).toBeGreaterThan(prior.social.people[0].closeness);
+ expect(after.social.people[1].closeness).toBe(prior.social.people[1].closeness);
+ expect(after.social.people[0].memories.at(-1).kind).toBe('compliment');
+ await expect(page.locator('[data-person="mother-primary"][data-kind="compliment"]')).toBeDisabled();
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('.person-last-memory').first()).toContainText('Elogiar');
+ await expect(page.locator('[data-person="mother-primary"][data-kind="argue"]')).toBeDisabled();
+});
+test('arguments reduce a specific bond and gifts cannot overspend',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const life=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  life.age=17;life.simulation.balance=50;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(life));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('[data-person="mother-primary"][data-kind="gift"]')).toBeDisabled();
+ const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ await page.locator('[data-person="mother-primary"][data-kind="argue"]').click();
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(after.social.people[0].closeness).toBeLessThan(before.social.people[0].closeness);
+ expect(after.simulation.balance).toBe(50);
+ expect(after.stats.happiness).toBeLessThan(before.stats.happiness);
+});

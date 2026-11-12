@@ -98,3 +98,14 @@ test('different social actions change one person without replacing anybody else'
  assert.equal(gifted.people[1].closeness,other.closeness);
  assert.equal(gifted.people[0].lastSharedAge,10);
 });
+
+test('normalized relationship memories survive save migration but invalid records do not',()=>{
+ const social=initialSocial(player);
+ social.people[0].memories=[
+  {age:13,kind:'compliment',bondChange:12},
+  {age:13,kind:'<script>',bondChange:999}
+ ];
+ const loaded=normalizeSocial(social,player,15);
+ assert.deepEqual(loaded.people[0].memories,[{age:13,kind:'compliment',bondChange:12}]);
+ assert.equal(loaded.people[1].memories?.length,0);
+});
