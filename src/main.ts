@@ -152,6 +152,7 @@ const copy = {
 } satisfies Record<Language, any>;
 
 
+declare const __ZOID_BUILD_COMMIT__: string;
 const STORAGE_KEY = "zoid-life-save-v1";
 const LANG_KEY = "zoid-life-language";
 type Scene = "welcome" | "selection" | "custom" | "playing";
@@ -439,7 +440,7 @@ function render(): void {
   const shell='<div class="app-shell">'+header+
    (scene==="welcome"?renderWelcome():scene==="selection"?renderSelection():
      scene==="custom"?renderCustom():renderPlay())+
-   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.9.0 · PT / EN</span></footer></div>';
+   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.9.0 · PT / EN · '+safe(__ZOID_BUILD_COMMIT__)+'</span></footer></div>';
   app.innerHTML=shell;
   if(scene==='playing'&&life?.pendingEvent&&tab==='story'){
     // Prevent keyboard and assistive-technology interaction with the obscured game.

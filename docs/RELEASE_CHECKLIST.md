@@ -1,30 +1,34 @@
-# Zoid Life — v0.5 technical acceptance
+# Zoid Life 0.9 — release gates (not a production acceptance certificate)
 
-## Live UI contract
-- Loading screen followed immediately by three generated babies on a full-screen entry view.
-- Each baby's full-body seated artwork comes from the same saved appearance profile used in childhood, adolescence, adulthood and senior years.
-- A fully free character editor is available before starting; no login or purchase is required.
-- The gameplay journal and contextual scenario art are backed by persistent events and choices.
-- The central **+ Age** button stays at the center of the bottom game dock on phones and desktops and is disabled while a decision is pending.
-- Status header shows the active character, age and bank balance.
-- Four dock categories: career, finances, relationships and activities, with main journal accessible from the player header.
-- Named family members, partners and children persist and grow older with the player. Spending time changes bond and consumes the year's voluntary action.
-- Events: 8 legacy/story events, 16 original additional events and 19 data-driven scenario events (43 authored templates) with age, contextual eligibility, four-year repeat cooldown and persistent world outcomes.
-- All content and illustrations are authored for Zoid Life, not extracted from the supplied reference APK.
+## Product and game loop
+- [x] Loading, three visible newborn candidates and free custom creator
+- [x] Annual decision modal with a blocking choice and multilingual content
+- [x] Persistent illustrated chronological choice history and future-age filtering
+- [x] Persistent named relatives, social encounters and second-generation continuation
+- [x] Career application, qualifications, income, promotion, resignation
+- [x] Savings, debts, property, investment purchase **and redemption**
+- [x] Health conditions, legal choices, age gates and ending recap
+- [x] JSON export/import, corrupted-save recovery and storage error feedback
 
-## Production release process
-Main: authoritative code / PR merge target.
-Cloudflare's currently configured production branch is feat/initial-web-foundation, a legacy setting which previously fixed a broken build. **Do not change this setting without a reason.**
-Preview: feature branches automatically build with Cloudflare, and the preview link appears on the pull request.
-Release: after CI + visual acceptance, reproduce the tested main tree exactly on feat/initial-web-foundation using a non-force commit. Compare tree SHAs and confirm Cloudflare production build+version. This creates one production build instead of experimenting repeatedly on the public domain.
-GitHub Actions CI requires:
-- unit and long-horizon stress tests
-- TypeScript compile
-- Vite bundle
-- Playwright Chromium tests on mobile/desktop and legacy save migration
+## Verification before any release
+- [x] TypeScript and Vite production bundle compiled in GitHub Actions
+- [x] Automated Node rules including deterministic long-horizon simulation
+- [x] Chromium full scenario regression tests against compiled assets
+- [x] Firefox and WebKit gameplay compatibility smoke checks
+- [x] Real, not age-faked, complete-life browser scenario to ending
+- [x] Genuine 390x844 mobile and 1440x900 desktop screenshots recorded
+- [x] Git commit fingerprint visible in the game build (verify HEAD in CI after change)
+- [ ] Human visual acceptance against the user's approved reference art and UX
+- [ ] Manual tests on real mobile devices and mainstream desktop browsers
+- [ ] Public Cloudflare preview exercised end-to-end on its actual URL, not only local preview
+- [ ] Confirmed final content depth and story-chain acceptance
+- [ ] User-approved merge and production promotion; exact production deployment confirmed
 
-## Known limitations
-- Static APK inspection cannot establish full gameplay behavior; reference material is used only as an abstract functional benchmark.
-- More interactive NPC interactions, jobs, relationships, school systems, illness modeling and visual polish are possible in future releases.
-- A passing CI does not prove every device or situation is bug-free.
-- localStorage saves live on a particular device/browser. Clearing site storage removes them. A portable save export is a proposed next feature.
+## No false-positive rule
+A green unit test means the tested contract passed, not every scenario. A generated screenshot means a page rendered, **not** that the composition is approved. Tests that programmatically modify age exercise rendering/migration only, not the full game loop. All final claims must name the precise Git SHA and test run.
+
+## Publication policy
+- GitHub: `iamthekap/zoidlife`, PR #8 from `feature/zoidlife-storyboard-blue-red-20261111` to `main`.
+- Cloudflare production branch is `feat/initial-web-foundation`. Do not alter it accidentally.
+- To publish after approval, merge the verified PR into main, reproduce the exact tested tree on the configured production branch via a regular non-force commit, then confirm Cloudflare's deployed SHA and visit the real URL.
+- Browser saves are per origin; users should export before switching domain or clearing site data.

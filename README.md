@@ -1,45 +1,40 @@
 # Zoid Life
 
-Independent, browser-based life simulator in the NOVA STEAM VERDE collection.
+Independent browser-based life simulator developed in the NOVA STEAM VERDE collection. The current `0.9.0` label is a **preview version**, not a claim of final production acceptance.
 
 ## Play
-- Loading screen followed by **three generated babies** immediately, or a completely free custom character.
-- Original modular, age-specific pixel avatars from baby through senior, preserving identity.
-- Central + Age button, illustrated narrative feed, 4 navigational game tabs, clear status header.
-- 58 original age-aware bilingual scenario templates, contextual criteria, event cooldown and persistent consequences.
-- Named parents, partners, children and relationships, school, career, money, debt, investments, property, health.
-- Portable **JSON life export and import** with basic validation, as well as automatic local browser saves.
-- No login or payment, works in pt-BR and English.
+- Start immediately from three original, genetically distinct newborn candidates or create a completely free custom character.
+- Progress annually through mandatory, bilingual choices. The chosen result, including actual stat and world changes, is stored in a chronological illustrated life journal.
+- Spend a year taking different allowed actions, without repeating the same action for extra rewards.
+- Use named parents, friends, classmates, partners and children; unlock school, 45 occupations, promotions, voluntary resignation, investment and redemption, home purchase, health, crime and generational progression.
+- Portable, validated JSON life saves. Corrupted local saves can be downloaded for recovery before overwriting. Browser-storage failures are visible; the current life can still be exported.
+- Blue **Zoid** / red **Life** brand. Original pixel art, pt-BR and English. No mandatory sign-in or paid API.
 
 ## Development
+Node.js 22+:
 
-Node 22+:
+```bash
+npm install
+npm test
+npm run build
+npx playwright install --with-deps chromium firefox webkit
+npm run test:e2e
+```
 
-    npm install
-    npm test
-    npm run build
-    npx playwright install chromium
-    npm run test:e2e
+The Playwright suite runs against the **compiled Vite preview** (`dist/`), not the Vite development server. Chromium exercises the full scenario suite, with additional Firefox and WebKit compatibility checks. CI records actual browser screenshots as downloadable artifacts.
 
-## Structure
-- src/main.ts — responsive UI, story orchestration, save and menu handling
-- src/characters.ts — character identity and profile choices
-- src/life-art.ts — pixel avatars across life stages
-- src/social.ts — relatives, partners, children and bonds
-- src/simulation.ts — finances, school, relationships and life progress
-- src/events-plus.ts / src/events-extended.ts — authored localized event libraries
-- src/event-engine.ts — repeat logic, age gating and history
-- src/event-scenes.ts — original event illustrations
-- src/save-io.ts — safe save import validation and filenames
-- tests — unit, 500-life stress runs and Chromium smoke tests
-- docs/RELEASE_CHECKLIST.md — release gates, production branch notes
-- docs/REA_ANALYSIS.md — APK inspection evidence and limitations
+## Source and deployment integrity
+- `src/main.ts`: orchestration and UI
+- `src/simulation.ts`: deterministic progression and action gates
+- `src/chronicle.ts`: chronology-backed event records
+- `src/save-io.ts`: portable save validation and recovery integration
+- `src/storyboard.ts`, `src/event-scenes.ts`, `src/pixel-*`: original procedural art
+- `tests/`: Node, 500-life invariants, full-life, mobile and cross-engine browser tests
+- `docs/RELEASE_CHECKLIST.md`: acceptance criteria and production gate
+- `docs/EXECUTION_CHECKPOINT.md`: durable continuation and evidence
 
-## Cloudflare release
-Main is the reviewed source of truth; feature branches receive automated previews.
+The footer of each Vite build displays a short Git commit fingerprint, derived from the source tree at build time. **Compare that fingerprint to the tested commit** to detect stale deployed previews.
 
-The currently configured **production branch in Cloudflare** is feat/initial-web-foundation. Leave it as configured to avoid another branch change; promote the tested main tree to that branch using a non-force release commit after passing CI and verifying the preview. Confirm the production build/version ID. A successful GitHub CI does not prove active deployment.
+GitHub PR #8 supplies the Cloudflare preview URL. Cloudflare's configured production branch remains `feat/initial-web-foundation`; no production promotion should be inferred from a successful PR build. Use a non-force release commit and confirm the exact deployed tree only after approval.
 
-Preview vs production URLs are different. Browser saves are stored locally, so exporting a save before clearing site data is strongly recommended.
-
-No third-party game code, text, artwork, sprites or audio is distributed.
+No third-party game sprites, dialogue, audio or binary code are copied or bundled. The modified reference APK was inspected statically and does not establish functional parity.

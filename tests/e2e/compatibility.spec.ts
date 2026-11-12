@@ -5,6 +5,7 @@ test('cross-engine mobile first life, mandatory annual event and persistent resu
  await page.setViewportSize({width:390,height:844});
  await page.goto('/');
  await expect(page.locator('.newborn-card')).toHaveCount(3);
+ await expect(page.locator('.global-footer')).toContainText(/[0-9a-f]{8}/);
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(393);
  await page.locator('[data-do="preset-0"]').click();
  await expect(page.locator('.identity-portrait .stage-baby')).toBeVisible();
