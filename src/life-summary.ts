@@ -2,6 +2,7 @@
 import type {Simulation,Stats} from './simulation.ts';
 import type {SocialState} from './social.ts';
 import {careerById,careerLabel} from './careers.ts';
+import {HOBBY_IDS,hobbyName,normalizeHobbyBook} from './hobbies.ts';
 export type Locale='pt-BR'|'en';
 export type LifeReportInput={
  name:string;age:number;birthYear:number;stats:Stats;simulation:Simulation;social:SocialState;
@@ -39,6 +40,16 @@ export function makeLifeReport(input:LifeReportInput,lang:Locale):LifeReport{
  if(s.relationship==='married')achievements.push(txt(lang,'Construiu um casamento','Built a marriage'));
  if(s.investments>0)achievements.push(txt(lang,'Construiu investimentos','Built investments'));
  if(s.experience>=10)achievements.push(txt(lang,'Carreira de longa duração','Long professional career'));
+ // Only earned hobbies enter the lifetime report; no false awards for unused paths.
+ const hobbies=normalizeHobbyBook(s.hobbies);
+ for(const id of HOBBY_IDS){
+  const record=hobbies[id];
+  if(record.awards>0)achievements.push(
+   (lang==='pt-BR'?'Talento desenvolvido: ':'Developed talent: ')+hobbyName(id,lang)+
+   ' · '+record.awards+(lang==='pt-BR'?' conquistas':' awards'));
+  if(record.xp===100)achievements.push(
+   (lang==='pt-BR'?'Domínio completo: ':'Mastered: ')+hobbyName(id,lang));
+ }
  // Imported history may contain notes from future ages: never report them as lived events.
  const news=input.history.filter(x=>{
   if(typeof x!=='string'||!x.trim())return false;
