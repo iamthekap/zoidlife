@@ -62,7 +62,8 @@ export function normalizeSocial(raw:unknown,player:CharacterProfile,age:number,c
    used.add(entry.id);
    const birth=Number.isInteger(entry.bornAtPlayerAge) && Math.abs(entry.bornAtPlayerAge)<=140?entry.bornAtPlayerAge:0;
    people.push({
-     id:entry.id,role:entry.role,profile:normalizeProfile(entry.profile,entry.profile?.name||'Personagem'),
+     id:entry.id,role:entry.role==='classmate'&&age>=18?'friend':entry.role,
+     profile:normalizeProfile(entry.profile,entry.profile?.name||'Personagem'),
      bornAtPlayerAge:birth,closeness:clamp(Number(entry.closeness)),
      alive:entry.alive!==false,lastSharedAge:Number.isInteger(entry.lastSharedAge)&&entry.lastSharedAge>=-1&&entry.lastSharedAge<=110?entry.lastSharedAge:-1,
      memories:Array.isArray(entry.memories)?entry.memories.slice(-6).filter((m):m is SocialMemory=>

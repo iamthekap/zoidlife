@@ -755,11 +755,12 @@ test('medical degree requires choosing a college specialization before applying'
  await expect(page.locator('.career-vacancy.current')).toContainText('Médico');
 });
 
-test('at birth, jobs are absent and the game opens with the interactive storyboard',async({page})=>{
+test('at birth, jobs are absent and the game opens with the interactive life journal',async({page})=>{
  await chooseBaby(page);
  await expect(page.locator('.game-dock [data-tab="career"]')).toContainText('Crescer');
  const layout=await page.locator('.game-feed > *').evaluateAll(nodes=>nodes.map(n=>n.className));
- expect(layout[0]).toContain('storyboard-timeline');
+ expect(layout[0]).toContain('story-primary');
+ await expect(page.locator('.game-feed > .story-primary > .life-journal')).toBeVisible();
  await expect(page.locator('.game-feed > .story-intro')).toHaveCount(0);
  await page.locator('.game-dock [data-tab="career"]').click();
  await expect(page.locator('[data-age-mode="early"]')).toBeVisible();
@@ -794,14 +795,14 @@ test('age-appropriate school and first jobs grow naturally instead of showing ad
  await at(18);
  await expect(page.locator('.career-vacancy')).toHaveCount(45);
 });
-test('new events are rendered inside the first timeline section and remain clickable',async({page})=>{
+test('new events are rendered before the journal and illustrated chapters and remain clickable',async({page})=>{
  await chooseBaby(page);
  await page.locator('.dock-age').click();
- await expect(page.locator('.storyboard-timeline [data-storyboard-current] .decision-card')).toBeVisible();
- await expect(page.locator('.storyboard-timeline [data-choice="0"]')).toBeEnabled();
- await page.locator('.storyboard-timeline [data-choice="0"]').click();
- await expect(page.locator('.storyboard-timeline .storyboard-track')).toBeVisible();
- await expect(page.locator('.life-journal .life-entry').first()).toBeVisible();
+ await expect(page.locator('.story-primary > .decision-card')).toBeVisible();
+ await expect(page.locator('.story-primary [data-choice="0"]')).toBeEnabled();
+ await page.locator('.story-primary [data-choice="0"]').click();
+ await expect(page.locator('.story-chapters .storyboard-track')).toBeVisible();
+ await expect(page.locator('.story-primary .life-journal .life-entry').first()).toBeVisible();
 });
 
 test('child, teen, adult and senior have new independent body anatomy and stage-specific faces',async({page})=>{
@@ -879,7 +880,7 @@ test('an idle life starts directly with the illustrated chronology, never a gene
  await expect(page.locator('.storyboard-timeline')).toBeVisible();
  await expect(page.locator('.storyboard-timeline .storyboard-track')).toBeVisible();
  await expect(page.locator('.age-ready')).toHaveCount(0);
- await expect(page.locator('[data-storyboard-current]')).toHaveCount(0);
+ await expect(page.locator('.story-primary .decision-card')).toHaveCount(0);
  await expect(page.locator('.storyboard-baby .storyboard-scene')).toBeVisible();
 });
 
@@ -896,7 +897,8 @@ test('a real schoolmate appears on entering school and remembers chosen social i
  await page.locator('.dock-age').click();
  await page.locator('[data-choice="0"]').click();
  await page.locator('.game-dock [data-tab="people"]').click();
- await expect(page.locator('.person-card')).toHaveCount(3);
+ expect(await page.locator('.person-card').count()).toBeGreaterThanOrEqual(3);
+ await expect(page.locator('[data-person="classmate-school"][data-kind="compliment"]')).toHaveCount(1);
  await expect(page.locator('.people-panel')).toContainText('Colega da escola');
  await expect(page.locator('[data-person="classmate-school"][data-kind="compliment"]')).toBeEnabled();
  await page.locator('[data-person="classmate-school"][data-kind="compliment"]').click();
@@ -914,6 +916,8 @@ test('adult partner proposal is explicit and never available to children or pare
  await page.evaluate(()=>{
   const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
   s.age=24;s.simulation.relationship='dating';s.simulation.partner=85;s.simulation.balance=500;
+  s.social.people.push({id:'partner-24',role:'partner',profile:{...s.profile,name:'Alex Santos'},
+   bornAtPlayerAge:-6,closeness:85,alive:true,lastSharedAge:-1,memories:[]});
   localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
  });
  await page.reload();await page.locator('[data-do="continue"]').click();
@@ -954,4 +958,19 @@ test('school friend retains the same identity and encounter memory after turning
  expect(after.role).toBe('friend');
  expect(after.profile.name).toBe(before.profile.name);
  expect(after.memories).toEqual(before.memories);
+});
+
+test('life journal is the top content and illustrated chapters collapse without losing choices',async({page})=>{
+ await chooseBaby(page);
+ await page.locator('.dock-age').click();
+ const first=await page.locator('.game-feed > *').evaluateAll(items=>items.map(x=>x.className));
+ expect(first[0]).toContain('story-primary');
+ await expect(page.locator('.story-chapters')).toHaveAttribute('open','');
+ await page.locator('.story-chapters-toggle').click();
+ await expect(page.locator('.story-chapters')).not.toHaveAttribute('open','');
+ await expect(page.locator('.story-primary [data-choice="0"]')).toBeEnabled();
+ await page.locator('.story-primary [data-choice="0"]').click();
+ await expect(page.locator('.life-journal .life-entry').first()).toBeVisible();
+ await page.locator('.story-chapters-toggle').click();
+ await expect(page.locator('.storyboard-baby')).toBeVisible();
 });

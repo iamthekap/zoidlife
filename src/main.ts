@@ -658,9 +658,15 @@ function renderStory():string {
       '" class="choice"><span>'+safe(c.label)+'</span><span class="choice-index">'+(i+1)+'</span></button>').join('')+
       '</div></div></section>':
     life.simulation.ended?renderLifeRecap():'';
-  return '<section class="story-layout game-feed" data-story-first="storyboard">'+
-    renderStoryboardTimeline(life.profile,life.age,life.history,language,eventHtml)+
-    timelineEntries()+'</section>';
+  // The latest choice and actual chronological journal come first.
+  // Illustrated chapters are the supporting storybook, not a giant landing banner.
+  const chapterTitle=language==='pt-BR'?'Capítulos ilustrados da vida':'Illustrated life chapters';
+  return '<section class="story-layout game-feed" data-story-first="journal">'+
+    '<div class="story-primary" data-story-priority="current">'+eventHtml+timelineEntries()+'</div>'+
+    '<details class="story-chapters" open><summary class="story-chapters-toggle">'+
+      '<span>'+safe(chapterTitle)+'</span><span aria-hidden="true">▾</span></summary>'+
+      renderStoryboardTimeline(life.profile,life.age,life.history,language)+
+    '</details></section>';
 }
 
 const actionTypes: Action[]=['study','job','work','train','socialize','care','budget','invest','home','child','retire'];
