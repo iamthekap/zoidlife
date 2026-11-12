@@ -47,3 +47,18 @@ test('a life recap never reports future-dated imported events as completed histo
  assert.ok(recap.events.includes('Fez sua primeira viagem.'));
  assert.ok(!recap.events.some(x=>x.includes('prêmio que nunca')||x.includes('patrimônio futuro')));
 });
+
+test('earned hobbies appear in the final report, while unused paths generate no fake achievements',()=>{
+ const s={...createSimulation(),ended:true};
+ s.hobbies.music={xp:100,awards:4,lastAge:65};
+ s.hobbies.coding={xp:37,awards:1,lastAge:48};
+ s.hobbies.sports={xp:18,awards:0,lastAge:22};
+ const pt=makeLifeReport({...input,simulation:s},'pt-BR');
+ assert.ok(pt.achievements.some(a=>a.includes('Talento desenvolvido: Música · 4 conquistas')));
+ assert.ok(pt.achievements.some(a=>a.includes('Domínio completo: Música')));
+ assert.ok(pt.achievements.some(a=>a.includes('Programação · 1 conquistas')));
+ assert.ok(!pt.achievements.some(a=>a.includes('Esporte')));
+ const en=makeLifeReport({...input,simulation:s},'en');
+ assert.ok(reportAsText(en,'en').includes('Developed talent: Music · 4 awards'));
+ assert.ok(reportAsText(en,'en').includes('Mastered: Music'));
+});
