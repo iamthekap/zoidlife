@@ -109,3 +109,18 @@ test('normalized relationship memories survive save migration but invalid record
  assert.deepEqual(loaded.people[0].memories,[{age:13,kind:'compliment',bondChange:12}]);
  assert.equal(loaded.people[1].memories?.length,0);
 });
+
+test('new parents have distinct role-consistent first names across many procedural births',()=>{
+ for(let i=0;i<120;i++){
+  const playerName='Luiza Costa';
+  const state=initialSocial({...player,name:playerName});
+  const [mother,father]=state.people;
+  const firsts=[mother.profile.name.split(' ')[0],father.profile.name.split(' ')[0]];
+  assert.equal(mother.profile.gender,'woman');
+  assert.equal(father.profile.gender,'man');
+  assert.notEqual(firsts[0],firsts[1]);
+  assert.ok(!firsts.includes('Luiza'));
+  assert.ok(mother.profile.name.endsWith('Costa'));
+  assert.ok(father.profile.name.endsWith('Costa'));
+ }
+});

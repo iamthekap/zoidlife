@@ -1,5 +1,5 @@
 /** Original persistent people and family simulation for Zoid Life. */
-import {randomCharacter, normalizeProfile, type CharacterProfile} from './characters.ts';
+import {randomCharacter,randomCharacterForGender,normalizeProfile,type CharacterProfile} from './characters.ts';
 export type SocialRole='mother'|'father'|'parent'|'partner'|'child'|'friend';
 export type SocialInteractionKind='talk'|'gift'|'help'|'compliment'|'argue'|'invite'|'reconcile';
 export type SocialMemory={age:number;kind:SocialInteractionKind;bondChange:number};
@@ -25,12 +25,15 @@ function familyLastName(player:CharacterProfile):string {
  const parts=player.name.trim().split(/\s+/);return parts.length>1?parts[parts.length-1]:'Costa';
 }
 export function initialSocial(player:CharacterProfile):SocialState {
- const name=familyLastName(player), mother=randomCharacter(),father=randomCharacter();
+ const name=familyLastName(player);
+ const protagonistFirst=player.name.split(/\s+/)[0]||'';
+ const mother=randomCharacterForGender('woman',[protagonistFirst]);
+ const father=randomCharacterForGender('man',[protagonistFirst,mother.name.split(' ')[0]]);
  return {schema:1,people:[
-  {id:'mother-primary',role:'mother',profile:addName(sameRegion({...mother,gender:'woman',skin:player.skin},player),
+  {id:'mother-primary',role:'mother',profile:addName(sameRegion({...mother,skin:player.skin},player),
      mother.name.split(' ')[0]+' '+name),bornAtPlayerAge:-(26+Math.floor(Math.random()*12)),
      closeness:72,alive:true,lastSharedAge:-1},
-  {id:'father-primary',role:'father',profile:addName(sameRegion({...father,gender:'man',skin:player.skin},player),
+  {id:'father-primary',role:'father',profile:addName(sameRegion({...father,skin:player.skin},player),
      father.name.split(' ')[0]+' '+name),bornAtPlayerAge:-(27+Math.floor(Math.random()*12)),
      closeness:70,alive:true,lastSharedAge:-1}
  ]};

@@ -55,6 +55,16 @@ export function randomCharacter(): CharacterProfile {
     hairColor: pick(HAIR_COLORS), eyes: pick(EYES), outfit:pick(OUTFITS),origin:'generated',nature:'human',
     birthday: 1 + Math.floor(Math.random()*28), birthMonth: 1 + Math.floor(Math.random()*12) };
 }
+/** Preserves procedural genetics but creates names appropriate to the chosen identity.
+ * Prevents duplicate first names in a newly created family without rewriting old saves. */
+export function randomCharacterForGender(gender:Gender,excludedFirstNames:readonly string[]=[]):CharacterProfile {
+ const profile=randomCharacter();
+ const excluded=new Set(excludedFirstNames.map(n=>n.trim().toLocaleLowerCase()));
+ const candidates=firstNames[gender].filter(name=>!excluded.has(name.toLocaleLowerCase()));
+ const first=pick(candidates.length?candidates:firstNames[gender]);
+ return {...profile,gender,name:first+' '+pick(surnames)};
+}
+
 export function randomCandidates(count = 3): CharacterProfile[] {
   const total=Math.min(8,Math.max(1,Math.floor(Number.isFinite(count)?count:3)));
   const names=new Set<string>();
