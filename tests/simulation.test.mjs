@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice } from '../src/simulation.ts';
+import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, applyCareer } from '../src/simulation.ts';
 const base = { happiness: 70, health: 85, smarts: 50, looks: 60 };
 test('migrates legacy lives without losing state', () => {
   assert.deepEqual(loadSimulation(undefined), createSimulation());
