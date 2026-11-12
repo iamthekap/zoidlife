@@ -15,6 +15,7 @@ import { makeLifeReport,reportAsText } from "./life-summary";
 import {GameSound} from "./audio";
 import {HOBBY_IDS,canPracticeHobby,hobbyName,hobbyCost,hobbyCreditAlternative,type HobbyId} from "./hobbies";
 import {hobbyEvents} from "./hobby-events";
+import {DESTINATIONS,destination,canTravel,type JourneyId} from "./travel";
 import { healthLabel,type ConditionId } from "./health";
 import { OFFENSES,justiceLabel,legalStatus,type OffenseId } from "./justice";
 import { CAREERS,careerById,careerAvailable,careerLabel,careerRequirements,type OccupationId } from "./careers";
@@ -22,7 +23,7 @@ import { validateLifeSave, serializeLife, saveFilename, MAX_SAVE_BYTES } from ".
 import { initialSocial, normalizeSocial, syncSocial, personAge, personLabel, type SocialState } from "./social";
 import {SOCIAL_KINDS,interactionLabel,interactionCost,canInteract,resolveSocialEncounter,recentSocialMemory,type Lang} from "./social-interactions";
 
-import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, applyCareer, applyOffense, practiceHobby, type Simulation, type Action, type WorldImpact, canTakeAction, STUDY_TRACKS, selectStudyTrack, type StudyTrack } from "./simulation";
+import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, applyCareer, applyOffense, practiceHobby, takeJourney, type Simulation, type Action, type WorldImpact, canTakeAction, STUDY_TRACKS, selectStudyTrack, type StudyTrack } from "./simulation";
 
 type Language = "pt-BR" | "en";
 type StatKey = "happiness" | "health" | "smarts" | "looks";
@@ -408,6 +409,11 @@ function caption(s: string): string {
   if(s==='classmate-graduated')return language==='pt-BR'?'A amizade da escola continuou depois da formatura.':'A school friendship continued after graduation.';
   if(s.startsWith("job:"))return u("newJob")+": "+u(s.slice(4));
   if(s.startsWith("occupation:")){const role=careerById(s.slice(11));return role?careerLabel(role,language):u("job");}
+  if(s.startsWith('trip:')){
+    const trip=destination(s.slice(5));if(trip)return (language==='pt-BR'?'Visitou ':'Visited ')+
+      (language==='pt-BR'?trip.pt:trip.en)+'.';
+  }
+  if(s.startsWith('trip-cost:'))return (language==='pt-BR'?'Custo da viagem: ':'Journey cost: ')+cash(Number(s.slice(10)));
   if(s.startsWith('hobby:')){
     const [,id,level]=s.split(':');
     if(HOBBY_IDS.includes(id as HobbyId))return (language==='pt-BR'?'Talento praticado: ':'Practiced talent: ')+
@@ -925,6 +931,58 @@ function practiceHobbyFromUI(id:string):void{
  saveLife();tab='actions';render();
 }
 
+function renderTravelStudio():string{
+ if(!life||life.age<18)return '';
+ const pt=language==='pt-BR',diary=life.simulation.travel;
+ const cards=DESTINATIONS.map((item,i)=>{
+  const able=!life!.pendingEvent&&!life!.simulation.ended&&
+    canTakeAction(life!.simulation,life!.age,'travel')&&
+    canTravel(diary,life!.age,item.id,life!.simulation.balance);
+  const already=diary.visits.some(x=>x.id===item.id);
+  return '<article class="journey-card journey-'+item.id+'" data-journey-card="'+item.id+'">'+
+    '<div class="journey-picture" aria-hidden="true">'+
+    '<span class="journey-sky"></span><span class="journey-landscape"></span><span class="journey-route"></span></div>'+
+    '<div class="journey-description"><span class="journey-counter">'+(i+1)+' / '+DESTINATIONS.length+
+      (already?' · '+safe(pt?'Já visitado':'Visited'):'')+'</span>'+
+    '<strong>'+safe(pt?item.pt:item.en)+'</strong>'+
+    '<p>'+safe(pt?item.ptDescription:item.enDescription)+'</p>'+
+    '<span class="journey-cost">'+safe(cash(item.cost))+'</span>'+
+    '<button type="button" data-journey="'+item.id+'"'+(able?'':' disabled')+'>'+
+    safe(diary.lastAge===life!.age?(pt?'Viagem deste ano realizada':'Trip already taken this year'):
+      able?(pt?'Viajar agora':'Take this journey'):(pt?'Indisponível':'Unavailable'))+'</button></div></article>';
+ }).join('');
+ const summary=diary.visits.length?
+  '<p class="journey-memory">'+safe(pt?'Viagens realizadas: ':'Trips taken: ')+diary.visits.length+
+  ' · '+safe(pt?'Último destino: ':'Most recent: ')+
+   safe((pt?destination(diary.visits[diary.visits.length-1].id)?.pt:
+     destination(diary.visits[diary.visits.length-1].id)?.en)??'')+'</p>':
+  '<p class="journey-memory">'+safe(pt?'Sua próxima viagem ainda está por acontecer.':
+    'Your next journey is still ahead of you.')+'</p>';
+ return '<section class="travel-studio"><div class="travel-intro"><h3>'+
+  safe(pt?'Viagens e descobertas':'Travel and discovery')+'</h3>'+
+  '<p>'+safe(pt?'Escolha destinos que caibam no seu saldo. Cada viagem custa dinheiro, muda sua vida e fica no diário.':
+    'Choose journeys you can afford. Travel costs money, changes your life and stays in your journal.')+'</p>'+
+  summary+'</div><div class="journey-grid">'+cards+'</div></section>';
+}
+function travelFromUI(id:string):void{
+ if(!life||!destination(id)||life.pendingEvent||life.simulation.ended)return;
+ const trip=destination(id)!;
+ const before=life.simulation,prior=life.stats;
+ const result=takeJourney(before,prior,life.age,id as JourneyId);
+ if(!result.ok)return;
+ life.simulation=result.state;life.stats=result.stats;
+ sound.play('hobby');
+ recordStoryChoice('travel-'+id,language==='pt-BR'?trip.pt:trip.en,
+  language==='pt-BR'?trip.ptDescription:trip.enDescription,
+  language==='pt-BR'?'Viajar':'Travel',
+  (language==='pt-BR'?'Você fez uma viagem para ':'You visited ')+
+   (language==='pt-BR'?trip.pt:trip.en)+'. · '+
+   describeActualChanges(before,result.state,prior,result.stats),
+  id==='history'?'school':id==='family'?'family':'leisure');
+ for(const note of result.notes)life.history.push(life.age+': '+caption(note));
+ saveLife();tab='actions';render();
+}
+
 function renderActions(): string {
   if(!life)return '';
   const note=life.pendingEvent?u("blockedEvent"):(language==="pt-BR"?"Você pode fazer atividades diferentes no mesmo ano. Cada uma pode ser realizada uma vez por ano.":"Do different activities in the same year. Each activity is available once per year.");
@@ -937,7 +995,7 @@ function renderActions(): string {
       .map(actionButton).join('')+'</div>'+
     (isMysticOrigin(life.profile)?'<div class="special-origin"><strong>'+safe(mysticNatureLabel(life.profile.nature!,language))+
     '</strong><span>'+safe(language==='pt-BR'?'Domínio místico ':'Mystic mastery ')+(life.simulation.mysticMastery??0)+'/100</span></div>':'')+
-    renderHobbyStudio()+styleStudio()+(life.age>=12?justiceActions():'')+'</section>';
+    renderHobbyStudio()+renderTravelStudio()+styleStudio()+(life.age>=12?justiceActions():'')+'</section>';
 }
 function progress(label: string, amount: number): string {
   return '<div class="relationship-progress"><div><span>'+safe(label)+'</span><b>'+clamp(amount)+'%</b></div>'+
@@ -1412,6 +1470,8 @@ appEl?.addEventListener("click",e=>{
   }
   const descendant=target.closest<HTMLButtonElement>("[data-descendant]");
   if(descendant){continueAsDescendant(descendant.dataset.descendant||'');return;}
+  const journey=target.closest<HTMLButtonElement>("[data-journey]");
+  if(journey){travelFromUI(journey.dataset.journey||'');return;}
   const hobby=target.closest<HTMLButtonElement>("[data-hobby]");
   if(hobby){practiceHobbyFromUI(hobby.dataset.hobby||'');return;}
   const person=target.closest<HTMLButtonElement>("[data-person]");
