@@ -1428,3 +1428,45 @@ test('audio is opt-in, actual synthesis occurs, and volume/music/mute persist ac
  await page.locator('[data-choice="0"]').click();
  expect(await page.evaluate(()=>window.__playedSoundNotes)).toBe(old);
 });
+
+test('real hobby studio progresses only twice per year, survives reload and unlocks awards',async({page})=>{
+ await chooseBaby(page);
+ await advance(page,6);
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-hobby-card]')).toHaveCount(6);
+ await page.locator('[data-hobby="coding"]').click();
+ await expect(page.locator('[data-hobby-card="coding"] [role="progressbar"]')).toHaveAttribute('aria-valuenow','10');
+ await expect(page.locator('[data-hobby="coding"]')).toBeDisabled();
+ await page.locator('[data-hobby="sports"]').click();
+ await expect(page.locator('[data-hobby="music"]')).toBeDisabled();
+ let saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.hobbies.coding.xp).toBe(10);
+ expect(saved.simulation.hobbies.sports.xp).toBe(10);
+ expect(saved.simulation.training).toBe(3);
+ expect(saved.chronicle.map(x=>x.eventId)).toEqual(expect.arrayContaining(['hobby-coding','hobby-sports']));
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-hobby="coding"]')).toBeDisabled();
+ await page.locator('.dock-age').click();await page.locator('[data-choice="0"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await page.locator('[data-hobby="coding"]').click();
+ saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.hobbies.coding.xp).toBe(23);
+ await page.locator('.dock-age').click();await page.locator('[data-choice="0"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await page.locator('[data-hobby="coding"]').click();
+ saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.hobbies.coding.awards).toBe(1);
+ expect(saved.simulation.hobbies.coding.xp).toBe(36);
+ expect(saved.history.some(x=>x.includes('Conquista em Programação'))).toBe(true);
+});
+test('hobby progress and audio controls are responsive without horizontal overflow on a mobile viewport',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await chooseBaby(page);
+ await advance(page,7);
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('.talent-grid')).toBeVisible();
+ await expect(page.locator('[data-hobby="art"]')).toBeEnabled();
+ await expect(page.locator('.game-status .sound-toggle-mini')).toBeVisible();
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
+});
