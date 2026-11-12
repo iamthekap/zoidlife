@@ -1389,3 +1389,42 @@ test('alternate path in a multi-year story changes the next-year dialogue and pe
  expect(saved.storyArc).toBe(null);
  expect(saved.chronicle.at(-1).description).toContain('improved project');
 });
+
+test('audio is opt-in, actual synthesis occurs, and volume/music/mute persist across reload',async({page})=>{
+ await page.addInitScript(()=>{
+  window.__playedSoundNotes=0;
+  window.AudioContext=class {
+   currentTime=0;state='running';destination={};
+   createOscillator(){return {type:'sine',frequency:{setValueAtTime(){}},connect(){},
+    start(){window.__playedSoundNotes++},stop(){},disconnect(){},onended:null};}
+   createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){},
+    exponentialRampToValueAtTime(){}},connect(){},disconnect(){}};}
+   resume(){return Promise.resolve();}close(){return Promise.resolve();}
+  };
+ });
+ await page.goto('/');
+ await expect(page.locator('.welcome-audio-toolbar [data-do="toggle-sound"]')).toHaveAttribute('aria-pressed','false');
+ expect(await page.evaluate(()=>window.__playedSoundNotes)).toBe(0);
+ await page.locator('.welcome-audio-toolbar [data-do="toggle-sound"]').click();
+ await expect(page.locator('.welcome-audio-toolbar [data-do="toggle-sound"]')).toHaveAttribute('aria-pressed','true');
+ expect(await page.evaluate(()=>window.__playedSoundNotes)).toBeGreaterThan(0);
+ await page.locator('[data-do="preset-0"]').click();
+ await page.locator('.game-menu').click();
+ await expect(page.locator('[data-sound-enabled]')).toBeChecked();
+ await page.locator('[data-sound-volume]').evaluate(el=>{el.value='25';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await expect(page.locator('[data-sound-output]')).toContainText('25%');
+ await page.locator('[data-sound-music]').check();
+ const preferences=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-sound-v1')||'{}'));
+ expect(preferences).toMatchObject({enabled:true,volume:.25,music:true});
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-menu').click();
+ await expect(page.locator('[data-sound-enabled]')).toBeChecked();
+ await expect(page.locator('[data-sound-music]')).toBeChecked();
+ await expect(page.locator('[data-sound-volume]')).toHaveValue('25');
+ await page.locator('[data-sound-enabled]').uncheck();
+ const old=await page.evaluate(()=>window.__playedSoundNotes);
+ await page.locator('[data-do="close-menu"]').click();
+ await page.locator('.dock-age').click();
+ await page.locator('[data-choice="0"]').click();
+ expect(await page.evaluate(()=>window.__playedSoundNotes)).toBe(old);
+});
