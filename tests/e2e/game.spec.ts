@@ -92,7 +92,8 @@ test('scene illustrations and journal use original pixel visual language',async 
  await expect(page.locator('.entry-glyph svg')).toHaveCount(2);
  await page.locator('[data-tab="finances"]').click();
  await expect(page.getByText('Patrimônio líquido',{exact:true})).toBeVisible();
- await expect(page.locator('[data-action="home"]').first()).toBeDisabled();
+ // Childhood finance controls are intentionally absent, not merely disabled.
+ await expect(page.locator('[data-action="home"]')).toHaveCount(0);
  await page.locator('[data-tab="people"]').click();
  await expect(page.getByText('Filhos',{exact:true})).toBeVisible();
  expect(errors).toEqual([]);
@@ -880,4 +881,30 @@ test('an idle life starts directly with the illustrated chronology, never a gene
  await expect(page.locator('.age-ready')).toHaveCount(0);
  await expect(page.locator('[data-storyboard-current]')).toHaveCount(0);
  await expect(page.locator('.storyboard-baby .storyboard-scene')).toBeVisible();
+});
+
+test('a real schoolmate appears on entering school and remembers chosen social interactions',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const life=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  life.age=5;life.simulation.ended=false;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(life));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('.person-card')).toHaveCount(2);
+ await page.locator('.dock-age').click();
+ await page.locator('[data-choice="0"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('.person-card')).toHaveCount(3);
+ await expect(page.locator('.people-panel')).toContainText('Colega da escola');
+ await expect(page.locator('[data-person="classmate-school"][data-kind="compliment"]')).toBeEnabled();
+ await page.locator('[data-person="classmate-school"][data-kind="compliment"]').click();
+ const state=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ const peer=state.social.people.find(p=>p.id==='classmate-school');
+ expect(peer.memories.at(-1).kind).toBe('compliment');
+ expect(state.simulation.friends).toBeGreaterThan(30);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('[data-person="classmate-school"][data-kind="compliment"]')).toBeDisabled();
 });

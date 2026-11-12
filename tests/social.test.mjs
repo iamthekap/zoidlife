@@ -124,3 +124,21 @@ test('new parents have distinct role-consistent first names across many procedur
   assert.ok(father.profile.name.endsWith('Costa'));
  }
 });
+
+test('schoolmates enter at six, remain in the school story and cannot duplicate',()=>{
+ const social=initialSocial(player);
+ assert.equal(social.people.some(p=>p.role==='classmate'),false);
+ const age5=syncSocial(social,player,5,'single',0,0);
+ assert.equal(age5.social.people.some(p=>p.role==='classmate'),false);
+ const age6=syncSocial(age5.social,player,6,'single',0,0);
+ assert.equal(age6.notes.includes('classmate-introduced'),true);
+ const peer=age6.social.people.find(p=>p.role==='classmate');
+ assert.ok(peer);
+ assert.equal(personAge(peer,6),6);
+ assert.equal(peer.profile.city,player.city);
+ assert.equal(peer.profile.country,player.country);
+ const future=syncSocial(age6.social,player,17,'single',0,0);
+ assert.equal(future.social.people.filter(p=>p.role==='classmate').length,1);
+ const adult=normalizeSocial(future.social,player,22);
+ assert.equal(adult.people.filter(p=>p.role==='classmate').length,1);
+});

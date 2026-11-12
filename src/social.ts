@@ -1,6 +1,6 @@
 /** Original persistent people and family simulation for Zoid Life. */
 import {randomCharacter,randomCharacterForGender,normalizeProfile,type CharacterProfile} from './characters.ts';
-export type SocialRole='mother'|'father'|'parent'|'partner'|'child'|'friend';
+export type SocialRole='mother'|'father'|'parent'|'partner'|'child'|'friend'|'classmate';
 export type SocialInteractionKind='talk'|'gift'|'help'|'compliment'|'argue'|'invite'|'reconcile';
 export type SocialMemory={age:number;kind:SocialInteractionKind;bondChange:number};
 export type SocialPerson={
@@ -10,9 +10,9 @@ export type SocialPerson={
 export type SocialState={schema:1;people:SocialPerson[]};
 export type SocialUpdate={social:SocialState;notes:string[]};
 const clamp=(n:number)=>Math.max(0,Math.min(100,Math.round(n)));
-const validId=(id:string)=>/^(mother|father|parent|partner|child|friend)-[a-z0-9-]{1,40}$/.test(id);
-const roleLabels:Record<SocialRole,string>={mother:'Mãe',father:'Pai',parent:'Responsável',partner:'Parceria',child:'Filho(a)',friend:'Amizade'};
-const englishLabels:Record<SocialRole,string>={mother:'Mother',father:'Father',parent:'Parent',partner:'Partner',child:'Child',friend:'Friend'};
+const validId=(id:string)=>/^(mother|father|parent|partner|child|friend|classmate)-[a-z0-9-]{1,40}$/.test(id);
+const roleLabels:Record<SocialRole,string>={mother:'Mãe',father:'Pai',parent:'Responsável',partner:'Parceria',child:'Filho(a)',friend:'Amizade',classmate:'Colega da escola'};
+const englishLabels:Record<SocialRole,string>={mother:'Mother',father:'Father',parent:'Parent',partner:'Partner',child:'Child',friend:'Friend',classmate:'Schoolmate'};
 export const personLabel=(role:SocialRole,language:'pt-BR'|'en')=>
  language==='en'?englishLabels[role]:roleLabels[role];
 export function personAge(person:SocialPerson,playerAge:number):number {
@@ -58,7 +58,7 @@ export function normalizeSocial(raw:unknown,player:CharacterProfile,age:number,c
  const people:SocialPerson[]=[];
  const used=new Set<string>();
  for(const entry of data.people.slice(0,60)){
-   if(!entry||!validId(entry.id)||used.has(entry.id)||!['mother','father','parent','partner','child','friend'].includes(entry.role))continue;
+   if(!entry||!validId(entry.id)||used.has(entry.id)||!['mother','father','parent','partner','child','friend','classmate'].includes(entry.role))continue;
    used.add(entry.id);
    const birth=Number.isInteger(entry.bornAtPlayerAge) && Math.abs(entry.bornAtPlayerAge)<=140?entry.bornAtPlayerAge:0;
    people.push({
@@ -106,6 +106,17 @@ export function syncSocial(state:SocialState,player:CharacterProfile,playerAge:n
  for(let i=existing;i<Math.min(8,children);i++){
    next.push(makeChild({schema:1,people:next},player,playerAge,i));
    notes.push('child-added');
+ }
+ // A schoolmate becomes a genuine persistent NPC at school age, not before birth.
+ // The relationship remains in the history across graduation and save reload.
+ if(playerAge>=6&&playerAge<18&&!next.some(p=>p.role==='classmate')&&next.length<58){
+   const excluded=new Set(next.map(p=>p.profile.name));
+   let sample=sameRegion(randomCharacter(),player);
+   for(let attempt=0;attempt<7&&excluded.has(sample.name);attempt++)
+     sample=sameRegion(randomCharacter(),player);
+   next.push({id:'classmate-school',role:'classmate',profile:sample,
+     bornAtPlayerAge:0,closeness:44,alive:true,lastSharedAge:-1,memories:[]});
+   notes.push('classmate-introduced');
  }
  // Social choices turn global friendship into actual, named people over time.
  // Three milestones can introduce up to three distinct friends.

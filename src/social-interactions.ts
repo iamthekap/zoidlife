@@ -62,7 +62,7 @@ export function resolveSocialEncounter(social:SocialState,s:Simulation,stats:Sta
  // "socialize" action boosts unrelated ties, which would otherwise make
  // complimenting a parent also create friendships or even a marriage.
  if(role==='partner')simulation.partner=newBond;
- else if(role==='friend')simulation.friends=bounds(s.friends+
+ else if(role==='friend'||role==='classmate')simulation.friends=bounds(s.friends+
    (kind==='argue'?-14:kind==='compliment'?7:kind==='invite'?9:kind==='gift'?6:kind==='help'?5:kind==='reconcile'?9:5));
  else simulation.family=bounds(s.family+
    (kind==='argue'?-15:kind==='compliment'?7:kind==='invite'?8:kind==='gift'?6:kind==='help'?6:kind==='reconcile'?10:4));

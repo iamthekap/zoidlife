@@ -947,7 +947,9 @@ function syncLifePeople():void {
  const result=syncSocial(life.social,life.profile,life.age,life.simulation.relationship,life.simulation.children,life.simulation.partner,life.simulation.friends);
  life.social=result.social;
  for(const note of result.notes){
-   const words=note==='friend-introduced'?
+   const words=note==='classmate-introduced'?
+     (language==='pt-BR'?'Você conheceu um colega da escola.':'You met a schoolmate.'):
+     note==='friend-introduced'?
      (language==='pt-BR'?'Você fez uma nova amizade.':'You made a new friend.'):
      note==='partner-introduced'?
      (language==='pt-BR'?'Você conheceu uma pessoa especial.':'You met someone special.'):
