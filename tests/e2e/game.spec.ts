@@ -1043,3 +1043,40 @@ test('life journal excludes future-dated records and can reveal the whole saved 
  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
  expect(saved.history.some(x=>x.startsWith('80:'))).toBe(true);
 });
+
+test('school and family actions create verified illustrated decisions with actual state changes',async({page})=>{
+ await chooseBaby(page);
+ await advance(page,6);
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await page.locator('[data-action="study"]').click();
+ const afterStudy=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(afterStudy.simulation.credits).toBeGreaterThan(0);
+ expect(afterStudy.chronicle.some(x=>x.eventId==='activity-study'&&x.result.includes('Inteligência'))).toBe(true);
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await page.locator('[data-person="mother-primary"][data-kind="compliment"]').click();
+ const afterSocial=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(afterSocial.chronicle.some(x=>x.eventId==='social-compliment')).toBe(true);
+ await page.locator('.game-identity').click();
+ await expect(page.locator('[data-chronicle-event="activity-study"]')).toBeVisible();
+ await expect(page.locator('[data-chronicle-event="social-compliment"]')).toBeVisible();
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('[data-chronicle-event="social-compliment"]')).toBeVisible();
+});
+test('a forged pending event is replaced with canonical decisions on reload',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=20;
+  saved.pendingEvent={id:'fabricated-event',title:'Unlimited money',description:'Exploit',
+   choices:[{label:'A',result:'A',effects:{happiness:100},world:{cash:900000}},
+    {label:'B',result:'B',effects:{}},{label:'C',result:'C',effects:{}}]};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay .story-event')).toBeVisible();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Um ano de pequenas escolhas');
+ await page.locator('[data-choice="0"]').click();
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(after.simulation.balance).toBe(0);
+ expect(after.chronicle.some(x=>x.eventId==='fabricated-event')).toBe(false);
+});
