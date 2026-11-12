@@ -695,7 +695,9 @@ function renderStory():string {
   const eventHtml=event?'<div class="event-modal-overlay" data-event-modal="true">'+
    '<section class="story-event decision-card" role="dialog" aria-modal="true" aria-labelledby="current-event-title">'+
       eventScene(event.id,life.profile,language,life.age,event.category)+
-      '<div class="decision-body"><span class="story-label">'+safe(u("event"))+' · '+safe(ageText(life.age))+'</span>'+
+      '<div class="decision-body"><div class="decision-tools"><span class="story-label">'+safe(u("event"))+' · '+safe(ageText(life.age))+'</span>'+
+      '<button type="button" data-do="language" class="event-language" aria-label="'+safe(u("languages"))+'">'+
+      (language==='pt-BR'?'EN':'PT')+'</button></div>'+
       '<h2 id="current-event-title">'+safe(event.title)+'</h2><p>'+safe(event.description)+'</p>'+
       '<div class="event-choices">'+event.choices.map((c,i)=>'<button type="button" data-choice="'+i+
       '" class="choice"><span>'+safe(c.label)+'</span><span class="choice-index">'+(i+1)+'</span></button>').join('')+
@@ -1256,7 +1258,7 @@ document.addEventListener("keydown",e=>{
     if(e.key==='Escape'){e.preventDefault();return;}
     if(e.key==='Tab'){
       const dialog=appEl?.querySelector<HTMLElement>('.story-event[role="dialog"]');
-      const buttons=Array.from(dialog?.querySelectorAll<HTMLButtonElement>('.event-choices button:not(:disabled)')??[]);
+      const buttons=Array.from(dialog?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')??[]);
       if(buttons.length){
         const first=buttons[0],last=buttons[buttons.length-1];
         if(e.shiftKey&&(document.activeElement===first||!dialog?.contains(document.activeElement))){
