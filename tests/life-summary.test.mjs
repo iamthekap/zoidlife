@@ -56,7 +56,7 @@ test('earned hobbies appear in the final report, while unused paths generate no 
  const pt=makeLifeReport({...input,simulation:s},'pt-BR');
  assert.ok(pt.achievements.some(a=>a.includes('Talento desenvolvido: Música · 4 conquistas')));
  assert.ok(pt.achievements.some(a=>a.includes('Domínio completo: Música')));
- assert.ok(pt.achievements.some(a=>a.includes('Programação · 1 conquistas')));
+ assert.ok(pt.achievements.some(a=>a.includes('Programação · 1 conquista')));
  assert.ok(!pt.achievements.some(a=>a.includes('Esporte')));
  const en=makeLifeReport({...input,simulation:s},'en');
  assert.ok(reportAsText(en,'en').includes('Developed talent: Music · 4 awards'));
