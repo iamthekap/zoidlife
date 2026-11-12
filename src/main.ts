@@ -12,6 +12,7 @@ import { renderStoryboardTimeline } from "./storyboard";
 import {normalizeChronicle,livedHistory,type ChronicleEvent} from "./chronicle";
 import {normalizeStoryArc,startStoryArc,storyArcEvent,afterStoryArcChoice,storyArcAllowed,type StoryArc} from "./story-arcs";
 import { makeLifeReport,reportAsText } from "./life-summary";
+import {GameSound} from "./audio";
 import { healthLabel,type ConditionId } from "./health";
 import { OFFENSES,justiceLabel,legalStatus,type OffenseId } from "./justice";
 import { CAREERS,careerById,careerAvailable,careerLabel,careerRequirements,type OccupationId } from "./careers";
@@ -169,6 +170,7 @@ let tab: Tab = "story";
 let menuOpen=false;
 let chaptersOpen=true;
 let journalVisibleCount=60;
+const sound=new GameSound();
 let menuError="";
 let saveError=false;
 let candidates = randomCandidates(3);
@@ -468,6 +470,7 @@ function renderWelcome(): string {
   const hasSave=Boolean(life);
   return '<main class="welcome-screen" data-screen="candidates">'+
     '<section class="welcome-headline"><button type="button" class="welcome-language" data-do="language" aria-label="'+safe(u("languages"))+'">'+(language==='pt-BR'?'EN':'PT')+'</button>'+ 
+    '<div class="welcome-audio-toolbar"><button type="button" data-do="toggle-sound" class="sound-toggle" aria-pressed="'+sound.settings.enabled+'" aria-label="'+safe(language==='pt-BR'?'Ativar ou desativar os sons':'Toggle game sounds')+'">'+(sound.settings.enabled?'♫':'♪')+' <span>'+safe(sound.settings.enabled?(language==='pt-BR'?'Som ligado':'Sound on'):(language==='pt-BR'?'Ativar sons':'Enable sounds'))+'</span></button></div>'+
     '<div class="eyebrow"><span class="dot"></span>'+safe(u("gameLabel"))+'</div>'+
     '<div class="welcome-logo">ZOID<span>LIFE</span></div>'+
     '<h1>'+safe(language==="pt-BR"?"Quem você vai ser nesta vida?":"Who will you be in this life?")+'</h1>'+
@@ -575,6 +578,7 @@ function renderPlay(): string {
      '<span class="identity-copy"><strong>'+safe(life.name)+'</strong>'+
      '<span>'+safe(p.city)+', '+safe(countryName(p.country))+' · '+safe(ageText(life.age))+'</span></span></button>'+
      '<div class="game-status-money"><small>'+safe(u("balance"))+'</small><strong>'+safe(cash(s.balance))+'</strong></div>'+ 
+     '<button type="button" class="sound-toggle sound-toggle-mini" data-do="toggle-sound" aria-pressed="'+sound.settings.enabled+'" aria-label="'+safe(language==='pt-BR'?'Ativar ou desativar os sons':'Toggle game sounds')+'">'+(sound.settings.enabled?'♫':'♪')+'</button>'+
      '<button type="button" class="game-language" data-do="language" aria-label="'+safe(u("languages"))+'">'+(language==='pt-BR'?'EN':'PT')+'</button>'+
      '<button type="button" data-do="toggle-menu" class="game-menu" title="'+safe(u("newLife"))+'" aria-label="'+safe(u("newLife"))+'">☰</button>'+
     '</header>'+
@@ -1132,6 +1136,7 @@ function visitPerson(id:string,kind='talk'):void {
  const outcome=resolveSocialEncounter(life.social,life.simulation,life.stats,life.age,id,
    kind as typeof SOCIAL_KINDS[number],language as Lang);
  if(!outcome.ok||!person)return;
+ sound.play('social');
  life.social=outcome.social;life.simulation=outcome.simulation;life.stats=outcome.stats;
  const label=interactionLabel(kind as typeof SOCIAL_KINDS[number],language);
  const outcomeText=(outcome.notes?.[0]??label)+ ' '+describeActualChanges(before,outcome.simulation,prior,outcome.stats);
@@ -1146,6 +1151,7 @@ function ageUp(): void {
   const age=life.age+1;
   const transition=passYear(life.simulation,life.stats,age);
   if(!transition.ok)return;
+  sound.play(transition.state.ended?'ending':'year');
   life.age=age;life.simulation=transition.state;life.stats=transition.stats;
   life.history.push(age+': '+(language==='pt-BR'?'Você completou mais um ano de vida.':'You reached another year of life.'));
   syncLifePeople();
@@ -1167,6 +1173,7 @@ function choose(index:number): void {
   const before=life.simulation,prior=life.stats;
   const result=applyNarrativeChoice(life.simulation,life.stats,life.age,event.id,index,choice.effects,choice.world);
   if(!result.ok)return;
+  sound.play(index===2?'warning':event.id.startsWith('arc-')?'success':'choice');
   life.simulation=result.state;life.stats=result.stats;
   syncLifePeople();
   const historyIndex=life.history.length;
@@ -1191,6 +1198,7 @@ function applyToCareer(id:string):void {
  if(!role||!careerAvailable(life.simulation,life.age,role,life.profile))return;
  const result=applyCareer(life.simulation,life.stats,life.age,role.id as OccupationId,life.profile);
  if(!result.ok)return;
+ sound.play('career');
  life.simulation=result.state;life.stats=result.stats;
  const profession=careerLabel(role,language);
  recordStoryChoice('career-start',language==='pt-BR'?'Novo emprego':'New job',
@@ -1217,6 +1225,7 @@ function act(action:Action): void {
   const before=life.simulation,prior=life.stats;
   const result=takeAction(life.simulation,life.stats,life.age,action);
   if(!result.ok)return;
+  sound.play(['budget','invest','withdraw','home'].includes(action)?'finance':'open');
   life.simulation=result.state;life.stats=result.stats;
   syncLifePeople();
   recordStoryChoice('activity-'+action,u(action),u(action+'Info'),u(action),
@@ -1238,6 +1247,12 @@ function renderGameMenu():string {
   '<button type="button" data-do="close-menu" class="menu-close" aria-label="'+safe(u("back"))+'">×</button></div>'+
   '<p>'+safe(language==='pt-BR'?'Sem cadastro: o jogo salva neste navegador. Faça uma cópia para jogar em outro dispositivo.':
   'No account needed: this browser saves your progress. Export a copy for another device.')+'</p>'+
+  '<div class="audio-preferences" data-audio-preferences><h3>'+safe(language==='pt-BR'?'Áudio do jogo':'Game audio')+'</h3>'+
+     '<label class="sound-switch"><input type="checkbox" data-sound-enabled '+(sound.settings.enabled?'checked':'')+' />'+safe(language==='pt-BR'?'Efeitos sonoros originais':'Original sound effects')+'</label>'+
+     '<label class="sound-volume"><span>'+safe(language==='pt-BR'?'Volume':'Volume')+' <output data-sound-output>'+Math.round(sound.settings.volume*100)+'%</output></span>'+
+     '<input type="range" min="0" max="100" step="5" data-sound-volume value="'+Math.round(sound.settings.volume*100)+'" aria-label="'+safe(language==='pt-BR'?'Volume dos sons':'Sound volume')+'"/></label>'+
+     '<label class="sound-switch"><input type="checkbox" data-sound-music '+(sound.settings.music?'checked':'')+' />'+safe(language==='pt-BR'?'Ambiente musical leve':'Soft ambient music')+'</label>'+
+     '<p>'+safe(language==='pt-BR'?'Sem arquivos externos. O áudio só começa depois que você permite.':'No external files. Playback starts only after your interaction.')+'</p></div>'+
   '<div class="menu-buttons">'+
    button(language==='pt-BR'?'Baixar meu save (.json)':'Download my save (.json)','export-save','secondary fill')+
    button(language==='pt-BR'?'Importar um save':'Import a save','import-save','outline fill')+
@@ -1302,8 +1317,9 @@ function newLife(): void {
 }
 function handleAction(value:string):void {
   if(value==="language"){changeLanguage();return;}
+  if(value==="toggle-sound"){sound.configure({enabled:!sound.settings.enabled});render();return;}
   if(value==="more-history"){journalVisibleCount=Math.min(6000,journalVisibleCount+60);render();return;}
-  if(value==="toggle-menu"){menuOpen=!menuOpen;menuError="";render();return;}
+  if(value==="toggle-menu"){menuOpen=!menuOpen;menuError="";sound.play('open');render();return;}
   if(value==="close-menu"){menuOpen=false;menuError="";render();return;}
   if(value==="export-save"){downloadLife();return;}
   if(value==="export-recovery"){downloadUnrestoredSave();return;}
@@ -1352,6 +1368,12 @@ appEl?.addEventListener("click",e=>{
 });
 appEl?.addEventListener("input",e=>{
   const target=e.target as HTMLInputElement;
+  if(target.hasAttribute('data-sound-volume')){
+    const settings=sound.configure({volume:Number(target.value)/100});
+    const out=appEl?.querySelector<HTMLOutputElement>('[data-sound-output]');
+    if(out)out.textContent=Math.round(settings.volume*100)+'%';
+    return;
+  }
   if(target.hasAttribute('data-career-search')){
     const query=target.value.trim().toLocaleLowerCase();
     appEl.querySelectorAll<HTMLElement>('.career-vacancy').forEach(card=>{
@@ -1372,6 +1394,12 @@ appEl?.addEventListener("input",e=>{
 });
 appEl?.addEventListener("change",e=>{
   const fileInput=e.target as HTMLInputElement;
+  if(fileInput.hasAttribute('data-sound-enabled')){
+    sound.configure({enabled:fileInput.checked});render();return;
+  }
+  if(fileInput.hasAttribute('data-sound-music')){
+    sound.configure({music:fileInput.checked});render();return;
+  }
   if(fileInput.id==="life-save-file"){
     const chosen=fileInput.files?.[0];
     if(chosen)void importLife(chosen);
@@ -1402,6 +1430,8 @@ appEl?.addEventListener("submit",e=>{
   const result=normalizeProfile({...custom,name,birthday:Number(data.get("birthday")),birthMonth:Number(data.get("birthMonth"))},name);
   createLife(result,customStats);
 });
+document.addEventListener('visibilitychange',()=>sound.visibilityChanged());
+window.addEventListener('pagehide',()=>sound.destroy());
 document.addEventListener("keydown",e=>{
   if(life?.pendingEvent&&scene==='playing'){
     if(e.key==='Escape'){e.preventDefault();return;}
