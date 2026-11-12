@@ -4,7 +4,7 @@
 Branch `feature/zoidlife-storyboard-blue-red-20261111`; PR #8. Nenhuma alteração na produção deve ocorrer até o CI e a revisão dos visuais passarem.
 
 ## Implementação
-- Seis encontros sociais autorais: conversar, elogiar, convidar, presentear, ajudar e discutir. Idades e custos específicos.
+- Sete encontros sociais autorais: conversar, elogiar, convidar, presentear, ajudar, discutir e fazer as pazes (liberado apenas após uma discussão de ano anterior). Idades e custos específicos.
 - Cada personagem conserva até seis memórias de encontros: idade, ação e variação de vínculo.
 - Atores falecidos não recebem interações; o ano bloqueia novos encontros depois da primeira ação social.
 - Efeitos coerentes por família, amizades e parceiros, com atualização persistente do vínculo do parceiro.

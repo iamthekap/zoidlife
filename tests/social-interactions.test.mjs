@@ -7,7 +7,7 @@ const profile={name:'Luana Costa',gender:'woman',country:'BR',city:'Recife',
  skin:'tan',hair:'waves',hairColor:'black',eyes:'green',birthday:2,birthMonth:4};
 const stats={happiness:60,health:85,smarts:63,looks:58};
 test('the six interaction choices are bilingual and available contextually',()=>{
- assert.deepEqual(SOCIAL_KINDS,['talk','compliment','invite','gift','help','argue']);
+ assert.deepEqual(SOCIAL_KINDS,['talk','compliment','invite','gift','help','argue','reconcile']);
  assert.equal(interactionLabel('compliment','pt-BR'),'Elogiar');
  assert.equal(interactionLabel('argue','en'),'Argue');
  const soc=initialSocial(profile),s=createSimulation(),id='mother-primary';
@@ -18,6 +18,7 @@ test('the six interaction choices are bilingual and available contextually',()=>
  assert.equal(canInteract(soc,{...s,balance:250},9,id,'gift'),true);
  assert.equal(canInteract(soc,s,9,id,'help'),false);
  assert.equal(canInteract(soc,s,14,id,'help'),true);
+ assert.equal(canInteract(soc,s,14,id,'reconcile'),false);
 });
 test('compliments raise target bond and remember exact encounter without changing other NPC',()=>{
  const soc=initialSocial(profile),initial=createSimulation();
@@ -65,4 +66,19 @@ test('recent encounters persist through normalized saves and retain limited boun
  const saved=normalizeSocial(a.social,profile,12);
  assert.deepEqual(saved.people[0].memories,a.social.people[0].memories);
  assert.equal(saved.people[0].lastSharedAge,12);
+});
+
+test('fighting creates an inter-year reconciliation path, not available immediately or twice',()=>{
+ const social=initialSocial(profile),s=createSimulation();
+ const dispute=resolveSocialEncounter(social,s,stats,19,'mother-primary','argue','pt-BR');
+ assert.equal(dispute.ok,true);
+ assert.equal(canInteract(dispute.social,dispute.simulation,19,'mother-primary','reconcile'),false);
+ const newYear=resolveSocialEncounter(dispute.social,dispute.simulation,dispute.stats,20,'mother-primary','reconcile','pt-BR');
+ assert.equal(newYear.ok,true);
+ assert.ok(newYear.social.people[0].closeness>dispute.social.people[0].closeness);
+ assert.equal(newYear.social.people[0].memories.at(-1).kind,'reconcile');
+ assert.ok(newYear.notes.some(n=>n.includes('confiança')));
+ assert.equal(canInteract(newYear.social,newYear.simulation,21,'mother-primary','reconcile'),false);
+ const persisted=normalizeSocial(newYear.social,profile,21);
+ assert.equal(persisted.people[0].memories.at(-1).kind,'reconcile');
 });

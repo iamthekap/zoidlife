@@ -697,3 +697,28 @@ test('arguments reduce a specific bond and gifts cannot overspend',async({page})
  expect(after.simulation.balance).toBe(50);
  expect(after.stats.happiness).toBeLessThan(before.stats.happiness);
 });
+
+test('conflict can be reconciled next year only, and history persists through reloads',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=17;localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('[data-person="mother-primary"][data-kind="reconcile"]')).toBeDisabled();
+ await page.locator('[data-person="mother-primary"][data-kind="argue"]').click();
+ const conflict=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ await page.evaluate(()=>{
+   const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');s.age=18;
+   localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('[data-person="mother-primary"][data-kind="reconcile"]')).toBeEnabled();
+ await page.locator('[data-person="mother-primary"][data-kind="reconcile"]').click();
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(after.social.people[0].closeness).toBeGreaterThan(conflict.social.people[0].closeness);
+ expect(after.social.people[0].memories.at(-1).kind).toBe('reconcile');
+ await expect(page.locator('[data-person="mother-primary"][data-kind="reconcile"]')).toBeDisabled();
+});

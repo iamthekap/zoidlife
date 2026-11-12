@@ -1,7 +1,7 @@
 /** Original persistent people and family simulation for Zoid Life. */
 import {randomCharacter, normalizeProfile, type CharacterProfile} from './characters.ts';
 export type SocialRole='mother'|'father'|'parent'|'partner'|'child'|'friend';
-export type SocialInteractionKind='talk'|'gift'|'help'|'compliment'|'argue'|'invite';
+export type SocialInteractionKind='talk'|'gift'|'help'|'compliment'|'argue'|'invite'|'reconcile';
 export type SocialMemory={age:number;kind:SocialInteractionKind;bondChange:number};
 export type SocialPerson={
  id:string; role:SocialRole; profile:CharacterProfile; bornAtPlayerAge:number;
@@ -64,7 +64,7 @@ export function normalizeSocial(raw:unknown,player:CharacterProfile,age:number,c
      alive:entry.alive!==false,lastSharedAge:Number.isInteger(entry.lastSharedAge)&&entry.lastSharedAge>=-1&&entry.lastSharedAge<=110?entry.lastSharedAge:-1,
      memories:Array.isArray(entry.memories)?entry.memories.slice(-6).filter((m):m is SocialMemory=>
       Boolean(m)&&Number.isInteger(m.age)&&m.age>=0&&m.age<=110&&
-      ['talk','gift','help','compliment','argue','invite'].includes(m.kind)&&
+      ['talk','gift','help','compliment','argue','invite','reconcile'].includes(m.kind)&&
       Number.isInteger(m.bondChange)&&m.bondChange>=-40&&m.bondChange<=40):[]
    });
  }
