@@ -1146,15 +1146,15 @@ test('adolescent annual finance forecast matches actual expenses charged only af
  await advance(page,16);
  await page.locator('.game-dock [data-tab="finances"]').click();
  await expect(page.locator('.data-list')).toContainText('Despesas anuais previstas');
- const finance16=await page.locator('.data-list').innerText();
- expect(finance16).toMatch(/Despesas anuais previstas\s+R\$\s*0/);
+ const expenseRow=page.locator('.data-row').filter({hasText:'Despesas anuais previstas'});
+ const numeric=async()=>Number((await expenseRow.locator('strong').innerText()).replace(/[^0-9-]/g,''));
+ expect(await numeric()).toBe(0);
  await page.locator('.dock-age').click();await page.locator('[data-choice="0"]').click();
  const finance17=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
  expect(finance17.age).toBe(17);
  await page.locator('.dock-age').click();await page.locator('[data-choice="0"]').click();
  await page.locator('.game-dock [data-tab="finances"]').click();
- const text18=await page.locator('.data-list').innerText();
- expect(text18).not.toMatch(/Despesas anuais previstas\s+R\$\s*0/);
+ expect(await numeric()).toBeGreaterThan(0);
 });
 
 test('invalid local save is never overwritten silently and can be recovered as raw data',async({page})=>{
@@ -1197,7 +1197,7 @@ test('a storage quota error is visible and the unsaved life can still be exporte
  const downloadPromise=page.waitForEvent('download');
  await page.locator('[data-do="export-save"]').click();
  const download=await downloadPromise;
- expect(download.suggestedFilename()).toMatch(/^zoid-life-.*\\.json$/);
+ expect(download.suggestedFilename()).toMatch(/^zoid-life-.*\.json$/);
  const stream=await download.createReadStream();
  let exported='';for await(const chunk of stream)exported+=chunk.toString();
  expect(JSON.parse(exported).name).toBeTruthy();
