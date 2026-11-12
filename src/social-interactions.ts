@@ -55,13 +55,17 @@ export function resolveSocialEncounter(social:SocialState,s:Simulation,stats:Sta
   ...p,closeness:newBond,lastSharedAge:age,memories:[...(p.memories??[]),memory].slice(-6)})};
  // Social totals track the chosen relationship. Partner's value is synchronized
  // to the actual NPC after an encounter, avoiding an overwritten bond.
- const simulation:Simulation={...attempt.state,balance:attempt.state.balance-def.cost};
+ const simulation:Simulation={...attempt.state,balance:attempt.state.balance-def.cost,
+   family:s.family,friends:s.friends,partner:s.partner,relationship:s.relationship};
  const role:SocialRole=person.role;
+ // Rebase the aggregate relationships on the pre-encounter values. The generic
+ // "socialize" action boosts unrelated ties, which would otherwise make
+ // complimenting a parent also create friendships or even a marriage.
  if(role==='partner')simulation.partner=newBond;
- else if(role==='friend')simulation.friends=bounds(simulation.friends+
-   (kind==='argue'?-14:kind==='compliment'?7:kind==='invite'?9:kind==='gift'?6:kind==='help'?5:kind==='reconcile'?9:0));
- else simulation.family=bounds(simulation.family+
-   (kind==='argue'?-19:kind==='compliment'?7:kind==='invite'?8:kind==='gift'?6:kind==='help'?6:kind==='reconcile'?10:0));
+ else if(role==='friend')simulation.friends=bounds(s.friends+
+   (kind==='argue'?-14:kind==='compliment'?7:kind==='invite'?9:kind==='gift'?6:kind==='help'?5:kind==='reconcile'?9:5));
+ else simulation.family=bounds(s.family+
+   (kind==='argue'?-15:kind==='compliment'?7:kind==='invite'?8:kind==='gift'?6:kind==='help'?6:kind==='reconcile'?10:4));
  const updatedStats:Stats={...attempt.stats,happiness:bounds(attempt.stats.happiness+def.happiness),
   health:bounds(attempt.stats.health+(kind==='help'?-2:kind==='invite'?1:0))};
  const pt=language==='pt-BR',name=person.profile.name;

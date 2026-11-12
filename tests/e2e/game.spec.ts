@@ -673,6 +673,8 @@ test('new relationship choices persist, change the correct NPC, and respect annu
  const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
  expect(after.social.people[0].closeness).toBeGreaterThan(prior.social.people[0].closeness);
  expect(after.social.people[1].closeness).toBe(prior.social.people[1].closeness);
+ expect(after.simulation.friends).toBe(prior.simulation.friends);
+ expect(after.simulation.partner).toBe(prior.simulation.partner);
  expect(after.social.people[0].memories.at(-1).kind).toBe('compliment');
  await expect(page.locator('[data-person="mother-primary"][data-kind="compliment"]')).toBeDisabled();
  await page.reload();await page.locator('[data-do="continue"]').click();

@@ -31,6 +31,8 @@ test('compliments raise target bond and remember exact encounter without changin
  assert.equal(event.social.people[0].memories[0].kind,'compliment');
  assert.ok(event.notes[0].includes('Luana')===false || event.notes[0].includes(soc.people[0].profile.name));
  assert.equal(event.simulation.actionLedger.socialize,15);
+ assert.equal(event.simulation.friends,initial.friends);
+ assert.equal(event.simulation.partner,initial.partner);
  assert.equal(resolveSocialEncounter(event.social,event.simulation,event.stats,15,'father-primary','talk','pt-BR').ok,false);
  assert.equal(soc.people[0].memories,undefined);
 });
@@ -81,4 +83,22 @@ test('fighting creates an inter-year reconciliation path, not available immediat
  assert.equal(canInteract(newYear.social,newYear.simulation,21,'mother-primary','reconcile'),false);
  const persisted=normalizeSocial(newYear.social,profile,21);
  assert.equal(persisted.people[0].memories.at(-1).kind,'reconcile');
+});
+
+test('complimenting a friend does not alter family ties; meeting family does not cause marriage',()=>{
+ const base=initialSocial(profile);
+ const withFriend=syncSocial(base,profile,20,'single',0,0,70).social;
+ const friend=withFriend.people.find(p=>p.role==='friend');
+ assert.ok(friend);
+ const sim={...createSimulation(),friends:70,family:62};
+ const result=resolveSocialEncounter(withFriend,sim,stats,20,friend.id,'compliment','en');
+ assert.equal(result.ok,true);
+ assert.equal(result.simulation.family,62);
+ assert.equal(result.simulation.friends,77);
+ const withPartner=syncSocial(base,profile,24,'dating',0,78).social;
+ const dating={...createSimulation(),relationship:'dating',partner:78,family:65};
+ const parentTalk=resolveSocialEncounter(withPartner,dating,stats,24,'mother-primary','talk','en');
+ assert.equal(parentTalk.ok,true);
+ assert.equal(parentTalk.simulation.relationship,'dating');
+ assert.equal(parentTalk.simulation.partner,78);
 });

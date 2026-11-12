@@ -13,3 +13,6 @@ Branch `feature/zoidlife-storyboard-blue-red-20261111`; PR #8. Nenhuma alteraç�
 
 ## Faltam
 Ampliar diálogos entre NPCs, decisões ramificadas com consequências de vários anos, revisão visual independente em celulares físicos, maior diversidade de arte. As opções acima são eventos originais baseados em categorias observadas em nomes/metadata de CSV do APK; **não são reprodução de dados proprietários, probabilidades ou códigos do jogo de referência**.
+
+## Correção de integridade dos relacionamentos
+Uma interação com um familiar não aumenta amizade, e uma conversa com um familiar não pode transformar namoro em casamento. Os indicadores agregados são recalculados somente na categoria do vínculo escolhido; comprovado em testes unitários e Chromium.
