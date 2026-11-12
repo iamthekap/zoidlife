@@ -10,7 +10,7 @@ import { eventScene, iconSvg } from "./event-scenes";
 import { portraitLife, lifeStage } from "./life-art";
 import { renderStoryboardTimeline } from "./storyboard";
 import {normalizeChronicle,livedHistory,type ChronicleEvent} from "./chronicle";
-import {normalizeStoryArc,startStoryArc,storyArcEvent,afterStoryArcChoice,type StoryArc} from "./story-arcs";
+import {normalizeStoryArc,startStoryArc,storyArcEvent,afterStoryArcChoice,storyArcAllowed,type StoryArc} from "./story-arcs";
 import { makeLifeReport,reportAsText } from "./life-summary";
 import { healthLabel,type ConditionId } from "./health";
 import { OFFENSES,justiceLabel,legalStatus,type OffenseId } from "./justice";
@@ -313,7 +313,7 @@ function restorePendingEvent(raw:unknown,profile:CharacterProfile,simulation:Sim
  if(typeof id!=='string')return quietEvent();
  if(id==='quiet-year')return quietEvent();
  if(id.startsWith('arc-')){
-  const episode=storyArcEvent(arc,language);
+  const episode=storyArcAllowed(arc,simulation,age)?storyArcEvent(arc,language):null;
   return episode?.id===id&&age>=episode.minAge?episode:quietEvent();
  }
  const pool:LifeEvent[]=[...(copy[language].events as LifeEvent[]),...extraEvents(language),
@@ -335,7 +335,8 @@ function loadLife(): Life|null {
     const profile=normalizeProfile(r.profile,name);
     const simulation=loadSimulation(r.simulation);
     const history=Array.isArray(r.history)?r.history.filter((x):x is string=>typeof x==='string').slice(-6000):[];
-    const storyArc=normalizeStoryArc(r.storyArc,Math.max(0,Math.min(110,r.age)));
+    const recoveredArc=normalizeStoryArc(r.storyArc,Math.max(0,Math.min(110,r.age)));
+    const storyArc=storyArcAllowed(recoveredArc,simulation,r.age)?recoveredArc:null;
     const restored:Life={ name,birthYear:Number.isInteger(r.birthYear)?Number(r.birthYear):new Date().getFullYear(),
       age:Math.min(110,Math.max(0,r.age)),stats,
       pendingEvent:restorePendingEvent(r.pendingEvent,profile,simulation,r.age,storyArc),storyArc,
@@ -1147,6 +1148,7 @@ function ageUp(): void {
   transition.notes.forEach(n=>life!.history.push(age+": "+caption(n)));
   if (!transition.state.ended) {
     const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language),...extendedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...advancedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...mysticEvents(language,life!.profile),...careerEvents(language,life!.simulation)] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
+    if(life.storyArc&&!storyArcAllowed(life.storyArc,life.simulation,age))life.storyArc=null;
     const continuing=storyArcEvent(life.storyArc,language);
     life.pendingEvent=continuing&&age>=continuing.minAge?
       continuing:selectEvent(eligible,age,life.eventLedger,life.lastEventId)??quietEvent();
