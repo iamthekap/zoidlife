@@ -1361,3 +1361,31 @@ test('saved pending stories are not allowed to time travel into future callback 
  await page.locator('.dock-age').click();
  await expect(page.locator('[data-story-arc="arc-coding-club-1"]')).toBeVisible();
 });
+
+test('alternate path in a multi-year story changes the next-year dialogue and persists across reload',async({page})=>{
+ await chooseBaby(page);await advance(page,10);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.storyArc=null;saved.pendingEvent={id:'computer-club'};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Um clube de tecnologia');
+ await page.locator('[data-choice="0"]').click();
+ await page.locator('.dock-age').click();
+ await expect(page.locator('[data-story-arc="arc-coding-club-1"]')).toBeVisible();
+ await page.locator('[data-choice="1"]').click();
+ let saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.storyArc).toMatchObject({id:'coding-club',phase:2,branch:1,dueAge:12});
+ await page.locator('.dock-age').click();
+ await expect(page.locator('[data-story-arc="arc-coding-club-2"]')).toBeVisible();
+ await expect(page.locator('.event-modal-overlay p').last()).toContainText('aperfeiçoou o projeto');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay p').last()).toContainText('aperfeiçoou o projeto');
+ await page.locator('.event-language').click();
+ await expect(page.locator('.event-modal-overlay p').last()).toContainText('improved project');
+ await page.locator('[data-choice="1"]').click();
+ saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.storyArc).toBe(null);
+ expect(saved.chronicle.at(-1).description).toContain('improved project');
+});
