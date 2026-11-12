@@ -8,6 +8,7 @@ import { eventScene, iconSvg } from "./event-scenes";
 import { portraitLife, lifeStage } from "./life-art";
 import { renderStoryboardTimeline } from "./storyboard";
 import { makeLifeReport,reportAsText } from "./life-summary";
+import { healthLabel,type ConditionId } from "./health";
 import { CAREERS,careerById,careerAvailable,careerLabel,careerRequirements,type OccupationId } from "./careers";
 import { validateLifeSave, serializeLife, saveFilename } from "./save-io";
 import { initialSocial, normalizeSocial, syncSocial, spendSocialTime, personAge, personLabel, type SocialState } from "./social";
@@ -332,6 +333,15 @@ function cash(amount: number): string {
 function caption(s: string): string {
   if(s.startsWith("job:"))return u("newJob")+": "+u(s.slice(4));
   if(s.startsWith("occupation:")){const role=careerById(s.slice(11));return role?careerLabel(role,language):u("job");}
+  if(s.startsWith("health-start:")||s.startsWith("health-treated:")||s.startsWith("health-recovered:")){
+    const name=s.split(':')[1] as ConditionId;
+    const label=['fatigue','strain','mobility'].includes(name)?healthLabel(name,language):'';
+    if(label)return (s.startsWith('health-start:')?
+       (language==='pt-BR'?'Condição identificada: ':'Condition developed: '):
+      s.startsWith('health-recovered:')?
+       (language==='pt-BR'?'Recuperação: ':'Recovered: '):
+       (language==='pt-BR'?'Tratamento: ':'Treatment: '))+label;
+  }
   if(s.startsWith("income:"))return u("incomeNote")+": "+cash(Number(s.slice(7)));
   if(s.startsWith("expenses:"))return u("expenseNote")+": "+cash(Number(s.slice(9)));
   if(s.startsWith("debt-paid:"))return u("debtPaid")+": "+cash(Number(s.slice(10)));
@@ -358,7 +368,7 @@ function render(): void {
   const shell='<div class="app-shell">'+header+
    (scene==="welcome"?renderWelcome():scene==="selection"?renderSelection():
      scene==="custom"?renderCustom():renderPlay())+
-   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.7.0 · PT / EN</span></footer></div>';
+   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.7.1 · PT / EN</span></footer></div>';
   app.innerHTML=shell;
 }
 function renderWelcome(): string {
@@ -380,7 +390,7 @@ function renderWelcome(): string {
     button(language==="pt-BR"?"+ Criar meu personagem":"+ Create my own","custom","outline")+'</div>'+
     (hasSave?'<div class="continue-life">'+button(u("continue"),"continue","primary")+
       '<span>'+safe(life!.name)+' · '+safe(ageText(life!.age))+'</span></div>':'')+'</section>'+
-    '<div class="entry-footer"><span>'+safe(u("noLogin"))+'</span><span>BLUE & RED EDITION · 0.7.0</span></div></main>';
+    '<div class="entry-footer"><span>'+safe(u("noLogin"))+'</span><span>BLUE & RED EDITION · 0.7.1</span></div></main>';
 }
 function renderSelection(): string { return renderWelcome(); }
 function option(value: string,label: string, selected: boolean): string {
@@ -473,10 +483,18 @@ function renderPlay(): string {
 function renderVitals(): string {
   if (!life)return '';
   const icons:Record<StatKey,string>={happiness:"♡",health:"+",smarts:"✧",looks:"◈"};
+  const conditions=life.simulation.conditions??[];
+  const conditionHtml=conditions.length?'<div class="health-conditions"><h3>'+
+   safe(language==='pt-BR'?'Saúde ao longo da vida':'Lifelong health')+'</h3>'+
+   conditions.map(c=>'<div class="health-condition"><strong>'+safe(healthLabel(c.id,language))+'</strong>'+
+    '<small>'+safe(language==='pt-BR'?'Intensidade':'Severity')+': '+c.severity+'/3</small></div>').join('')+
+   '<p>'+safe(language==='pt-BR'?'A atividade Cuidar-se ajuda na recuperação.':
+    'The self-care action helps recovery.')+'</p></div>':'';
   return '<section class="inspector-card vitals"><h2>'+safe(u("overview"))+'</h2>'+
    (["happiness","health","smarts","looks"] as StatKey[]).map(k=>'<div class="vital">'+
     '<div class="vital-label"><span>'+icons[k]+' '+safe(u(k))+'</span><b>'+life!.stats[k]+'%</b></div>'+
-    '<div class="bar"><span style="width:'+clamp(life!.stats[k])+'%"></span></div></div>').join('')+'</section>';
+    '<div class="bar"><span style="width:'+clamp(life!.stats[k])+'%"></span></div></div>').join('')+
+   conditionHtml+'</section>';
 }
 /** Timeline is a chronological record, not a random event card with no history. */
 function timelineEntries():string {

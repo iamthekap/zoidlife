@@ -456,3 +456,23 @@ test('the three newborns have distinct outfits and custom clothing survives save
  const persisted=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
  expect(persisted.profile.outfit).toBe('red');
 });
+
+test('health condition timeline persists and a self-care action reduces severity',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const state=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  state.age=30;state.stats.health=45;
+  state.simulation.conditions=[{id:'fatigue',severity:2,since:24}];
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(state));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.health-condition').first()).toContainText('Cansaço persistente');
+ await expect(page.locator('.health-condition').first()).toContainText('2/3');
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await page.locator('[data-action="care"]').click();
+ await expect(page.locator('.health-condition').first()).toContainText('1/3');
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.conditions[0].severity).toBe(1);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.health-condition').first()).toContainText('1/3');
+});

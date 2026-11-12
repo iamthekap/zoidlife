@@ -1,3 +1,4 @@
+import {normalizeConditions,advanceHealth,treatHealth,type Condition} from './health.ts';
 import {careerById,careerAvailable,type OccupationId} from './careers.ts';
 /** Original Zoid Life simulation engine; independent of third-party game code or assets. */
 export type Stats = Record<'happiness' | 'health' | 'smarts' | 'looks', number>;
@@ -11,7 +12,7 @@ export type Simulation = {
   relationship: Relation; lastActionAge: number; lastYearNotes: string[]; ended: boolean;
   /** Most recent age that each activity was performed. Allows different activities in one year. */
   actionLedger: Partial<Record<Action,number>>;
-  investments: number; homeOwned: boolean; homeValue: number; children: number;
+  investments: number; homeOwned: boolean; homeValue: number; children: number; conditions:Condition[];
 };
 export type WorldImpact={cash?:number;debt?:number;investments?:number;family?:number;friends?:number;partner?:number;credits?:number;experience?:number;relationship?:Relation};
 export type Outcome = { state: Simulation; stats: Stats; notes: string[]; ok: boolean };
@@ -46,7 +47,7 @@ export function createSimulation(): Simulation {
   return { schema: 2, balance: 0, debt: 0, education: 'none', credits: 0, job: 'none', occupation:null,
     experience: 0, family: 70, friends: 30, partner: 0, relationship: 'single',
     lastActionAge: -1, actionLedger: {}, lastYearNotes: [], ended: false,
-    investments: 0, homeOwned: false, homeValue: 0, children: 0 };
+    investments: 0, homeOwned: false, homeValue: 0, children: 0,conditions:[] };
 }
 /** Migrate v1 saves safely without rewriting older life history. */
 export function loadSimulation(raw: unknown): Simulation {
@@ -69,7 +70,7 @@ export function loadSimulation(raw: unknown): Simulation {
     ended: r.ended === true,
     investments: money(r.investments ?? 0), homeOwned: r.homeOwned===true,
     homeValue: r.homeOwned===true ? money(r.homeValue??0) : 0,
-    children: Math.min(20,money(r.children??0)) };
+    children: Math.min(20,money(r.children??0)),conditions:normalizeConditions(r.conditions) };
 }
 const updatedStats = (stats: Stats, effects: Partial<Stats>): Stats => ({
   happiness: bound(stats.happiness + (effects.happiness ?? 0)),
@@ -99,7 +100,7 @@ function eligibility(age: number, education: Education): Job {
 /** Deterministic transitions: decisions create reproducible long-term consequences. */
 export function passYear(raw: Simulation, rawStats: Stats, age: number): Outcome {
   if (raw.ended || age < 1 || age > 110) return { state: raw, stats: rawStats, notes: [], ok: false };
-  const s = { ...raw, lastYearNotes: [] as string[] };
+  const s = { ...raw,conditions:normalizeConditions(raw.conditions), lastYearNotes: [] as string[] };
   let stats = { ...rawStats };
   const notes: string[] = [];
   if (age === 6) { s.education = 'school'; notes.push('school-start'); }
@@ -133,6 +134,10 @@ export function passYear(raw: Simulation, rawStats: Stats, age: number): Outcome
     if (s.debt > 0) stats = updatedStats(stats, { happiness: -2 });
   }
   if (age >= 35) stats = updatedStats(stats, { health: age >= 75 ? -3 : age >= 60 ? -2 : -1 });
+  const health=advanceHealth(s.conditions,age,stats.health,stats.happiness,s.job!=='none'&&s.job!=='retired');
+  s.conditions=health.conditions;
+  stats={...stats,health:health.health,happiness:health.happiness};
+  notes.push(...health.notes);
   if (age >= 18) {
     s.family = bound(s.family - 1);
     s.friends = bound(s.friends - 1);
@@ -149,7 +154,7 @@ export function passYear(raw: Simulation, rawStats: Stats, age: number): Outcome
 /** Each voluntary activity can occur once per year, independently of other activities. */
 export function takeAction(raw: Simulation, rawStats: Stats, age: number, action: Action): Outcome {
   if (!canTakeAction(raw,age,action)) return { state: raw, stats: rawStats, notes: [], ok: false };
-  const s = { ...raw, lastYearNotes: [...raw.lastYearNotes] };
+  const s = { ...raw,conditions:normalizeConditions(raw.conditions), lastYearNotes: [...raw.lastYearNotes] };
   let stats = { ...rawStats };
   const notes: string[] = [];
   if (action === 'study' && age >= 6) {
@@ -171,7 +176,9 @@ export function takeAction(raw: Simulation, rawStats: Stats, age: number, action
     s.family = bound(s.family + 4);
     stats = updatedStats(stats, { happiness: 5 });
   } else if (action === 'care') {
-    stats = updatedStats(stats, { health: 7, happiness: 2 });
+    const treated=treatHealth(s.conditions);s.conditions=treated.conditions;
+    stats = updatedStats(stats, { health: 7+treated.healthBonus, happiness: 2 });
+    notes.push(...treated.notes);
     if (age >= 18) charge(s, 300);
   } else if (action === 'budget' && age >= 16) {
     const paid = Math.min(s.balance, s.debt, 1500);
@@ -216,7 +223,7 @@ export function applyCareer(raw:Simulation,rawStats:Stats,age:number,id:Occupati
 }
 export function applyNarrativeChoice(raw: Simulation, rawStats: Stats, age: number, eventId: string, index: number, statEffects: Partial<Stats>, world:WorldImpact={}): Outcome {
   if (raw.ended || !Number.isInteger(index) || index < 0) return { state: raw, stats: rawStats, notes: [], ok: false };
-  const s = { ...raw, lastYearNotes: [...raw.lastYearNotes] };
+  const s = { ...raw,conditions:normalizeConditions(raw.conditions), lastYearNotes: [...raw.lastYearNotes] };
   const stats = updatedStats(rawStats, statEffects);
   const notes: string[] = [];
   switch (eventId) {
