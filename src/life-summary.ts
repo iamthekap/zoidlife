@@ -46,7 +46,7 @@ export function makeLifeReport(input:LifeReportInput,lang:Locale):LifeReport{
   const record=hobbies[id];
   if(record.awards>0)achievements.push(
    (lang==='pt-BR'?'Talento desenvolvido: ':'Developed talent: ')+hobbyName(id,lang)+
-   ' · '+record.awards+(lang==='pt-BR'?' conquistas':' awards'));
+   ' · '+record.awards+(lang==='pt-BR'?(record.awards===1?' conquista':' conquistas'):(record.awards===1?' award':' awards')));
   if(record.xp===100)achievements.push(
    (lang==='pt-BR'?'Domínio completo: ':'Mastered: ')+hobbyName(id,lang));
  }
