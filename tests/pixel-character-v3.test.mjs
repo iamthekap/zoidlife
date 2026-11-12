@@ -90,3 +90,29 @@ test('curly hair renders connected tufts rather than a disconnected box crown',(
  assert.ok(curly.includes('fill="#38836b"'));
  assert.ok(!curly.includes('<image')&&!curly.includes('href='));
 });
+
+test('adult and child bodies support three genuinely different two-arm gestures without changing inherited traits',()=>{
+ for(const stage of ['child','teen','adult']){
+  const poses=[0,1,2].map(seed=>renderMatureCharacter(profile,stage,'card',seed));
+  assert.equal(new Set(poses).size,3);
+  for(let i=0;i<3;i++){
+   assert.ok(poses[i].includes('data-pose="'+['neutral','thoughtful','greeting'][i]+'"'));
+   assert.ok(poses[i].includes('data-part="age-pose-'+['neutral','thoughtful','greeting'][i]+'"'));
+   assert.ok(poses[i].includes('data-part="legs"'));
+   assert.ok(poses[i].includes('data-part="age-face"'));
+   assert.ok(poses[i].includes('fill="#38836b"'));
+   assert.ok(poses[i].includes('fill="#ba8362"'));
+  }
+ }
+});
+test('four independent facial expressions stay structurally intact and safe',()=>{
+ const expressions=['cheerful','curious','determined','thoughtful'];
+ const poses=expressions.map((name,i)=>{
+  const svg=renderMatureCharacter(profile,'adult','card',i);
+  assert.ok(svg.includes('data-part="age-expression-'+name+'"'));
+  assert.equal((svg.match(/data-part="age-expression-/g)||[]).length,1);
+  assert.ok(!svg.includes('<image')&&!svg.includes('<script'));
+  return svg;
+ });
+ assert.equal(new Set(poses).size,4);
+});
