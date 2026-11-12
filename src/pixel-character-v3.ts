@@ -28,11 +28,13 @@ const CLOTH:Record<string,Pal>={
  rose:{light:'#f6b4bd',mid:'#d47c8c',dark:'#985166'}
 };
 type Rig={x:number;y:number;w:number;h:number;torso:number;torsoW:number;leg:number};
+// Successive stages gain longer visible torsos and legs while the head scales
+// down. All dimensions are measured on the same 96x118 SVG grid.
 const RIG:Record<MatureStage,Rig>={
- child:{x:32,y:9,w:32,h:33,torso:44,torsoW:29,leg:79},
- teen:{x:33,y:6,w:30,h:29,torso:38,torsoW:33,leg:78},
- adult:{x:35,y:5,w:26,h:27,torso:35,torsoW:37,leg:77},
- senior:{x:34,y:7,w:28,h:29,torso:39,torsoW:36,leg:80}
+ child:{x:33,y:10,w:30,h:29,torso:41,torsoW:28,leg:80},
+ teen:{x:34,y:7,w:28,h:23,torso:32,torsoW:33,leg:78},
+ adult:{x:35,y:7,w:26,h:21,torso:30,torsoW:37,leg:77},
+ senior:{x:34,y:8,w:28,h:24,torso:34,torsoW:36,leg:80}
 };
 const hash=(s:string):number=>[...s].reduce((v,c)=>(Math.imul(v,31)+c.charCodeAt(0))>>>0,2166136261);
 const rect=(x:number,y:number,w:number,h:number,c:string,extra='')=>
@@ -104,11 +106,29 @@ function outfit(d:Canvas,stage:MatureStage,cloth:Pal,skin:Pal,key:number):void{
    // Separate tee + shorts, embroidered playful motif and tiny cuff.
    d.r(x+5,y+4,w-10,4,cloth.light);
    d.r(x+5,rig.leg-4,w-10,4,cloth.dark);
+   // More varied everyday silhouettes, regardless of gender or skin tone.
+   // Child A: graphic tee, B: longer tunic, C: banded sporty pullover.
+   const childStyle=key%3;
+   if(childStyle===1){
+     d.g('child-tunic',()=>{
+       d.r(x+3,y+18,w-6,rig.leg-y-20,cloth.dark);
+       d.r(x+5,y+19,w-10,rig.leg-y-22,cloth.mid);
+       d.r(x+8,y+21,w-16,3,cloth.light);
+       d.r(x+5,rig.leg-4,w-10,2,cloth.light);
+     });
+   }else if(childStyle===2){
+     d.g('child-sporty-pullover',()=>{
+       for(const line of [y+12,y+18,y+24])d.r(x+4,line,w-8,3,cloth.light);
+       d.r(x+2,rig.leg-6,w-4,4,cloth.dark);
+       d.r(x+5,rig.leg-5,w-10,2,cloth.mid);
+     });
+   }else d.g('child-graphic-tee',()=>{
    const emblem=key%4;
    if(emblem===0){d.r(46,y+14,5,5,'#fff3d5');d.r(47,y+15,3,3,'#e18186');}
    if(emblem===1){d.r(43,y+14,10,3,'#fff9ef');d.r(46,y+12,4,8,'#fff9ef');}
    if(emblem===2){d.r(44,y+12,9,8,'#ffe4c4');d.r(47,y+14,3,3,'#e8a96f');}
    if(emblem===3){for(const k of [0,6,12])d.r(x+7,y+11+k,Math.max(4,w-14),2,'#e8f5fc');}
+   });
   }else if(stage==='teen'){
    // Hoodie with contrasting hood, drawstrings, kangaroo pouch and optional phone.
    d.r(x+7,y-1,w-14,8,cloth.dark);
@@ -185,7 +205,7 @@ function scalpBehind(d:Canvas,stage:MatureStage,p:CharacterProfile,h:Pal):void{
 }
 function face(d:Canvas,stage:MatureStage,p:CharacterProfile,skin:Pal,hair:Pal):void{
  const {x,y,w,h}=RIG[stage],cx=Math.round(x+w/2);
- const eyeY=y+(stage==='child'?17:14),size=stage==='child'?5:4;
+ const eyeY=y+(stage==='child'?13:stage==='teen'?9:stage==='adult'?7:9),size=stage==='child'?5:4;
  const left=x+6,right=x+w-6-size;
  d.g('age-face',()=>{
   // Stepped oval rather than the old block head, narrow chin and soft cheeks.
