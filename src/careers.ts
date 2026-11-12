@@ -20,7 +20,8 @@ export function careerById(raw:unknown):Career|null{
  return typeof raw==='string'?CAREERS.find(c=>c.id===raw)??null:null;
 }
 export function careerAvailable(s:Simulation,age:number,role:Career):boolean{
- return !s.ended&&Number.isInteger(age)&&age>=role.age&&age<65&&edu[s.education]>=edu[role.education]&&
+ return !s.ended&&Number.isInteger(age)&&age>=role.age&&age<65&&
+ (s.justice?.incarceratedUntil??0)<=age&&edu[s.education]>=edu[role.education]&&
  s.credits>=role.credits&&s.experience>=role.xp&&s.balance>=role.capital;
 }
 export function careerLabel(role:Career,language:'pt-BR'|'en'):string{

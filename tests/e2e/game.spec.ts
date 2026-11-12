@@ -476,3 +476,23 @@ test('health condition timeline persists and a self-care action reduces severity
  await page.reload();await page.locator('[data-do="continue"]').click();
  await expect(page.locator('.health-condition').first()).toContainText('1/3');
 });
+
+test('legal choices record outcomes, use annual cooldown and survive reload',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');s.age=25;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await expect(page.locator('.justice-option')).toHaveCount(3);
+ await page.locator('[data-offense="petty-theft"]').click();
+ await expect(page.locator('.justice-history li')).toHaveCount(1);
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.justice.history).toHaveLength(1);
+ expect(saved.simulation.actionLedger.crime).toBe(25);
+ await expect(page.locator('[data-offense="petty-theft"]')).toBeDisabled();
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await expect(page.locator('.justice-history li')).toHaveCount(1);
+});

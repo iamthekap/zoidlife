@@ -9,11 +9,12 @@ import { portraitLife, lifeStage } from "./life-art";
 import { renderStoryboardTimeline } from "./storyboard";
 import { makeLifeReport,reportAsText } from "./life-summary";
 import { healthLabel,type ConditionId } from "./health";
+import { OFFENSES,justiceLabel,legalStatus,type OffenseId } from "./justice";
 import { CAREERS,careerById,careerAvailable,careerLabel,careerRequirements,type OccupationId } from "./careers";
 import { validateLifeSave, serializeLife, saveFilename } from "./save-io";
 import { initialSocial, normalizeSocial, syncSocial, spendSocialTime, personAge, personLabel, type SocialState } from "./social";
 
-import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, applyCareer, type Simulation, type Action, type WorldImpact, canTakeAction } from "./simulation";
+import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, applyCareer, applyOffense, type Simulation, type Action, type WorldImpact, canTakeAction } from "./simulation";
 
 type Language = "pt-BR" | "en";
 type StatKey = "happiness" | "health" | "smarts" | "looks";
@@ -342,6 +343,11 @@ function caption(s: string): string {
        (language==='pt-BR'?'Recuperação: ':'Recovered: '):
        (language==='pt-BR'?'Tratamento: ':'Treatment: '))+label;
   }
+  if(s.startsWith('justice-convicted:'))return (language==='pt-BR'?'Foi condenado(a) por ':'Convicted of ')+justiceLabel(s.slice(18) as OffenseId,language);
+  if(s.startsWith('justice-avoided:'))return (language==='pt-BR'?'Não houve condenação por ':'No conviction for ')+justiceLabel(s.slice(16) as OffenseId,language);
+  if(s.startsWith('justice-fine:'))return (language==='pt-BR'?'Multa aplicada: ':'Fine: ')+cash(Number(s.slice(13)));
+  if(s.startsWith('justice-sentence:'))return (language==='pt-BR'?'Pena de ':'Sentence of ')+Number(s.slice(17))+(language==='pt-BR'?' anos.':' years.');
+  if(s==='justice-released')return language==='pt-BR'?'Cumpriu a pena e voltou à liberdade.':'Sentence completed and released.';
   if(s.startsWith("income:"))return u("incomeNote")+": "+cash(Number(s.slice(7)));
   if(s.startsWith("expenses:"))return u("expenseNote")+": "+cash(Number(s.slice(9)));
   if(s.startsWith("debt-paid:"))return u("debtPaid")+": "+cash(Number(s.slice(10)));
@@ -591,11 +597,47 @@ function actionButton(action: Action): string {
      (language==='pt-BR'?'Realizada neste ano':'Done this year'):u(action+'Info'))+'</span>'+
    '<i aria-hidden="true">›</i></button>';
 }
+function justiceActions():string {
+ if(!life)return '';
+ const age=life.age,legal=life.simulation.justice,available=canTakeAction(life.simulation,age,'crime');
+ const title=language==='pt-BR'?'Escolhas e consequências legais':'Choices and legal consequences';
+ const intro=language==='pt-BR'?'As ações ilegais podem resultar em multas, antecedentes e prisão.':
+  'Illegal actions may lead to fines, a criminal record and prison.';
+ const options=OFFENSES.map(o=>{
+  const can=available&&!life!.pendingEvent&&age>=o.age&&age<110;
+  return '<div class="justice-option"><div><strong>'+safe(justiceLabel(o.id,language))+'</strong>'+
+   '<small>'+safe(language==='pt-BR'?'A partir dos ':'From age ')+o.age+
+   safe(language==='pt-BR'?' anos':'')+'</small></div>'+
+   '<button type="button" data-offense="'+o.id+'"'+(can?'':' disabled')+'>'+
+   safe(language==='pt-BR'?'Escolher':'Choose')+'</button></div>';
+ }).join('');
+ const log=legal.history.slice(-3).reverse().map(h=>'<li>'+h.age+
+  ' — '+safe(justiceLabel(h.id,language))+': '+
+  safe(h.caught?(language==='pt-BR'?'Condenado':'Convicted'):(language==='pt-BR'?'Sem condenação':'Not convicted'))+
+  '</li>').join('');
+ return '<section class="justice-board"><h3>'+safe(title)+'</h3><p>'+safe(intro)+'</p>'+
+  '<div class="justice-status">'+safe(legalStatus(legal,age,language))+
+  ' · '+safe(language==='pt-BR'?'Condenações':'Convictions')+': '+legal.convictions+'</div>'+
+  '<div class="justice-options">'+options+'</div>'+
+  (log?'<ol class="justice-history">'+log+'</ol>':'')+'</section>';
+}
+function chooseOffense(id:string):void{
+ if(!life||life.pendingEvent||life.simulation.ended)return;
+ const offense=OFFENSES.find(o=>o.id===id);
+ if(!offense||life.age<offense.age)return;
+ const result=applyOffense(life.simulation,life.stats,life.age,offense.id);
+ if(!result.ok)return;
+ life.simulation=result.state;life.stats=result.stats;
+ life.history.push(life.age+': '+(language==='pt-BR'?'Decidiu cometer: ':'Decided to commit: ')+justiceLabel(offense.id,language));
+ for(const note of result.notes)life.history.push(life.age+': '+caption(note));
+ saveLife();tab='actions';render();
+}
+
 function renderActions(): string {
   if(!life)return '';
   const note=life.pendingEvent?u("blockedEvent"):(language==="pt-BR"?"Você pode fazer atividades diferentes no mesmo ano. Cada uma pode ser realizada uma vez por ano.":"Do different activities in the same year. Each activity is available once per year.");
   return '<section class="content-panel"><div class="panel-heading"><h2>'+safe(u("actions"))+'</h2><p>'+safe(note)+'</p></div>'+
-    '<div class="activity-grid">'+actionTypes.map(actionButton).join('')+'</div></section>';
+    '<div class="activity-grid">'+actionTypes.map(actionButton).join('')+'</div>'+justiceActions()+'</section>';
 }
 function progress(label: string, amount: number): string {
   return '<div class="relationship-progress"><div><span>'+safe(label)+'</span><b>'+clamp(amount)+'%</b></div>'+
@@ -881,6 +923,8 @@ appEl?.addEventListener("click",e=>{
   const target=e.target as HTMLElement;
   const person=target.closest<HTMLButtonElement>("[data-person]");
   if(person){visitPerson(person.dataset.person||'',person.dataset.kind||'talk');return;}
+  const offense=target.closest<HTMLButtonElement>("[data-offense]");
+  if(offense){chooseOffense(offense.dataset.offense||'');return;}
   const career=target.closest<HTMLButtonElement>("[data-career]");
   if(career){applyToCareer(career.dataset.career||'');return;}
   const nav=target.closest<HTMLButtonElement>("[data-tab]");

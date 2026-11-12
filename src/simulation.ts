@@ -1,3 +1,4 @@
+import {createJustice,loadJustice,judgeOffense,type JusticeState,type OffenseId} from './justice.ts';
 import {normalizeConditions,advanceHealth,treatHealth,type Condition} from './health.ts';
 import {careerById,careerAvailable,type OccupationId} from './careers.ts';
 /** Original Zoid Life simulation engine; independent of third-party game code or assets. */
@@ -5,14 +6,14 @@ export type Stats = Record<'happiness' | 'health' | 'smarts' | 'looks', number>;
 export type Job = 'none' | 'parttime' | 'service' | 'office' | 'professional' | 'retired';
 export type Education = 'none' | 'school' | 'secondary' | 'college';
 export type Relation = 'single' | 'dating' | 'married';
-export type Action = 'study' | 'job' | 'socialize' | 'care' | 'budget' | 'retire' | 'invest' | 'home' | 'child';
+export type Action = 'study' | 'job' | 'socialize' | 'care' | 'budget' | 'retire' | 'invest' | 'home' | 'child' | 'crime';
 export type Simulation = {
   schema: 2; balance: number; debt: number; education: Education; credits: number;
   job: Job; occupation:OccupationId|null; experience: number; family: number; friends: number; partner: number;
   relationship: Relation; lastActionAge: number; lastYearNotes: string[]; ended: boolean;
   /** Most recent age that each activity was performed. Allows different activities in one year. */
   actionLedger: Partial<Record<Action,number>>;
-  investments: number; homeOwned: boolean; homeValue: number; children: number; conditions:Condition[];
+  investments: number; homeOwned: boolean; homeValue: number; children: number; conditions:Condition[];justice:JusticeState;
 };
 export type WorldImpact={cash?:number;debt?:number;investments?:number;family?:number;friends?:number;partner?:number;credits?:number;experience?:number;relationship?:Relation};
 export type Outcome = { state: Simulation; stats: Stats; notes: string[]; ok: boolean };
@@ -24,7 +25,7 @@ export const annualSalary=(s:Simulation):number=>{
  const amount=role&&role.job===s.job?role.salary:fallback;
  return amount+(s.job==='none'||s.job==='retired'?0:Math.min(s.experience,30)*360);
 };
-export const ALL_ACTIONS: Action[]=['study','job','socialize','care','budget','retire','invest','home','child'];
+export const ALL_ACTIONS: Action[]=['study','job','socialize','care','budget','retire','invest','home','child','crime'];
 function normalizeActionLedger(raw:unknown,lastActionAge:unknown):Partial<Record<Action,number>> {
   const ledger:Partial<Record<Action,number>>={};
   if(raw&&typeof raw==='object'&&!Array.isArray(raw)){
@@ -41,13 +42,13 @@ function normalizeActionLedger(raw:unknown,lastActionAge:unknown):Partial<Record
 }
 export function canTakeAction(s:Simulation,age:number,action:Action):boolean {
   if(s.ended||!Number.isInteger(age)||age<0||age>110||!ALL_ACTIONS.includes(action))return false;
-  return s.actionLedger?.[action]!==age;
+  return s.actionLedger?.[action]!==age && !(loadJustice(s.justice).incarceratedUntil>age&&action!=='care'&&action!=='study');
 }
 export function createSimulation(): Simulation {
   return { schema: 2, balance: 0, debt: 0, education: 'none', credits: 0, job: 'none', occupation:null,
     experience: 0, family: 70, friends: 30, partner: 0, relationship: 'single',
     lastActionAge: -1, actionLedger: {}, lastYearNotes: [], ended: false,
-    investments: 0, homeOwned: false, homeValue: 0, children: 0,conditions:[] };
+    investments: 0, homeOwned: false, homeValue: 0, children: 0,conditions:[],justice:createJustice() };
 }
 /** Migrate v1 saves safely without rewriting older life history. */
 export function loadSimulation(raw: unknown): Simulation {
@@ -70,7 +71,7 @@ export function loadSimulation(raw: unknown): Simulation {
     ended: r.ended === true,
     investments: money(r.investments ?? 0), homeOwned: r.homeOwned===true,
     homeValue: r.homeOwned===true ? money(r.homeValue??0) : 0,
-    children: Math.min(20,money(r.children??0)),conditions:normalizeConditions(r.conditions) };
+    children: Math.min(20,money(r.children??0)),conditions:normalizeConditions(r.conditions),justice:loadJustice(r.justice) };
 }
 const updatedStats = (stats: Stats, effects: Partial<Stats>): Stats => ({
   happiness: bound(stats.happiness + (effects.happiness ?? 0)),
@@ -100,9 +101,10 @@ function eligibility(age: number, education: Education): Job {
 /** Deterministic transitions: decisions create reproducible long-term consequences. */
 export function passYear(raw: Simulation, rawStats: Stats, age: number): Outcome {
   if (raw.ended || age < 1 || age > 110) return { state: raw, stats: rawStats, notes: [], ok: false };
-  const s = { ...raw,conditions:normalizeConditions(raw.conditions), lastYearNotes: [] as string[] };
+  const s = { ...raw,conditions:normalizeConditions(raw.conditions),justice:loadJustice(raw.justice), lastYearNotes: [] as string[] };
   let stats = { ...rawStats };
   const notes: string[] = [];
+  if(s.justice.incarceratedUntil===age&&s.justice.lastConvictionAge>=0)notes.push('justice-released');
   if (age === 6) { s.education = 'school'; notes.push('school-start'); }
   if (age === 18 && s.education === 'school') {
     if (s.credits >= 4) { s.education = 'secondary'; notes.push('graduated'); }
@@ -111,7 +113,7 @@ export function passYear(raw: Simulation, rawStats: Stats, age: number): Outcome
   if (age === 65 && s.job !== 'none' && s.job !== 'retired') {
     s.job = 'retired'; s.occupation=null; notes.push('retirement');
   }
-  if (s.job !== 'none') {
+  if (s.job !== 'none' && s.justice.incarceratedUntil<=age) {
     const income = annualSalary(s);
     receive(s, income);
     if (s.job !== 'retired') s.experience += 1;
@@ -154,7 +156,7 @@ export function passYear(raw: Simulation, rawStats: Stats, age: number): Outcome
 /** Each voluntary activity can occur once per year, independently of other activities. */
 export function takeAction(raw: Simulation, rawStats: Stats, age: number, action: Action): Outcome {
   if (!canTakeAction(raw,age,action)) return { state: raw, stats: rawStats, notes: [], ok: false };
-  const s = { ...raw,conditions:normalizeConditions(raw.conditions), lastYearNotes: [...raw.lastYearNotes] };
+  const s = { ...raw,conditions:normalizeConditions(raw.conditions),justice:loadJustice(raw.justice), lastYearNotes: [...raw.lastYearNotes] };
   let stats = { ...rawStats };
   const notes: string[] = [];
   if (action === 'study' && age >= 6) {
@@ -221,9 +223,25 @@ export function applyCareer(raw:Simulation,rawStats:Stats,age:number,id:Occupati
  return {state:s,stats:updatedStats(rawStats,{happiness:4,health:-Math.round(role.stress/2)}),
   notes:['job:'+role.job,'occupation:'+role.id],ok:true};
 }
+/** A voluntary illegal choice consumes the crime action for this year. */
+export function applyOffense(raw:Simulation,rawStats:Stats,age:number,id:OffenseId):Outcome{
+ if(!canTakeAction(raw,age,'crime'))return {state:raw,stats:rawStats,notes:[],ok:false};
+ const result=judgeOffense(raw.justice,age,rawStats.smarts,id);
+ if(!result)return {state:raw,stats:rawStats,notes:[],ok:false};
+ const s:Simulation={...raw,justice:result.justice,actionLedger:{...raw.actionLedger,crime:age},lastActionAge:age};
+ if(result.fine)charge(s,result.fine);
+ if(result.reward)receive(s,result.reward);
+ if(result.sentence){s.job='none';s.occupation=null;}
+ const stats=updatedStats(rawStats,{happiness:result.caught?-10:result.reward?3:-2,
+  health:result.sentence?-3:0,smarts:result.caught?0:-1});
+ const notes=[(result.caught?'justice-convicted:':'justice-avoided:')+id];
+ if(result.fine)notes.push('justice-fine:'+result.fine);
+ if(result.sentence)notes.push('justice-sentence:'+result.sentence);
+ return {state:s,stats,notes,ok:true};
+}
 export function applyNarrativeChoice(raw: Simulation, rawStats: Stats, age: number, eventId: string, index: number, statEffects: Partial<Stats>, world:WorldImpact={}): Outcome {
   if (raw.ended || !Number.isInteger(index) || index < 0) return { state: raw, stats: rawStats, notes: [], ok: false };
-  const s = { ...raw,conditions:normalizeConditions(raw.conditions), lastYearNotes: [...raw.lastYearNotes] };
+  const s = { ...raw,conditions:normalizeConditions(raw.conditions),justice:loadJustice(raw.justice), lastYearNotes: [...raw.lastYearNotes] };
   const stats = updatedStats(rawStats, statEffects);
   const notes: string[] = [];
   switch (eventId) {
