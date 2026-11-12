@@ -803,3 +803,48 @@ body{background:var(--bg);color:var(--ink);}
  .storyboard-scene-adult .storyboard-actor,
  .storyboard-scene-senior .storyboard-actor{height:96%;}
 }
+
+
+/* Chronological story v1: annual decisions are mandatory, focused dialog cards.
+   The underlying journal remains a truthful record, not an intro banner. */
+.event-modal-overlay{
+ position:fixed;inset:0;z-index:120;background:rgba(10,25,52,.84);
+ display:flex;align-items:center;justify-content:center;overflow-y:auto;
+ padding:clamp(10px,3vw,24px);overscroll-behavior:contain;
+ backdrop-filter:blur(5px);
+}
+.event-modal-overlay .story-event{
+ width:min(100%,560px);max-height:calc(100dvh - 22px);
+ overflow-y:auto;overscroll-behavior:contain;
+ border:2px solid #afcdf6;border-radius:17px;
+ box-shadow:0 24px 90px rgba(6,19,42,.55);
+}
+.event-modal-overlay .scene-visual{height:clamp(100px,23dvh,195px);}
+.event-modal-overlay .decision-body{padding:clamp(14px,3vw,24px);}
+.event-modal-overlay .story-event h2{margin:6px 0 10px;font-size:clamp(19px,3vw,26px);}
+.event-modal-overlay .story-event p{line-height:1.55;margin-bottom:12px;}
+.event-modal-overlay .choice{border:1px solid #bdd4f2;background:#f5f9ff;}
+.event-modal-overlay .choice:focus-visible{outline:3px solid #ff0044;outline-offset:2px;}
+body:has(.event-modal-overlay){overflow:hidden;}
+
+.life-entry.story-decision{border-left:3px solid #3A86FF;padding-left:9px;margin:7px 0 8px;}
+.life-entry.story-decision .entry-content{width:100%;min-width:0;}
+.chronicle-panel{margin-top:9px;background:#f9fbff;border:1px solid #dae5f4;border-radius:12px;overflow:hidden;min-width:0;}
+.chronicle-illustration{background:#eaf2fc;border-bottom:1px solid #dae5f4;min-width:0;}
+.chronicle-illustration .scene-visual{height:clamp(125px,20vw,192px);border:0;border-radius:0;margin:0;}
+.chronicle-story{display:grid;gap:8px;padding:12px;min-width:0;}
+.chronicle-story h3{font-size:clamp(14px,2vw,18px);color:#244b85;line-height:1.3;}
+.chronicle-story p{font-size:12px;color:#556b87;line-height:1.55;overflow-wrap:anywhere;}
+.chronicle-story .chronicle-choice{border-left:3px solid #3A86FF;background:#eaf3ff;padding:9px 11px;border-radius:0 6px 6px 0;}
+.chronicle-story .chronicle-result{border-left:3px solid #FF0044;background:#fff1f5;padding:9px 11px;border-radius:0 6px 6px 0;color:#7a2a46;}
+.journal-more{width:100%;margin-top:12px;min-height:44px;padding:11px;border:1px solid #b4ccf0;border-radius:9px;color:#245aa7;background:#f2f7ff;font-weight:800;}
+.journal-more:focus-visible{outline:3px solid #FF0044;outline-offset:2px;}
+@media(max-width:480px){
+ .event-modal-overlay{padding:8px 8px calc(8px + env(safe-area-inset-bottom));}
+ .event-modal-overlay .story-event{max-height:calc(100dvh - 16px);}
+ .chronicle-story{padding:10px;}
+ .life-entry.story-decision{padding-left:6px;}
+}
+@media(prefers-reduced-motion:reduce){
+ .event-modal-overlay{backdrop-filter:none;}
+}
