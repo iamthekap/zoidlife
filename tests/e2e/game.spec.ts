@@ -1274,3 +1274,26 @@ test('real decision and persistent chronicle have age-accurate environmental sce
  await page.reload();await page.locator('[data-do="continue"]').click();
  await expect(page.locator('.chronicle-panel .scene-world')).toBeVisible();
 });
+
+test('resignation invalidates a promised future career storyline before the next year',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=30;saved.simulation.job='office';saved.simulation.experience=8;
+  saved.pendingEvent={id:'work-project-lead'};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Uma oportunidade no trabalho');
+ await page.locator('[data-choice="0"]').click();
+ let saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.storyArc?.id).toBe('career-lead');
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await page.locator('[data-action="resign"]').click();
+ saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.job).toBe('none');
+ await page.locator('.dock-age').click();
+ saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.storyArc).toBe(null);
+ expect(saved.pendingEvent?.id).not.toContain('arc-career-lead');
+});
