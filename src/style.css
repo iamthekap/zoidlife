@@ -851,3 +851,8 @@ body:has(.event-modal-overlay){overflow:hidden;}
 
 .save-warning{margin:8px 14px 0;padding:12px 15px;border:1px solid #c5485e;border-radius:9px;
  background:#fff1f4;color:#8b2140;font-weight:750;font-size:12px;line-height:1.5;}
+
+.decision-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.event-language{min-height:38px;min-width:46px;border:1px solid #a6c7f4;color:#1f5fac;
+ background:#eff6ff;border-radius:8px;font-weight:900;font-size:12px;}
+.event-language:focus-visible{outline:3px solid #FF0044;outline-offset:2px;}
