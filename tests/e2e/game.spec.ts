@@ -371,7 +371,7 @@ test('career board requires qualifications, changes salary and persists job sele
  });
  await page.reload();await page.locator('[data-do="continue"]').click();
  await page.locator('.game-dock [data-tab="career"]').click();
- await expect(page.locator('.career-vacancy')).toHaveCount(11);
+ await expect(page.locator('.career-vacancy')).toHaveCount(45);
  await expect(page.locator('[data-career="developer"]')).toBeEnabled();
  await page.locator('[data-career="developer"]').click();
  await expect(page.locator('[data-career="developer"]')).toBeDisabled();
@@ -555,4 +555,23 @@ test('newborn v3 draw uses lively baby anatomy and accessible reduced-motion beh
  }
  await page.emulateMedia({reducedMotion:'reduce'});
  await expect(page.locator('.newborn-v3 [data-part="eyes-open"]').first()).toHaveCSS('animation-name','none');
+});
+
+test('custom-created vampire trains powers while random presets never receive them',async({page})=>{
+ await page.goto('/');
+ await page.locator('[data-do="custom"]').click();
+ await page.locator('[data-custom="nature"]').selectOption('vampire');
+ await page.locator('[name="name"]').fill('Mara Noturna');
+ await page.locator('#creator-form button[type="submit"]').click();
+ await page.evaluate(()=>{
+  const life=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  life.age=15;localStorage.setItem('zoid-life-save-v1',JSON.stringify(life));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await expect(page.locator('[data-action="mystic"]')).toBeEnabled();
+ await page.locator('[data-action="mystic"]').click();
+ await expect(page.locator('.special-origin')).toContainText('Vampiro');
+ const s=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(s.simulation.mysticMastery).toBe(5);
 });

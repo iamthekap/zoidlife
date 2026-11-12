@@ -21,7 +21,7 @@ test('save visual acceptance captures for newborns, growth and life journal',asy
  await expect(page.locator('.storyboard-adult')).toBeVisible();
  await page.screenshot({path:'test-results/visual/04-life-journal-adult.png',fullPage:true});
  await page.locator('.game-dock [data-tab="career"]').click();
- await expect(page.locator('.career-vacancy')).toHaveCount(11);
+ await expect(page.locator('.career-vacancy')).toHaveCount(45);
  await page.screenshot({path:'test-results/visual/05-career-board.png',fullPage:true});
  await page.locator('.game-dock [data-tab="actions"]').click();
  await expect(page.locator('.justice-board')).toBeVisible();

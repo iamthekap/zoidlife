@@ -3,6 +3,7 @@ import { randomCandidates, randomCharacter, normalizeProfile, portraitSvg, CITIE
 import { extraEvents, eventAllowed } from "./events-plus";
 import { extendedEvents, extendedAllowed } from "./events-extended";
 import { advancedEvents } from "./events-advanced";
+import {isMysticOrigin,practiceMystic,mysticEvents,mysticNatureLabel} from "./mystic";
 import { selectEvent, recordEvent, migrateLedger, type EventLedger } from "./event-engine";
 import { eventScene, iconSvg } from "./event-scenes";
 import { portraitLife, lifeStage } from "./life-art";
@@ -181,6 +182,8 @@ const titles: Record<Language, Record<string,string>> = {
     overview:"Indicadores", actionOnce:"Você pode fazer uma atividade por ano.",
     blockedEvent:"Resolva o acontecimento atual antes de realizar uma atividade.",
     actionDone:"Você já escolheu uma atividade neste ano.",
+    train:"Treinar esporte",trainInfo:"Evolua sua aptidão para carreiras esportivas.",
+    mystic:"Exercitar poderes",mysticInfo:"Treine habilidades únicas da sua origem.",
     study:"Estudar", job:"Procurar emprego", socialize:"Socializar",
     invest:"Investir", home:"Comprar imóvel", child:"Ter um filho",
     care:"Cuidar da saúde", budget:"Organizar finanças", retire:"Aposentar",
@@ -240,6 +243,8 @@ const titles: Record<Language, Record<string,string>> = {
     overview:"Vitals", actionOnce:"You can take one activity per year.",
     blockedEvent:"Resolve your current event before taking an activity.",
     actionDone:"You've already completed an activity this year.",
+    train:"Sports training",trainInfo:"Build the athletic skill needed for sports careers.",
+    mystic:"Practice powers",mysticInfo:"Develop abilities from your special origin.",
     study:"Study", job:"Find work", socialize:"Socialize",
     invest:"Invest", home:"Buy a home", child:"Have a child", care:"Look after health", budget:"Manage finances", retire:"Retire",
     studyInfo:"Keep learning and work toward your degree.", jobInfo:"Find work that matches your experience.",
@@ -341,6 +346,8 @@ function cash(amount: number): string {
 function caption(s: string): string {
   if(s.startsWith("job:"))return u("newJob")+": "+u(s.slice(4));
   if(s.startsWith("occupation:")){const role=careerById(s.slice(11));return role?careerLabel(role,language):u("job");}
+  if(s.startsWith('training:'))return (language==='pt-BR'?'Treino esportivo: ':'Sports training: ')+s.slice(9);
+  if(s.startsWith('mystic-mastery:'))return (language==='pt-BR'?'Domínio místico: ':'Mystic mastery: ')+s.slice(15);
   if(s.startsWith("health-start:")||s.startsWith("health-treated:")||s.startsWith("health-recovered:")){
     const name=s.split(':')[1] as ConditionId;
     const label=['fatigue','strain','mobility'].includes(name)?healthLabel(name,language):'';
@@ -381,7 +388,7 @@ function render(): void {
   const shell='<div class="app-shell">'+header+
    (scene==="welcome"?renderWelcome():scene==="selection"?renderSelection():
      scene==="custom"?renderCustom():renderPlay())+
-   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.8.0 · PT / EN</span></footer></div>';
+   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.9.0 · PT / EN</span></footer></div>';
   app.innerHTML=shell;
 }
 function renderWelcome(): string {
@@ -403,7 +410,7 @@ function renderWelcome(): string {
     button(language==="pt-BR"?"+ Criar meu personagem":"+ Create my own","custom","outline")+'</div>'+
     (hasSave?'<div class="continue-life">'+button(u("continue"),"continue","primary")+
       '<span>'+safe(life!.name)+' · '+safe(ageText(life!.age))+'</span></div>':'')+'</section>'+
-    '<div class="entry-footer"><span>'+safe(u("noLogin"))+'</span><span>BLUE & RED EDITION · 0.8.0</span></div></main>';
+    '<div class="entry-footer"><span>'+safe(u("noLogin"))+'</span><span>BLUE & RED EDITION · 0.9.0</span></div></main>';
 }
 function renderSelection(): string { return renderWelcome(); }
 function option(value: string,label: string, selected: boolean): string {
@@ -646,10 +653,11 @@ function renderStory():string {
     eventHtml+renderStoryboardTimeline(life.profile,life.age,life.history,language)+timelineEntries()+'</section>';
 }
 
-const actionTypes: Action[]=['study','job','socialize','care','budget','invest','home','child','retire'];
+const actionTypes: Action[]=['study','job','train','socialize','care','budget','invest','home','child','retire'];
 function canAction(action: Action): boolean {
   if (!life || life.simulation.ended || life.pendingEvent || !canTakeAction(life.simulation,life.age,action))return false;
-  return action==='study'?life.age>=6:action==='job'?life.age>=16&&life.age<65:
+  return action==='study'?life.age>=6:action==='train'?life.age>=6&&life.age<85:
+    action==='mystic'?life.age>=12&&isMysticOrigin(life.profile):action==='job'?life.age>=16&&life.age<65:
     action==='budget'?life.age>=16:action==='invest'?life.age>=18&&life.simulation.balance>=1000:
     action==='home'?life.age>=21&&!life.simulation.homeOwned&&life.simulation.balance>=25000:
     action==='child'?life.age>=20&&life.age<=55&&life.simulation.relationship!=='single'&&life.simulation.partner>=50&&life.simulation.children<8:
@@ -702,7 +710,10 @@ function renderActions(): string {
   if(!life)return '';
   const note=life.pendingEvent?u("blockedEvent"):(language==="pt-BR"?"Você pode fazer atividades diferentes no mesmo ano. Cada uma pode ser realizada uma vez por ano.":"Do different activities in the same year. Each activity is available once per year.");
   return '<section class="content-panel"><div class="panel-heading"><h2>'+safe(u("actions"))+'</h2><p>'+safe(note)+'</p></div>'+
-    '<div class="activity-grid">'+actionTypes.map(actionButton).join('')+'</div>'+justiceActions()+'</section>';
+    '<div class="activity-grid">'+(isMysticOrigin(life.profile)?[...actionTypes,'mystic' as Action]:actionTypes).map(actionButton).join('')+'</div>'+
+    (isMysticOrigin(life.profile)?'<div class="special-origin"><strong>'+safe(mysticNatureLabel(life.profile.nature!,language))+
+    '</strong><span>'+safe(language==='pt-BR'?'Domínio místico ':'Mystic mastery ')+(life.simulation.mysticMastery??0)+'/100</span></div>':'')+
+    justiceActions()+'</section>';
 }
 function progress(label: string, amount: number): string {
   return '<div class="relationship-progress"><div><span>'+safe(label)+'</span><b>'+clamp(amount)+'%</b></div>'+
@@ -748,7 +759,7 @@ function renderCareer(): string {
   const allowed=canAction('job');
   const vacancies=CAREERS.map(c=>{
     const active=c.id===s.occupation&&c.job===s.job;
-    const qualified=careerAvailable(s,life!.age,c);
+    const qualified=careerAvailable(s,life!.age,c,life!.profile);
     const actionable=allowed&&qualified&&!active;
     return '<article class="career-vacancy'+(active?' current':'')+'" data-career-card="'+c.id+'">'+
       '<div class="career-vacancy-info"><strong>'+safe(careerLabel(c,language))+'</strong>'+
@@ -763,7 +774,7 @@ function renderCareer(): string {
    'Choose a profession. Each vacancy has requirements and a different salary.')+'</p></div>'+
    '<div class="data-list">'+pair(u("degree"),u(s.education))+pair(u("credits"),String(s.credits))+
    pair(u("currentJob"),safe(jobLabel))+pair(u("experience"),String(s.experience))+
-   pair(u("income"),cash(annualSalary(s)))+'</div>'+
+   pair(u("income"),cash(annualSalary(s)))+pair(language==='pt-BR'?'Treino esportivo':'Athletic training',String(s.training??0))+'</div>'+
    '<div class="activity-grid">'+actionButton("study")+'</div>'+
    '<h3 class="career-heading">'+safe(language==='pt-BR'?'Vagas disponíveis e futuras':'Current and future careers')+'</h3>'+
    '<div class="career-list">'+vacancies+'</div></section>';
@@ -801,7 +812,7 @@ function activeEventForLanguage(): void {
   if(!life?.pendingEvent)return;
   const id=life.pendingEvent.id;
   if(id==="quiet-year"){life.pendingEvent=quietEvent();return;}
-  const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language),...extendedEvents(language),...advancedEvents(language)] as LifeEvent[]).find(e=>e.id===id);
+  const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language),...extendedEvents(language),...advancedEvents(language),...mysticEvents(language,life?.profile)] as LifeEvent[]).find(e=>e.id===id);
   if(localized)life.pendingEvent=localized;
 }
 function syncLifePeople():void {
@@ -859,7 +870,7 @@ function ageUp(): void {
   syncLifePeople();
   transition.notes.forEach(n=>life!.history.push(age+": "+caption(n)));
   if (!transition.state.ended) {
-    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language),...extendedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...advancedEvents(language).filter(e=>extendedAllowed(e,life!.simulation))] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
+    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language),...extendedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...advancedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...mysticEvents(language,life!.profile)] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
     life.pendingEvent=selectEvent(eligible,age,life.eventLedger,life.lastEventId)??quietEvent();
   }
   saveLife();tab="story";render();
@@ -883,8 +894,8 @@ function choose(index:number): void {
 function applyToCareer(id:string):void {
  if(!life||life.pendingEvent||life.simulation.ended||!canAction('job'))return;
  const role=careerById(id);
- if(!role||!careerAvailable(life.simulation,life.age,role))return;
- const result=applyCareer(life.simulation,life.stats,life.age,role.id as OccupationId);
+ if(!role||!careerAvailable(life.simulation,life.age,role,life.profile))return;
+ const result=applyCareer(life.simulation,life.stats,life.age,role.id as OccupationId,life.profile);
  if(!result.ok)return;
  life.simulation=result.state;life.stats=result.stats;
  life.history.push(life.age+': '+(language==='pt-BR'?'Começou a trabalhar como ':'Started working as ')+careerLabel(role,language)+'.');
@@ -894,6 +905,14 @@ function applyToCareer(id:string):void {
 function act(action:Action): void {
   if(!life || !canAction(action))return;
   if(action==='job'){tab='career';render();return;}
+  if(action==='mystic'){
+    const result=practiceMystic(life.simulation,life.stats,life.age,life.profile);
+    if(!result.ok)return;
+    life.simulation=result.state;life.stats=result.stats;
+    life.history.push(life.age+': '+(language==='pt-BR'?'Praticou seus poderes místicos.':'Practiced mystical powers.'));
+    for(const note of result.notes)life.history.push(life.age+': '+caption(note));
+    saveLife();render();return;
+  }
   const result=takeAction(life.simulation,life.stats,life.age,action);
   if(!result.ok)return;
   life.simulation=result.state;life.stats=result.stats;
