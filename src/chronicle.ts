@@ -17,9 +17,10 @@ export function normalizeChronicle(raw:unknown,history:readonly string[],age:num
        !boundedText(e.eventId,80)||!/^[a-z0-9-]+$/.test(e.eventId)||
        !boundedText(e.title,300)||!boundedText(e.description,2000)||
        !boundedText(e.choice,500)||!boundedText(e.result,3000))continue;
-    const line=readHistoryEntry(history[e.historyIndex],e.historyIndex);
-    if(!line||line.age!==e.age||!line.text.includes(e.result))continue;
-    seen.add(e.historyIndex);
+    const index=Number(e.historyIndex),year=Number(e.age);
+    const line=readHistoryEntry(history[index],index);
+    if(!line||line.age!==year||!line.text.includes(e.result))continue;
+    seen.add(index);
     entries.push({historyIndex:Number(e.historyIndex),age:Number(e.age),
       eventId:e.eventId,title:e.title,description:e.description,
       choice:e.choice,result:e.result,
