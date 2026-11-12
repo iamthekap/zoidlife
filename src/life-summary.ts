@@ -42,7 +42,7 @@ export function makeLifeReport(input:LifeReportInput,lang:Locale):LifeReport{
  // Imported history may contain notes from future ages: never report them as lived events.
  const news=input.history.filter(x=>{
   if(typeof x!=='string'||!x.trim())return false;
-  const match=/^(\\d{1,3}):\\s*(.*)$/.exec(x);
+  const match=/^(\d{1,3}):\s*(.*)$/.exec(x);
   return !match||(Number(match[1])<=input.age&&!!match[2].trim());
  }).map(sanitize);
  const events=[...new Set(news)].slice(-12).reverse();

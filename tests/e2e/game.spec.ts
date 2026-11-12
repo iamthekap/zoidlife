@@ -1147,12 +1147,12 @@ test('adolescent annual finance forecast matches actual expenses charged only af
  await page.locator('.game-dock [data-tab="finances"]').click();
  await expect(page.locator('.data-list')).toContainText('Despesas anuais previstas');
  const finance16=await page.locator('.data-list').innerText();
- expect(finance16).toMatch(/Despesas anuais previstas\\s+R\\$\\s*0/);
+ expect(finance16).toMatch(/Despesas anuais previstas\s+R\$\s*0/);
  await page.locator('.dock-age').click();await page.locator('[data-choice="0"]').click();
  const finance17=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
  expect(finance17.age).toBe(17);
  await page.locator('.dock-age').click();await page.locator('[data-choice="0"]').click();
  await page.locator('.game-dock [data-tab="finances"]').click();
  const text18=await page.locator('.data-list').innerText();
- expect(text18).not.toMatch(/Despesas anuais previstas\\s+R\\$\\s*0/);
+ expect(text18).not.toMatch(/Despesas anuais previstas\s+R\$\s*0/);
 });

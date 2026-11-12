@@ -37,3 +37,13 @@ test('financial debt creates negative net worth when warranted',()=>{
  const s={...input,simulation:{...createSimulation(),debt:12000,balance:500}};
  assert.equal(makeLifeReport(s,'pt-BR').netWorth,-11500);
 });
+
+test('a life recap never reports future-dated imported events as completed history',()=>{
+ const compromised={...input,age:25,history:[
+  '0: Nasceu em Salvador.','24: Fez sua primeira viagem.',
+  '80: Recebeu um prêmio que nunca conquistou.','110: Construção de patrimônio futuro.'
+ ]};
+ const recap=makeLifeReport(compromised,'pt-BR');
+ assert.ok(recap.events.includes('Fez sua primeira viagem.'));
+ assert.ok(!recap.events.some(x=>x.includes('prêmio que nunca')||x.includes('patrimônio futuro')));
+});
