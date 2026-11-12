@@ -798,7 +798,7 @@ test('age-appropriate school and first jobs grow naturally instead of showing ad
 test('new events are rendered before the journal and illustrated chapters and remain clickable',async({page})=>{
  await chooseBaby(page);
  await page.locator('.dock-age').click();
- await expect(page.locator('.story-primary > .decision-card')).toBeVisible();
+ await expect(page.locator('.story-primary .event-modal-overlay > .decision-card[role="dialog"]')).toBeVisible();
  await expect(page.locator('.story-primary [data-choice="0"]')).toBeEnabled();
  await page.locator('.story-primary [data-choice="0"]').click();
  await expect(page.locator('.story-chapters .storyboard-track')).toBeVisible();
@@ -974,11 +974,12 @@ test('life journal is the top content and illustrated chapters collapse without 
  const first=await page.locator('.game-feed > *').evaluateAll(items=>items.map(x=>x.className));
  expect(first[0]).toContain('story-primary');
  await expect(page.locator('.story-chapters')).toHaveAttribute('open','');
- await page.locator('.story-chapters-toggle').click();
- await expect(page.locator('.story-chapters')).not.toHaveAttribute('open','');
+ await expect(page.getByRole('dialog',{name:/.+/})).toBeVisible();
+ await expect(page.locator('.dock-age')).toBeDisabled();
  await expect(page.locator('.story-primary [data-choice="0"]')).toBeEnabled();
  await page.locator('.story-primary [data-choice="0"]').click();
  await expect(page.locator('.life-journal .life-entry').first()).toBeVisible();
+ await page.locator('.story-chapters-toggle').click();
  await expect(page.locator('.story-chapters')).not.toHaveAttribute('open','');
  await page.locator('.story-chapters-toggle').click();
  await expect(page.locator('.story-chapters')).toHaveAttribute('open','');
@@ -998,4 +999,47 @@ test('adult streetwear, blazer and casual jacket use distinct identity-based pix
  const avatar=page.locator('.identity-portrait [data-renderer="mature-v3"]');
  await expect(avatar).toBeVisible();
  await expect(avatar.locator('[data-part^="adult-"]')).toHaveCount(1);
+});
+
+test('every yearly choice is mandatory and becomes a truthful illustrated persistent journal card',async({page})=>{
+ await chooseBaby(page);
+ await page.locator('.dock-age').click();
+ const modal=page.getByRole('dialog');
+ await expect(modal).toBeVisible();
+ await expect(modal.locator('.event-choices .choice')).toHaveCount(3);
+ await expect(page.locator('.dock-age')).toBeDisabled();
+ await page.keyboard.press('Escape');
+ await expect(modal).toBeVisible();
+ const chosen=await modal.locator('[data-choice="1"]').innerText();
+ await modal.locator('[data-choice="1"]').click();
+ await expect(modal).toHaveCount(0);
+ await expect(page.locator('.life-journal .chronicle-panel')).toHaveCount(1);
+ await expect(page.locator('.life-journal .chronicle-choice')).toContainText(chosen.split('\n')[0]);
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.chronicle).toHaveLength(1);
+ expect(saved.history[saved.chronicle[0].historyIndex]).toContain(saved.chronicle[0].result);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.life-journal .chronicle-panel')).toHaveCount(1);
+ await expect(page.locator('.life-journal .chronicle-result')).toContainText(saved.chronicle[0].result);
+});
+test('life journal excludes future-dated records and can reveal the whole saved history',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=4;
+  for(let i=0;i<145;i++)saved.history.push('3: Registro real '+i+'.');
+  saved.history.push('80: Evento impossível, ainda não vivido.');
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.life-journal')).not.toContainText('Evento impossível');
+ await expect(page.locator('.life-journal .life-entry')).toHaveCount(60);
+ await expect(page.locator('[data-do="more-history"]')).toBeVisible();
+ await page.locator('[data-do="more-history"]').click();
+ await expect(page.locator('.life-journal .life-entry')).toHaveCount(120);
+ await page.locator('[data-do="more-history"]').click();
+ await expect(page.locator('[data-do="more-history"]')).toHaveCount(0);
+ await expect(page.locator('.life-journal')).toContainText('Registro real 0.');
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.history.some(x=>x.startsWith('80:'))).toBe(true);
 });
