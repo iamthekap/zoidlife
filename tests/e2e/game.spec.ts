@@ -1297,3 +1297,25 @@ test('resignation invalidates a promised future career storyline before the next
  expect(saved.storyArc).toBe(null);
  expect(saved.pendingEvent?.id).not.toContain('arc-career-lead');
 });
+
+test('story journal leads and the separate phase gallery scrolls horizontally without duplicating a giant timeline',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=72;saved.simulation.ended=false;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.setViewportSize({width:390,height:844});
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ const journal=page.locator('.life-journal'), gallery=page.locator('.story-chapters .storyboard-track');
+ await expect(journal).toBeVisible();await expect(gallery).toBeVisible();
+ await expect(gallery.locator('.storyboard-milestone')).toHaveCount(5);
+ const positions=await page.locator('.game-feed > *').evaluateAll(items=>items.map(i=>i.className));
+ expect(positions[0]).toContain('story-primary');
+ const sizes=await gallery.evaluate(el=>({scroll:el.scrollWidth,client:el.clientWidth,
+  direction:getComputedStyle(el).flexDirection,overflow:getComputedStyle(el).overflowX}));
+ expect(sizes.direction).toBe('row');
+ expect(sizes.scroll).toBeGreaterThan(sizes.client);
+ expect(sizes.overflow).toBe('auto');
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
+});
