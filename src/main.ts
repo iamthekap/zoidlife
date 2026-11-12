@@ -477,10 +477,13 @@ function tabs(): string {
 }
 function gameDock():string {
   if(!life)return '';
-  const dockTab=(key:Tab,symbol:string)=>
-    '<button type="button" data-tab="'+key+'" class="dock-tab'+(tab===key?' active':'')+
-    '" aria-label="'+safe(u(key))+'"><span aria-hidden="true" class="dock-icon">'+iconSvg(symbol,29)+
-    '</span><span>'+safe(u(key))+'</span></button>';
+  const dockTab=(key:Tab,symbol:string)=>{
+    const label=key==='career'&&life?.age!==undefined&&life.age<16?
+       (life.age<6?(language==='pt-BR'?'Crescer':'Grow'):(language==='pt-BR'?'Escola':'School')):u(key);
+    return '<button type="button" data-tab="'+key+'" class="dock-tab'+(tab===key?' active':'')+
+    '" aria-label="'+safe(label)+'"><span aria-hidden="true" class="dock-icon">'+iconSvg(symbol,29)+
+    '</span><span>'+safe(label)+'</span></button>';
+  };
   const locked=Boolean(life.pendingEvent||life.simulation.ended);
   const age='<button type="button" data-do="age-up" class="dock-age"'+(locked?' disabled':'')+
    ' aria-label="'+safe(u("ageUp"))+'" title="'+safe(locked?u("advanceBlocked"):u("ageUp"))+'">'+
@@ -657,11 +660,9 @@ function renderStory():string {
     '<div class="age-ready"><span class="ready-spark">✦</span>'+
      '<span>'+safe(language==='pt-BR'?'Um novo ano espera por você. Use + Idade no centro da barra inferior.':
       'A new year is waiting. Press + Age in the center below.')+'</span></div>';
-  return '<section class="story-layout game-feed">'+
-    '<div class="story-intro"><div><strong>'+safe(language==='pt-BR'?'Diário de vida':'Life journal')+'</strong>'+
-    '<span>'+safe(u("year"))+' '+(life.birthYear+life.age)+'</span></div>'+
-    '<button type="button" data-tab="actions" class="subtle-link">'+safe(u("actions"))+'</button></div>'+
-    eventHtml+renderStoryboardTimeline(life.profile,life.age,life.history,language)+timelineEntries()+'</section>';
+  return '<section class="story-layout game-feed" data-story-first="storyboard">'+
+    renderStoryboardTimeline(life.profile,life.age,life.history,language,eventHtml)+
+    timelineEntries()+'</section>';
 }
 
 const actionTypes: Action[]=['study','job','work','train','socialize','care','budget','invest','home','child','retire'];
@@ -755,10 +756,15 @@ function renderActions(): string {
   if(!life)return '';
   const note=life.pendingEvent?u("blockedEvent"):(language==="pt-BR"?"Você pode fazer atividades diferentes no mesmo ano. Cada uma pode ser realizada uma vez por ano.":"Do different activities in the same year. Each activity is available once per year.");
   return '<section class="content-panel"><div class="panel-heading"><h2>'+safe(u("actions"))+'</h2><p>'+safe(note)+'</p></div>'+
-    '<div class="activity-grid">'+(isMysticOrigin(life.profile)?[...actionTypes,'mystic' as Action]:actionTypes).map(actionButton).join('')+'</div>'+
+    '<div class="activity-grid">'+(isMysticOrigin(life.profile)?[...actionTypes,'mystic' as Action]:actionTypes)
+      .filter(a=>life!.age<6?['socialize','care'].includes(a):
+       life!.age<12?['study','socialize','care','train'].includes(a):
+       life!.age<16?['study','socialize','care','train','style','mystic'].includes(a):
+       life!.age<18?!['home','child','invest','retire'].includes(a):true)
+      .map(actionButton).join('')+'</div>'+
     (isMysticOrigin(life.profile)?'<div class="special-origin"><strong>'+safe(mysticNatureLabel(life.profile.nature!,language))+
     '</strong><span>'+safe(language==='pt-BR'?'Domínio místico ':'Mystic mastery ')+(life.simulation.mysticMastery??0)+'/100</span></div>':'')+
-    styleStudio()+justiceActions()+'</section>';
+    styleStudio()+(life.age>=12?justiceActions():'')+'</section>';
 }
 function progress(label: string, amount: number): string {
   return '<div class="relationship-progress"><div><span>'+safe(label)+'</span><b>'+clamp(amount)+'%</b></div>'+
@@ -821,13 +827,42 @@ function chooseStudyTrackFromUI():void {
  saveLife();tab='career';render();
 }
 
+function renderSchool():string{
+ if(!life||life.age>=16)return '';
+ const child=life.age<6;
+ const next=child?Math.max(0,6-life.age):Math.max(0,16-life.age);
+ const heading=child?(language==='pt-BR'?'Primeiros anos':'Early years'):
+  (language==='pt-BR'?'Vida escolar':'School years');
+ const explanation=child?
+  (language==='pt-BR'?'Nesta fase, o mais importante é crescer, brincar e conhecer sua família. A escola começará aos 6 anos.':
+   'For now, growing up, playing and bonding with family matter most. School begins at age six.'):
+  (language==='pt-BR'?'Estude para desenvolver inteligência e conquistar novas oportunidades quando crescer. As profissões aparecerão a partir dos 16 anos.':
+   'Study to develop your mind and open opportunities as you grow. Jobs appear when you reach sixteen.');
+ return '<section class="content-panel school-panel" data-age-mode="'+(child?'early':'school')+'">'+
+  '<div class="panel-heading"><h2>'+safe(heading)+'</h2><p>'+safe(explanation)+'</p></div>'+
+  '<div class="school-lead"><span class="school-icon">'+iconSvg(child?'heart':'book',34)+'</span>'+
+   '<div><strong>'+safe(child?(language==='pt-BR'?'Tempo de descobrir':'Time to discover'):
+    (language==='pt-BR'?'Seu aprendizado':'Your learning'))+'</strong>'+
+   '<span>'+safe(language==='pt-BR'?'Próxima etapa em ':'Next stage in ')+next+' '+
+   safe(language==='pt-BR'?(next===1?'ano':'anos'):(next===1?'year':'years'))+'</span></div></div>'+
+  '<div class="data-list">'+pair(language==='pt-BR'?'Idade':'Age',ageText(life.age))+
+   (child?'':pair(u("degree"),u(life.simulation.education))+pair(u("credits"),String(life.simulation.credits)))+
+   pair(u("smarts"),life.stats.smarts+'%')+'</div>'+
+  (child?'':'<div class="activity-grid">'+actionButton("study")+actionButton("train")+'</div>')+
+  '<p class="school-reminder">'+safe(child?
+   (language==='pt-BR'?'Suas relações e o diário de vida já estão disponíveis.':'Your relationships and life journal are already available.'):
+   (language==='pt-BR'?'As decisões de estudo ficam registradas e afetam as oportunidades futuras.':'School choices are saved and affect future possibilities.'))+'</p></section>';
+}
+
 function renderCareer(): string {
   if(!life)return '';
+  if(life.age<16)return renderSchool();
   const s=life.simulation;
   const role=careerById(s.occupation);
   const jobLabel=role && role.job===s.job ? careerLabel(role,language):u(s.job);
   const allowed=canAction('job');
-  const vacancies=CAREERS.map(c=>{
+  const visibleCareers=life.age<18?CAREERS.filter(c=>c.age<=life!.age):CAREERS;
+  const vacancies=visibleCareers.map(c=>{
     const active=c.id===s.occupation&&c.job===s.job;
     const qualified=careerAvailable(s,life!.age,c,life!.profile);
     const actionable=allowed&&qualified&&!active;
@@ -840,8 +875,11 @@ function renderCareer(): string {
         !qualified?(language==='pt-BR'?'Bloqueada':'Locked'):(language==='pt-BR'?'Candidatar-se':'Apply'))+'</button></article>';
   }).join('');
   return '<section class="content-panel career-page"><div class="panel-heading"><h2>'+safe(u("career"))+'</h2>'+
-   '<p>'+safe(language==='pt-BR'?'Escolha uma profissão. Cada vaga exige requisitos reais e define sua renda.':
-   'Choose a profession. Each vacancy has requirements and a different salary.')+'</p></div>'+
+   '<p>'+safe(life.age<18?
+      (language==='pt-BR'?'Primeiros trabalhos compatíveis com sua idade. Profissões avançadas surgirão depois.':
+       'Early work suited to your age. More career options appear as you get older.'):
+      (language==='pt-BR'?'Escolha uma profissão. Cada vaga exige requisitos reais e define sua renda.':
+       'Choose a profession. Each vacancy has requirements and a different salary.'))+'</p></div>'+
    '<div class="data-list">'+pair(u("degree"),u(s.education))+pair(u("credits"),String(s.credits))+
    pair(u("currentJob"),safe(jobLabel))+pair(u("experience"),String(s.experience))+
    pair(language==='pt-BR'?'Especialização':'Academic track',safe(studyTrackLabel(s.studyTrack??'general')))+

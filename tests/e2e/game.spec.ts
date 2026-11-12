@@ -578,6 +578,11 @@ test('custom-created vampire trains powers while random presets never receive th
 
 test('profession search filters 45 entries and can be reset without changing progress',async({page})=>{
  await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=22;localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
  await page.locator('.game-dock [data-tab="career"]').click();
  await expect(page.locator('.career-vacancy')).toHaveCount(45);
  const filter=page.locator('[data-career-search]');
@@ -747,4 +752,53 @@ test('medical degree requires choosing a college specialization before applying'
  await page.reload();await page.locator('[data-do="continue"]').click();
  await page.locator('.game-dock [data-tab="career"]').click();
  await expect(page.locator('.career-vacancy.current')).toContainText('Médico');
+});
+
+test('at birth, jobs are absent and the game opens with the interactive storyboard',async({page})=>{
+ await chooseBaby(page);
+ await expect(page.locator('.game-dock [data-tab="career"]')).toContainText('Crescer');
+ const layout=await page.locator('.game-feed > *').evaluateAll(nodes=>nodes.map(n=>n.className));
+ expect(layout[0]).toContain('storyboard-timeline');
+ await expect(page.locator('.game-feed > .story-intro')).toHaveCount(0);
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('[data-age-mode="early"]')).toBeVisible();
+ await expect(page.locator('.career-vacancy')).toHaveCount(0);
+ await expect(page.locator('[data-career="doctor"]')).toHaveCount(0);
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await expect(page.locator('[data-action="job"]')).toHaveCount(0);
+ await expect(page.locator('.justice-board')).toHaveCount(0);
+});
+test('age-appropriate school and first jobs grow naturally instead of showing adult careers to children',async({page})=>{
+ await chooseBaby(page);
+ const at=async(age)=>{
+  await page.evaluate(age=>{
+   const save=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+   save.age=age;save.simulation.ended=false;
+   localStorage.setItem('zoid-life-save-v1',JSON.stringify(save));
+  },age);
+  await page.reload();await page.locator('[data-do="continue"]').click();
+  await page.locator('.game-dock [data-tab="career"]').click();
+ };
+ await at(8);
+ await expect(page.locator('.game-dock [data-tab="career"]')).toContainText('Escola');
+ await expect(page.locator('[data-age-mode="school"]')).toBeVisible();
+ await expect(page.locator('[data-action="study"]')).toBeEnabled();
+ await expect(page.locator('.career-vacancy')).toHaveCount(0);
+ await at(15);
+ await expect(page.locator('.career-vacancy')).toHaveCount(0);
+ await at(16);
+ await expect(page.locator('.career-vacancy')).toHaveCount(1);
+ await expect(page.locator('[data-career="barista"]')).toBeVisible();
+ await expect(page.locator('[data-career="surgeon"]')).toHaveCount(0);
+ await at(18);
+ await expect(page.locator('.career-vacancy')).toHaveCount(45);
+});
+test('new events are rendered inside the first timeline section and remain clickable',async({page})=>{
+ await chooseBaby(page);
+ await page.locator('.dock-age').click();
+ await expect(page.locator('.storyboard-timeline [data-storyboard-current] .decision-card')).toBeVisible();
+ await expect(page.locator('.storyboard-timeline [data-choice="0"]')).toBeEnabled();
+ await page.locator('.storyboard-timeline [data-choice="0"]').click();
+ await expect(page.locator('.storyboard-timeline .storyboard-track')).toBeVisible();
+ await expect(page.locator('.life-journal .life-entry').first()).toBeVisible();
 });

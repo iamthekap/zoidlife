@@ -121,7 +121,7 @@ export function storyboardPanel(profile:CharacterProfile,stage:LifeStage,locale:
   '<div class="storyboard-actor">'+portraitLife(profile,age,'story-actor')+'</div>'+
   (art.front?svg(art.front,'storyboard-foreground'):'')+'</div>';
 }
-export function renderStoryboardTimeline(profile:CharacterProfile,age:number,history:readonly string[],locale:Locale):string {
+export function renderStoryboardTimeline(profile:CharacterProfile,age:number,history:readonly string[],locale:Locale,currentHtml=''):string {
  const milestones=milestonesUntil(age,history,locale);
  const title=locale==='en'?'Life chapters':'Capítulos da vida';
  const lead=locale==='en'?'Your story, scene by scene':'Sua história, quadro a quadro';
@@ -138,6 +138,7 @@ export function renderStoryboardTimeline(profile:CharacterProfile,age:number,his
  return '<section class="storyboard-timeline" aria-label="'+esc(title)+'">'+
   '<header class="storyboard-heading"><div><span class="storyboard-eyebrow">ZOID LIFE</span><h2>'+esc(title)+'</h2>'+
    '<p>'+esc(lead)+'</p></div><span class="storyboard-count">'+milestones.length+'/'+stages.length+'</span></header>'+
+  (currentHtml?'<div class="storyboard-current" data-storyboard-current="true">'+currentHtml+'</div>':'')+
   '<ol class="storyboard-track">'+items+'</ol></section>';
 }
 export function currentStoryboardStage(age:number):LifeStage {return lifeStage(age);}
