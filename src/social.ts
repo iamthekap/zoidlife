@@ -107,9 +107,15 @@ export function syncSocial(state:SocialState,player:CharacterProfile,playerAge:n
    next.push(makeChild({schema:1,people:next},player,playerAge,i));
    notes.push('child-added');
  }
- // A schoolmate becomes a genuine persistent NPC at school age, not before birth.
- // The relationship remains in the history across graduation and save reload.
- if(playerAge>=6&&playerAge<18&&!next.some(p=>p.role==='classmate')&&next.length<58){
+ // A schoolmate is introduced at school age. After graduation they retain their
+ // identity and encounter memories as a lifelong friend, not a perpetual pupil.
+ if(playerAge>=18){
+   for(const p of next)if(p.role==='classmate'){
+     p.role='friend';
+     notes.push('classmate-graduated');
+   }
+ }
+ if(playerAge>=6&&playerAge<18&&!next.some(p=>p.id==='classmate-school')&&next.length<58){
    const excluded=new Set(next.map(p=>p.profile.name));
    let sample=sameRegion(randomCharacter(),player);
    for(let attempt=0;attempt<7&&excluded.has(sample.name);attempt++)

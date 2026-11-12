@@ -350,6 +350,7 @@ function cash(amount: number): string {
   return new Intl.NumberFormat(language==="pt-BR"?"pt-BR":"en-US",{style:"currency",currency:code,maximumFractionDigits:0}).format(amount);
 }
 function caption(s: string): string {
+  if(s==='classmate-graduated')return language==='pt-BR'?'A amizade da escola continuou depois da formatura.':'A school friendship continued after graduation.';
   if(s.startsWith("job:"))return u("newJob")+": "+u(s.slice(4));
   if(s.startsWith("occupation:")){const role=careerById(s.slice(11));return role?careerLabel(role,language):u("job");}
   if(s.startsWith('training:'))return (language==='pt-BR'?'Treino esportivo: ':'Sports training: ')+s.slice(9);

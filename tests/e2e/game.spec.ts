@@ -928,3 +928,30 @@ test('adult partner proposal is explicit and never available to children or pare
  expect(saved.simulation.balance).toBe(250);
  await expect(page.locator('[data-kind="propose"]')).toBeDisabled();
 });
+
+test('school friend retains the same identity and encounter memory after turning eighteen',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=14;localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await page.locator('[data-person="classmate-school"][data-kind="compliment"]').click();
+ const before=await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  return s.social.people.find(p=>p.id==='classmate-school');
+ });
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=18;localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ const after=await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  return s.social.people.find(p=>p.id==='classmate-school');
+ });
+ expect(after.role).toBe('friend');
+ expect(after.profile.name).toBe(before.profile.name);
+ expect(after.memories).toEqual(before.memories);
+});

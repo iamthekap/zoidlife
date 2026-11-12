@@ -140,5 +140,23 @@ test('schoolmates enter at six, remain in the school story and cannot duplicate'
  const future=syncSocial(age6.social,player,17,'single',0,0);
  assert.equal(future.social.people.filter(p=>p.role==='classmate').length,1);
  const adult=normalizeSocial(future.social,player,22);
- assert.equal(adult.people.filter(p=>p.role==='classmate').length,1);
+ assert.equal(adult.people.filter(p=>p.role==='classmate').length,0);
+ assert.equal(adult.people.filter(p=>p.id==='classmate-school'&&p.role==='friend').length,1);
+});
+
+test('graduation converts the same schoolmate into a friend, preserving memories and genetic profile',()=>{
+ const stage=syncSocial(initialSocial(player),player,6,'single',0,0,0);
+ const peer=stage.social.people.find(p=>p.id==='classmate-school');
+ peer.memories=[{age:15,kind:'compliment',bondChange:15}];
+ peer.closeness=74;
+ const grad=syncSocial(stage.social,player,18,'single',0,0,0);
+ const adult=grad.social.people.find(p=>p.id==='classmate-school');
+ assert.equal(adult.role,'friend');
+ assert.equal(adult.profile.name,peer.profile.name);
+ assert.equal(adult.closeness,74);
+ assert.deepEqual(adult.memories,[{age:15,kind:'compliment',bondChange:15}]);
+ assert.equal(grad.social.people.filter(p=>p.id==='classmate-school').length,1);
+ const later=syncSocial(grad.social,player,35,'single',0,0,0);
+ assert.equal(later.social.people.filter(p=>p.id==='classmate-school').length,1);
+ assert.equal(later.notes.includes('classmate-graduated'),false);
 });
