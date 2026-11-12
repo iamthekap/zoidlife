@@ -1470,3 +1470,39 @@ test('hobby progress and audio controls are responsive without horizontal overfl
  await expect(page.locator('.game-status .sound-toggle-mini')).toBeVisible();
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
 });
+
+test('earned coding talent unlocks a bilingual product decision with real retained money',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const save=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  save.age=24;save.simulation.balance=1000;save.simulation.debt=0;
+  save.simulation.hobbies.coding={xp:72,awards:2,lastAge:23};
+  save.pendingEvent={id:'hobby-story-coding-2',title:'forged placeholder'};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(save));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Uma ideia vira produto');
+ await expect(page.locator('[data-choice]')).toHaveCount(3);
+ await page.locator('.event-modal-overlay .event-language').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('An idea becomes a product');
+ await page.locator('[data-choice="2"]').click();
+ const save=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(save.simulation.balance).toBe(4200);
+ expect(save.chronicle.at(-1).eventId).toBe('hobby-story-coding-2');
+ expect(save.chronicle.at(-1).result).toContain('purchased your product');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('[data-chronicle-event="hobby-story-coding-2"]')).toBeVisible();
+});
+test('an imported locked talent scenario cannot be played without earned experience',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=25;saved.pendingEvent={id:'hobby-story-coding-2'};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Um ano de pequenas escolhas');
+ await page.locator('[data-choice="0"]').click();
+ const save=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(save.chronicle.at(-1).eventId).toBe('quiet-year');
+});
