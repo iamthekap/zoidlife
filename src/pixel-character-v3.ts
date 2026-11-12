@@ -5,6 +5,7 @@
  */
 import type {CharacterProfile} from './characters.ts';
 export type MatureStage='child'|'teen'|'adult'|'senior';
+export type FaceMood='cheerful'|'curious'|'determined'|'thoughtful';
 type Pal={light:string;mid:string;dark:string};
 const SKIN:Record<CharacterProfile['skin'],Pal>={
  light:{light:'#f6d3b4',mid:'#e9af91',dark:'#ac735f'},
@@ -224,7 +225,7 @@ function scalpBehind(d:Canvas,stage:MatureStage,p:CharacterProfile,h:Pal):void{
   });
  }
 }
-function face(d:Canvas,stage:MatureStage,p:CharacterProfile,skin:Pal,hair:Pal,seed:number):void{
+function face(d:Canvas,stage:MatureStage,p:CharacterProfile,skin:Pal,hair:Pal,seed:number,mood?:FaceMood):void{
  const {x,y,w,h}=RIG[stage],cx=Math.round(x+w/2);
  const eyeY=y+(stage==='child'?13:stage==='teen'?9:stage==='adult'?7:9),size=stage==='child'?5:4;
  const left=x+6,right=x+w-6-size;
@@ -250,20 +251,21 @@ function face(d:Canvas,stage:MatureStage,p:CharacterProfile,skin:Pal,hair:Pal,se
   d.r(x+4,eyeY+8,4,2,'#eb8e93',' opacity=".51"');
   d.r(x+w-8,eyeY+8,4,2,'#eb8e93',' opacity=".51"');
   d.r(cx,eyeY+7,1,2,skin.mid);
-  const mood=seed%4,expression=['cheerful','curious','determined','thoughtful'][mood];
+  const expression=mood??(['cheerful','curious','determined','thoughtful'][seed%4] as FaceMood);
+  const expressionIndex=['cheerful','curious','determined','thoughtful'].indexOf(expression);
   d.g('age-expression-'+expression,()=>{
    const mouthY=Math.min(y+h-5,eyeY+(stage==='child'?11:10));
-   if(mood===0){
+   if(expressionIndex===0){
      d.r(cx-4,mouthY,2,1,'#a45e67');
      d.r(cx+3,mouthY,2,1,'#a45e67');
      d.r(cx-3,mouthY+1,7,1,'#9b5060');
      d.r(cx-1,mouthY+2,3,1,'#f5dfd9');
-   }else if(mood===1){
+   }else if(expressionIndex===1){
      d.r(cx-3,mouthY,6,2,'#a95862');
      d.r(cx-2,mouthY+2,4,1,'#e88f9d');
      d.r(left-1,eyeY-5,size+2,1,hair.mid);
      d.r(right-1,eyeY-5,size+2,1,hair.mid);
-   }else if(mood===2){
+   }else if(expressionIndex===2){
      d.r(cx-3,mouthY,7,1,'#79475a');
      d.r(cx-3,eyeY-4,5,1,hair.dark);
      d.r(right,eyeY-4,5,1,hair.dark);
@@ -340,14 +342,14 @@ function hairstyle(d:Canvas,stage:MatureStage,p:CharacterProfile,h:Pal,seed:numb
   }
  });
 }
-export function renderMatureCharacter(p:CharacterProfile,stage:MatureStage,size='card',seed?:number):string{
+export function renderMatureCharacter(p:CharacterProfile,stage:MatureStage,size='card',seed?:number,mood?:FaceMood):string{
  const key=seed??hash([p.name,p.gender,p.country,p.skin,p.hair,p.hairColor,p.eyes].join('|'));
  const d=new Canvas(),skin=SKIN[p.skin],hair=HAIR[p.hairColor];
  const cloth=CLOTH[p.outfit??'']??CLOTH.blue;
  if(size!=='story-actor')backdrop(d,key);
  scalpBehind(d,stage,p,hair);
  outfit(d,stage,cloth,skin,key);
- face(d,stage,p,skin,hair,key);
+ face(d,stage,p,skin,hair,key,mood);
  hairstyle(d,stage,p,hair,key);
  return '<svg class="portrait portrait-'+size+' stage-'+stage+' mature-v3" viewBox="0 0 96 118" '+
   'xmlns="http://www.w3.org/2000/svg" role="img" '+

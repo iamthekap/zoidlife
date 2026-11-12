@@ -7,7 +7,7 @@ import {careerEvents} from "./career-events";
 import {isMysticOrigin,practiceMystic,mysticEvents,mysticNatureLabel} from "./mystic";
 import { selectEvent, recordEvent, migrateLedger, type EventLedger } from "./event-engine";
 import { eventScene, iconSvg } from "./event-scenes";
-import { portraitLife, lifeStage } from "./life-art";
+import { portraitLife, lifeStage,moodFromStats } from "./life-art";
 import { renderStoryboardTimeline } from "./storyboard";
 import {normalizeChronicle,livedHistory,type ChronicleEvent} from "./chronicle";
 import {normalizeStoryArc,startStoryArc,storyArcEvent,afterStoryArcChoice,storyArcAllowed,type StoryArc} from "./story-arcs";
@@ -587,7 +587,7 @@ function renderPlay(): string {
   return '<main class="game-layout" data-screen="playing">'+
     '<header class="game-status">'+
      '<button type="button" class="game-identity" data-tab="story" aria-label="'+safe(u("story"))+'">'+
-     '<span class="identity-portrait">'+portraitLife(p,life.age,"tiny")+'</span>'+
+     '<span class="identity-portrait">'+portraitLife(p,life.age,"tiny",moodFromStats(life.stats))+'</span>'+
      '<span class="identity-copy"><strong>'+safe(life.name)+'</strong>'+
      '<span>'+safe(p.city)+', '+safe(countryName(p.country))+' · '+safe(ageText(life.age))+'</span></span></button>'+
      '<div class="game-status-money"><small>'+safe(u("balance"))+'</small><strong>'+safe(cash(s.balance))+'</strong></div>'+ 
@@ -605,7 +605,7 @@ function renderPlay(): string {
         tab==='people'?renderPeople():tab==='career'?renderCareer():renderFinances())+
       '<div class="mobile-vitals">'+renderVitals()+'</div></section>'+
       '<aside class="game-side">'+renderVitals()+
-        '<div class="inspector-card side-profile">'+portraitLife(p,life.age,"medium")+
+        '<div class="inspector-card side-profile">'+portraitLife(p,life.age,"medium",moodFromStats(life.stats))+
         '<strong>'+safe(life.name)+'</strong><span>'+safe(ageText(life.age))+'</span></div></aside>'+
     '</div>'+gameDock()+(menuOpen?renderGameMenu():'')+'</main>';
 }
@@ -758,7 +758,7 @@ function renderStory():string {
   const event=life.pendingEvent;
   const eventHtml=event?'<div class="event-modal-overlay" data-event-modal="true">'+
    '<section class="story-event decision-card" role="dialog" aria-modal="true" aria-labelledby="current-event-title">'+
-      eventScene(event.id,life.profile,language,life.age,event.category)+
+      eventScene(event.id,life.profile,language,life.age,event.category,moodFromStats(life.stats))+
       '<div class="decision-body"><div class="decision-tools"><span class="story-label">'+safe(u("event"))+' · '+safe(ageText(life.age))+'</span>'+
       '<button type="button" data-do="language" class="event-language" aria-label="'+safe(u("languages"))+'">'+
       (language==='pt-BR'?'EN':'PT')+'</button></div>'+
