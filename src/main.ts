@@ -740,7 +740,7 @@ function renderStory():string {
       '<div class="decision-body"><div class="decision-tools"><span class="story-label">'+safe(u("event"))+' · '+safe(ageText(life.age))+'</span>'+
       '<button type="button" data-do="language" class="event-language" aria-label="'+safe(u("languages"))+'">'+
       (language==='pt-BR'?'EN':'PT')+'</button></div>'+
-      ''<h2 id="current-event-title">'+safe(event.title)+'</h2>'+
+      '<h2 id="current-event-title">'+safe(event.title)+'</h2>'+
       (event.id.startsWith('arc-')?'<div class="story-arc-badge" data-story-arc="'+safe(event.id)+'">'+
       safe(language==='pt-BR'?'CONTINUAÇÃO DA SUA HISTÓRIA':'YOUR STORY CONTINUES')+'</div>':'')+
       '<p>'+safe(event.description)+'</p>'+
