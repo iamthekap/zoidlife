@@ -1,7 +1,7 @@
 /** Original bilingual multi-year decision chains; only actual player choices schedule continuations. */
 import type {Stats,WorldImpact,Simulation} from './simulation.ts';
 export type StoryArcId='school-team'|'coding-club'|'old-friend'|'family-plan'|'career-lead'|'health-routine';
-export type StoryArc={id:StoryArcId;phase:1|2;originAge:number;dueAge:number};
+export type StoryArc={id:StoryArcId;phase:1|2;originAge:number;dueAge:number;branch?:0|1};
 type Text=[string,string];
 type Option={words:Text;result:Text;effects:Partial<Stats>;world:WorldImpact};
 type Episode={title:Text;description:Text;category:string;options:[Option,Option,Option]};
@@ -70,6 +70,33 @@ const story:Record<StoryArcId,ArcInfo>={
    c('Desistir dos cuidados','Give up the routine','O autocuidado deixou de ser prioridade.','Self-care slipped down your priorities.',{health:-9,happiness:-2}))
  ]}
 };
+/** The next chapter remembers HOW the player handled the preceding event. */
+const branchContext:Record<StoryArcId,[Text,Text]>={
+ 'school-team':[
+  ['Depois de estudarem juntos, seu colega quer manter a parceria.','After studying together, your classmate wants to keep the partnership going.'],
+  ['Depois de dividirem as tarefas, seu colega pede para conversarem sobre o futuro da amizade.','After splitting the work, your classmate asks to talk about your friendship.']
+ ],
+ 'coding-club':[
+  ['Alguém que viu seu protótipo na mostra oferece ajuda no próximo projeto.','Someone who saw your prototype at the showcase offers to help with your next project.'],
+  ['Depois de saber como você aperfeiçoou o projeto, uma pessoa do clube oferece orientação técnica.','After hearing about your improved project, someone from the club offers technical guidance.']
+ ],
+ 'old-friend':[
+  ['Depois do encontro, seu amigo confia em você durante um período difícil.','After you met in person, your friend trusts you through a difficult time.'],
+  ['Depois da longa chamada, seu amigo procura novamente seu apoio à distância.','After your long call, your friend reaches out again for support from afar.']
+ ],
+ 'family-plan':[
+  ['A divisão de responsabilidades funcionou; agora a família quer manter o acordo.','Sharing responsibilities worked; now the family wants to maintain the agreement.'],
+  ['Depois da sua ajuda financeira, a família quer discutir um plano mais sustentável.','After your financial help, your family wants to discuss a more sustainable plan.']
+ ],
+ 'career-lead':[
+  ['Seu planejamento manteve o projeto no caminho certo; chegou a avaliação dos resultados.','Your replanning kept the project on track; it is time to review the results.'],
+  ['O apoio extra ajudou o projeto; agora a liderança quer analisar os custos e as entregas.','Extra support helped the project; leadership now wants to review costs and outcomes.']
+ ],
+ 'health-routine':[
+  ['Depois de estabelecer hábitos saudáveis, você decide avaliar seu progresso.','After establishing healthier habits, you decide to review your progress.'],
+  ['Depois de buscar orientação, você retorna para avaliar se as recomendações ajudaram.','After seeking guidance, you return to check whether the advice helped.']
+ ]
+};
 export const STORY_ARC_IDS=Object.keys(story) as StoryArcId[];
 /** Story resolutions cannot refer to a school or job that no longer exists. */
 const latestOrigin:Record<StoryArcId,number>={
@@ -90,8 +117,10 @@ export function normalizeStoryArc(raw:unknown,age:number):StoryArc|null {
  if(!STORY_ARC_IDS.includes(r.id as StoryArcId)||(r.phase!==1&&r.phase!==2)||
   !Number.isInteger(r.originAge)||!Number.isInteger(r.dueAge)||!Number.isInteger(age)||
   age<0||age>110||!(r.originAge!>=0&&r.originAge!<=age)||
-  !(r.dueAge===r.originAge!+r.phase!&&r.dueAge<=110)||(age!==r.dueAge&&age!==r.dueAge!-1))return null;
- return {id:r.id!,phase:r.phase!,originAge:r.originAge!,dueAge:r.dueAge!};
+  !(r.dueAge===r.originAge!+r.phase!&&r.dueAge<=110)||(age!==r.dueAge&&age!==r.dueAge!-1)||
+  (r.branch!==undefined&&(r.phase!==2||(r.branch!==0&&r.branch!==1))))return null;
+ return {id:r.id!,phase:r.phase!,originAge:r.originAge!,dueAge:r.dueAge!,
+   ...(r.phase===2&&(r.branch===0||r.branch===1)?{branch:r.branch}:{})};
 }
 export function startStoryArc(id:string,index:number,age:number,current:StoryArc|null):StoryArc|null {
  if(current||!Number.isInteger(age)||age<0||age>=108)return current;
@@ -105,7 +134,9 @@ export function storyArcEvent(state:StoryArc|null,language:'pt-BR'|'en'):{
  if(!state||!STORY_ARC_IDS.includes(state.id)||(state.phase!==1&&state.phase!==2))return null;
  const episode=story[state.id].episodes[state.phase-1];
  return {id:'arc-'+state.id+'-'+state.phase,minAge:state.dueAge,maxAge:110,
-  title:local(episode.title,language),description:local(episode.description,language),
+  title:local(episode.title,language),
+  description:state.phase===2&&state.branch!==undefined?
+    local(branchContext[state.id][state.branch],language):local(episode.description,language),
   category:episode.category,choices:episode.options.map(o=>({
    label:local(o.words,language),result:local(o.result,language),effects:o.effects,world:o.world
   }))};
@@ -113,5 +144,5 @@ export function storyArcEvent(state:StoryArc|null,language:'pt-BR'|'en'):{
 export function afterStoryArcChoice(current:StoryArc|null,id:string,index:number,age:number):StoryArc|null {
  if(!current||id!=='arc-'+current.id+'-'+current.phase)return current;
  if(current.phase===2||index===2||age>=110)return null;
- return {...current,phase:2,dueAge:age+1};
+ return {...current,phase:2,dueAge:age+1,branch:index as 0|1};
 }
