@@ -11,7 +11,9 @@ test('all five silhouettes are original and anatomically different',()=>{
   const svg=portraitLife(p,age,'card');
   assert.ok(svg.includes('stage-'+stage));
   assert.ok(svg.includes('data-style="clean-pixel-simulation-v2"'));
-  assert.ok(svg.includes('<g transform="scale(2)">'));
+  // Newborn is 72x88 at 2x, while other ages render independently on a finer 96x118 grid.
+  if(stage==='baby')assert.ok(svg.includes('<g transform="scale(2)">'));
+  else assert.ok(svg.includes('data-renderer="mature-v3"'));
   assert.ok(svg.includes('shape-rendering="crispEdges"'));
   assert.ok((svg.match(/<rect /g)||[]).length>=45);
   assert.ok(!svg.includes('href=')&&!svg.includes('<script'));
@@ -76,7 +78,7 @@ test('outfit choice changes actual sprite clothing across growth but preserves g
  assert.ok(blue.includes('#3976c9'));
  for(const age of [0,3,12,18,65]){
   const svg=portraitLife({...p,outfit:'red'},age);
-  assert.ok(svg.includes('#dc536d'));
+  assert.ok(svg.includes(age===0?'#dc536d':'#dc6471')); // real outfit pigment for each age rig
   assert.ok(svg.includes('#38836b'));
  }
 });
