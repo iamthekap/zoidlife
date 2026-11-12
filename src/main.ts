@@ -299,6 +299,21 @@ function safe(value: string): string {
   return String(value).replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char] || char));
 }
 function clamp(n: number): number { return Math.max(0,Math.min(100,Math.round(n))); }
+/** Persist only the chosen event identifier; rebuild choices from trusted game data.
+ * An unavailable legacy event becomes a quiet year instead of an untrusted payload.
+ */
+function restorePendingEvent(raw:unknown,profile:CharacterProfile,simulation:Simulation,age:number):LifeEvent|null{
+ if(!raw||typeof raw!=='object')return null;
+ const id=(raw as Partial<LifeEvent>).id;
+ if(typeof id!=='string')return quietEvent();
+ if(id==='quiet-year')return quietEvent();
+ const pool:LifeEvent[]=[...(copy[language].events as LifeEvent[]),...extraEvents(language),
+  ...extendedEvents(language),...advancedEvents(language),...mysticEvents(language,profile),
+  ...careerEvents(language,simulation)];
+ const match=pool.find(x=>x.id===id);
+ if(!match||age<match.minAge||age>match.maxAge)return quietEvent();
+ return match;
+}
 function loadLife(): Life|null {
   try {
     const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return null;
@@ -312,7 +327,7 @@ function loadLife(): Life|null {
     const history=Array.isArray(r.history)?r.history.filter((x):x is string=>typeof x==='string').slice(-6000):[];
     const restored:Life={ name,birthYear:Number.isInteger(r.birthYear)?Number(r.birthYear):new Date().getFullYear(),
       age:Math.min(110,Math.max(0,r.age)),stats,
-      pendingEvent:r.pendingEvent && typeof r.pendingEvent==='object' ? r.pendingEvent:null,
+      pendingEvent:restorePendingEvent(r.pendingEvent,profile,simulation,r.age),
       history,chronicle:normalizeChronicle(r.chronicle,history,Math.max(0,Math.min(110,r.age))),
       seenEventIds:Array.isArray(r.seenEventIds)?r.seenEventIds.filter((x):x is string=>typeof x==='string'):[],
       eventLedger:migrateLedger(r.eventLedger,r.seenEventIds),
