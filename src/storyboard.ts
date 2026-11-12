@@ -136,7 +136,7 @@ export function renderStoryboardTimeline(profile:CharacterProfile,age:number,his
      storyboardPanel(profile,m.stage,locale)+'</li>';
  }).join('');
  return '<section class="storyboard-timeline" aria-label="'+esc(title)+'">'+
-  '<header class="storyboard-heading"><div><span class="storyboard-eyebrow">ZOID LIFE</span><h2>'+esc(title)+'</h2>'+
+  '<header class="storyboard-heading"><div><span class="storyboard-eyebrow"><b class="brand-zoid">Zoid</b><b class="brand-life">Life</b></span><h2>'+esc(title)+'</h2>'+
    '<p>'+esc(lead)+'</p></div><span class="storyboard-count">'+milestones.length+'/'+stages.length+'</span></header>'+
   (currentHtml?'<div class="storyboard-current" data-storyboard-current="true">'+currentHtml+'</div>':'')+
   '<ol class="storyboard-track">'+items+'</ol></section>';

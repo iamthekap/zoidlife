@@ -758,3 +758,9 @@ body{background:var(--bg);color:var(--ink);}
  .game-main{padding-left:clamp(9px,2.8vw,16px);padding-right:clamp(9px,2.8vw,16px);}
  .game-feed .storyboard-timeline{width:100%;}
 }
+
+/* Enforce the approved two-tone logotype wherever the title appears. */
+.storyboard-eyebrow{display:inline-flex;gap:4px;align-items:baseline;letter-spacing:0;text-transform:none;}
+.storyboard-eyebrow .brand-zoid,.boot-wordmark span:first-child{color:#3A86FF;}
+.storyboard-eyebrow .brand-life,.boot-wordmark span:last-child{color:#FF0044;}
+.boot-wordmark{display:flex;gap:6px;align-items:baseline;font-weight:950;}

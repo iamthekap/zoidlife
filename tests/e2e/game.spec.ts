@@ -862,3 +862,13 @@ test('children see their money but not adult finance operations or mortgage butt
  await page.locator('.game-dock [data-tab="finances"]').click();
  await expect(page.locator('[data-action="home"]')).toHaveCount(1);
 });
+
+test('timeline branding and loading wordmark never paint both brand words the same color',async({page})=>{
+ await chooseBaby(page);
+ const colors=await page.locator('.storyboard-eyebrow').evaluate(el=>({
+  blue:getComputedStyle(el.querySelector('.brand-zoid')).color,
+  red:getComputedStyle(el.querySelector('.brand-life')).color
+ }));
+ expect(colors.blue).toBe('rgb(58, 134, 255)');
+ expect(colors.red).toBe('rgb(255, 0, 68)');
+});

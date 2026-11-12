@@ -1190,5 +1190,5 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape"&&menuOpen){menuOpen=false;menuError="";render();}
 });
 /** Visible app boot state, removed once the game model is ready. */
-appEl!.innerHTML='<div class="boot-screen"><span class="boot-mark">Z</span><strong>ZOID LIFE</strong><div class="boot-progress"></div></div>';
+appEl!.innerHTML='<div class="boot-screen"><span class="boot-mark">Z</span><strong class="boot-wordmark"><span>Zoid</span><span>Life</span></strong><div class="boot-progress"></div></div>';
 window.setTimeout(render,380);
