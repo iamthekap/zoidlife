@@ -73,7 +73,7 @@ const copy = {
         { label: "Praticar por conta própria", result: "Você aprendeu no seu ritmo e desenvolveu disciplina.", effects: { smarts: 5, happiness: 3 } },
         { label: "Deixar para outra hora", result: "Você preferiu manter sua rotina como estava.", effects: { happiness: 1 } }
       ]},
-      { id: "first-job", minAge: 15, maxAge: 19, title: "Seu primeiro dinheiro", description: "Surge a oportunidade de fazer um trabalho temporário e ganhar seu próprio dinheiro. Isso pode exigir abrir mão de parte do seu tempo livre.", choices: [
+      { id: "first-job", minAge: 16, maxAge: 19, title: "Seu primeiro dinheiro", description: "Surge a oportunidade de fazer um trabalho temporário e ganhar seu próprio dinheiro. Isso pode exigir abrir mão de parte do seu tempo livre.", choices: [
         { label: "Aceitar o trabalho", result: "Você ganhou experiência e sentiu orgulho de conquistar seu próprio dinheiro.", effects: { happiness: 5, smarts: 4, health: -2 } },
         { label: "Continuar focando nos estudos", result: "Você decidiu priorizar sua formação neste momento.", effects: { smarts: 6 } },
         { label: "Aproveitar o tempo livre", result: "Você escolheu descansar e passar mais tempo com amigos.", effects: { happiness: 6, health: 2 } }
@@ -125,7 +125,7 @@ const copy = {
         { label: "Practice on your own", result: "You learned at your own pace and developed discipline.", effects: { smarts: 5, happiness: 3 } },
         { label: "Leave it for another time", result: "You decided to keep your routine as it was.", effects: { happiness: 1 } }
       ]},
-      { id: "first-job", minAge: 15, maxAge: 19, title: "Your first earnings", description: "A temporary job opportunity comes up. It could mean earning your own money, but giving up some free time.", choices: [
+      { id: "first-job", minAge: 16, maxAge: 19, title: "Your first earnings", description: "A temporary job opportunity comes up. It could mean earning your own money, but giving up some free time.", choices: [
         { label: "Take the job", result: "You gained experience and felt proud to earn your own money.", effects: { happiness: 5, smarts: 4, health: -2 } },
         { label: "Focus on your studies", result: "You decided to prioritize your education for now.", effects: { smarts: 6 } },
         { label: "Enjoy your free time", result: "You chose to rest and spend more time with friends.", effects: { happiness: 6, health: 2 } }
@@ -304,7 +304,7 @@ function loadLife(): Life|null {
     const fallbackFamily=makeFamily(name);
     const profile=normalizeProfile(r.profile,name);
     const simulation=loadSimulation(r.simulation);
-    return { name,birthYear:Number.isInteger(r.birthYear)?Number(r.birthYear):new Date().getFullYear(),
+    const restored:Life={ name,birthYear:Number.isInteger(r.birthYear)?Number(r.birthYear):new Date().getFullYear(),
       age:Math.min(110,Math.max(0,r.age)),stats,
       pendingEvent:r.pendingEvent && typeof r.pendingEvent==='object' ? r.pendingEvent:null,
       history:Array.isArray(r.history)?r.history.filter((x):x is string=>typeof x==='string').slice(-300):[],
@@ -319,6 +319,15 @@ function loadLife(): Life|null {
       social:normalizeSocial(r.social,profile,r.age,simulation.children,Array.isArray(r.familyMembers)?r.familyMembers:fallbackFamily),
       familyMembers:Array.isArray(r.familyMembers) && r.familyMembers.length>0 ? r.familyMembers : fallbackFamily
     };
+    // One-time migration: older saves could keep a schoolmate label after 18
+    // even when the live UI normalized it to an adult friend. Persist the
+    // normalized identity/memories so reloading doesn't revert saved state.
+    if(restored.age>=18&&Array.isArray(r.social?.people)&&
+      r.social.people.some(p=>p?.role==='classmate')){
+      try { localStorage.setItem(STORAGE_KEY,JSON.stringify(restored)); }
+      catch { /* Private browsing may disallow writes; current state still works. */ }
+    }
+    return restored;
   } catch { return null; }
 }
 function saveLife(): void { try { if(life) localStorage.setItem(STORAGE_KEY,JSON.stringify(life)); } catch { /* Browser may restrict local saves */ } }
@@ -957,6 +966,8 @@ function syncLifePeople():void {
  for(const note of result.notes){
    const words=note==='classmate-introduced'?
      (language==='pt-BR'?'Você conheceu um colega da escola.':'You met a schoolmate.'):
+     note==='classmate-graduated'?
+     (language==='pt-BR'?'Uma amizade da escola continuou na vida adulta.':'A school friendship continued into adulthood.'):
      note==='friend-introduced'?
      (language==='pt-BR'?'Você fez uma nova amizade.':'You made a new friend.'):
      note==='partner-introduced'?

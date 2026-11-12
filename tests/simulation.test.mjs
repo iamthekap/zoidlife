@@ -81,3 +81,16 @@ test('style changes are age-gated and limited to one action per year',()=>{
  assert.equal(takeAction(result.state,result.stats,18,'style').ok,false);
  assert.equal(takeAction(result.state,result.stats,19,'style').ok,true);
 });
+
+test('first paycheck respects teen work-age limit and never overwrites an existing career',()=>{
+ const child=applyNarrativeChoice(createSimulation(),base,15,'first-job',0,{});
+ assert.equal(child.state.job,'none');
+ assert.equal(child.state.balance,0);
+ const teen=applyNarrativeChoice(createSimulation(),base,16,'first-job',0,{});
+ assert.equal(teen.state.job,'parttime');
+ assert.equal(teen.state.balance,600);
+ const working=applyNarrativeChoice({...createSimulation(),job:'service',occupation:'chef'},base,18,'first-job',0,{});
+ assert.equal(working.state.job,'service');
+ assert.equal(working.state.occupation,'chef');
+ assert.equal(working.state.balance,600);
+});

@@ -322,8 +322,16 @@ export function applyNarrativeChoice(raw: Simulation, rawStats: Stats, age: numb
       if (index === 0) s.friends = bound(s.friends + 8);
       break;
     case 'first-job':
-      if (index === 0 && age >= 15) { s.job = 'parttime'; receive(s, 600); notes.push('first-paycheck'); }
-      if (index === 1) s.credits += 2;
+      if(index===0 && age>=16 && age<=19){
+        if(s.job==='none'){
+          s.job='parttime';
+          notes.push('job:parttime');
+        }
+        // A teen with an existing job earns extra pay without losing that job.
+        receive(s,600);
+        notes.push('first-paycheck');
+      }
+      if(index===1)s.credits+=2;
       break;
     case 'work':
       if (index === 0 && age >= 18 && age < 65) { s.job = eligibility(age, s.education); s.experience += 1; notes.push('job:' + s.job); }
