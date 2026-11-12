@@ -1232,6 +1232,7 @@ test('real decisions produce two mandatory yearly follow-ups with persistent bra
  await advance(page,10);
  await page.evaluate(()=>{
    const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+   saved.storyArc=null;
    saved.pendingEvent={id:'computer-club'}; // Restore from the actual trusted scenario catalog.
    localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
  });
