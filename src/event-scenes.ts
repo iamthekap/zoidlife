@@ -2,6 +2,7 @@
 import type {CharacterProfile} from './characters';
 import {portraitLife} from './life-art.ts';
 import type {FaceMood} from './pixel-character-v3.ts';
+import {petPortrait,type Companion} from './pets.ts';
 type SceneKind = 'family'|'school'|'work'|'money'|'health'|'city'|'friend'|'leisure'|'retirement';
 type Scene = {kind:SceneKind; props:[string,string]; labelPt:string;labelEn:string};
 const SCENES:Record<SceneKind,Scene>={
@@ -113,12 +114,15 @@ export function sceneBackdrop(kind:SceneKind):string {
    layers.join('')+'</svg>';
 }
 
-export function eventScene(eventId:string,character:CharacterProfile,language:'pt-BR'|'en',age=20,category?:string,mood?:FaceMood):string {
+export function eventScene(eventId:string,character:CharacterProfile,language:'pt-BR'|'en',age=20,category?:string,mood?:FaceMood,pet?:Pick<Companion,'species'|'name'>|null):string {
   const scene=category && Object.prototype.hasOwnProperty.call(SCENES,category)?SCENES[category as SceneKind]:SCENES[sceneType(eventId)];
   const label=language==='en'?scene.labelEn:scene.labelPt;
   return '<div class="scene-visual scene-'+scene.kind+'" aria-label="'+label+'">'+
     sceneBackdrop(scene.kind)+
     '<div class="scene-avatar">'+portraitLife(character,age,'scene',mood)+'</div>'+
+    (pet&&eventId.startsWith('pet-story-')?
+      '<div class="scene-pet-actor" data-pet-species="'+pet.species+'">'+
+        petPortrait(pet.species)+'</div>':'')+
     '<div class="scene-props"><div>'+iconSvg(scene.props[0],46)+'</div><div>'+iconSvg(scene.props[1],46)+'</div></div>'+
     '<span class="scene-label">'+label+'</span></div>';
 }

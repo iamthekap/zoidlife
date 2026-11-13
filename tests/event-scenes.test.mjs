@@ -22,3 +22,18 @@ test('scenarios keep the actual avatar and environment of the chosen category',(
  assert.ok(result.includes('CARREIRA'));
  assert.equal(sceneType('quiet-year'),'city');
 });
+
+test('companion scenes show actual species without interpolating potentially unsafe pet names',()=>{
+ const p=randomCharacter();
+ const scene=eventScene('pet-story-pet-1-bond',p,'pt-BR',24,'family',undefined,
+  {species:'dog',name:'<img src=x onerror=alert(1)>'});
+ assert.ok(scene.includes('data-pet-species="dog"'));
+ assert.ok(scene.includes('scene-pet-actor'));
+ assert.ok(scene.includes('pet-dog'));
+ assert.ok(!scene.includes('onerror')&&!scene.includes('<img'));
+ const other=eventScene('pet-story-pet-2-milestone',p,'en',36,'family',undefined,
+  {species:'cat',name:'Luna'});
+ assert.ok(other.includes('pet-cat'));assert.notEqual(other,scene);
+ const unrelated=eventScene('school',p,'pt-BR',12,'school',undefined,{species:'bird',name:'Tico'});
+ assert.ok(!unrelated.includes('scene-pet-actor'));
+});

@@ -1768,3 +1768,23 @@ test('wardrobe cuts preview instantly and only persist when player confirms real
  await expect(page.locator('[data-style-preview] svg')).toHaveAttribute('data-outfit-cut','sporty');
  await expect(page.locator('[data-do="style-apply"]')).toBeDisabled();
 });
+
+test('the adopted animal appears inside its story comic and remains in the chronological illustration',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=26;
+  s.simulation.pets={schema:1,nextId:2,lastAdoptionAge:22,pets:[
+   {id:'pet-1',species:'rabbit',name:'Nuvem',adoptedAt:22,ageYears:4,
+    affection:79,energy:85,alive:true,lastCareAge:25,lastUpdatedAge:26}
+  ]};
+  s.pendingEvent={id:'pet-story-pet-1-bond'};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay .scene-pet-actor')).toHaveAttribute('data-pet-species','rabbit');
+ await page.locator('[data-choice="1"]').click();
+ await expect(page.locator('[data-chronicle-event="pet-story-pet-1-bond"] .scene-pet-actor')).toHaveAttribute('data-pet-species','rabbit');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('[data-chronicle-event="pet-story-pet-1-bond"] .scene-pet-actor')).toBeVisible();
+});

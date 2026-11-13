@@ -669,7 +669,7 @@ function timelineEntries():string {
       /amig|famíl|relacion|casou|namor|child|partner|friend/i.test(text)?'heart':'star';
    const chapter=detail?
      '<div class="chronicle-panel" data-chronicle-event="'+safe(detail.eventId)+'">'+
-     '<div class="chronicle-illustration">'+eventScene(detail.eventId,life!.profile,language,age,detail.category)+'</div>'+
+     '<div class="chronicle-illustration">'+eventScene(detail.eventId,life!.profile,language,age,detail.category,undefined,petForEvent(detail.eventId))+'</div>'+
      '<div class="chronicle-story">'+(detail.eventId.startsWith('arc-')?
      '<span class="chronicle-linked">'+safe(language==='pt-BR'?'Capítulo de uma decisão anterior':'A previous choice returns')+'</span>':'')+
      '<h3>'+safe(detail.title)+'</h3>'+
@@ -778,12 +778,16 @@ function downloadLifeRecap():void{
  window.setTimeout(()=>URL.revokeObjectURL(url),1200);
 }
 
+function petForEvent(eventId:string){
+ if(!life||!eventId.startsWith('pet-story-'))return null;
+ return life.simulation.pets.pets.find(p=>eventId.startsWith('pet-story-'+p.id+'-'))??null;
+}
 function renderStory():string {
   if(!life)return '';
   const event=life.pendingEvent;
   const eventHtml=event?'<div class="event-modal-overlay" data-event-modal="true">'+
    '<section class="story-event decision-card" role="dialog" aria-modal="true" aria-labelledby="current-event-title">'+
-      eventScene(event.id,life.profile,language,life.age,event.category,moodFromStats(life.stats))+
+      eventScene(event.id,life.profile,language,life.age,event.category,moodFromStats(life.stats),petForEvent(event.id))+
       '<div class="decision-body"><div class="decision-tools"><span class="story-label">'+safe(u("event"))+' · '+safe(ageText(life.age))+'</span>'+
       '<button type="button" data-do="language" class="event-language" aria-label="'+safe(u("languages"))+'">'+
       (language==='pt-BR'?'EN':'PT')+'</button></div>'+
