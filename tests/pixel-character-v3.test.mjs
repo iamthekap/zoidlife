@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {renderMatureCharacter} from '../src/pixel-character-v3.ts';
+import {renderMatureCharacter,characterStageProportions} from '../src/pixel-character-v3.ts';
 import {randomCharacter,normalizeProfile} from '../src/characters.ts';
 const profile=normalizeProfile({...randomCharacter(),name:'Cecilia Ribeiro',skin:'brown',
  hair:'curls',hairColor:'black',eyes:'green',outfit:'blue'});
@@ -134,4 +134,18 @@ test('each saved garment cut changes geometry, not only its palette, in all ages
  assert.ok(classic.includes('data-part="adult-blazer"'));
  const legacy=renderMatureCharacter({...profile,outfitStyle:undefined},'adult','card',1);
  assert.ok(legacy.includes('data-outfit-cut="legacy"'));
+});
+
+test('child silhouette is approximately 2.5 heads high, not a miniaturized adult',()=>{
+ const child=characterStageProportions('child');
+ const teen=characterStageProportions('teen');
+ const adult=characterStageProportions('adult');
+ assert.ok(child.headsTall>=2.4&&child.headsTall<=2.7,JSON.stringify(child));
+ assert.ok(teen.headsTall>child.headsTall);
+ assert.ok(adult.headsTall>child.headsTall);
+ const xml=renderMatureCharacter(profile,'child','card',0);
+ assert.ok(xml.includes('stage-child'));
+ assert.ok(xml.includes('data-part="age-face"'));
+ assert.ok(xml.includes('data-part="legs"'));
+ assert.ok(xml.includes('data-part="child-graphic-tee"'));
 });
