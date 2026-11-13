@@ -143,7 +143,7 @@ test('child silhouette is approximately 2.5 heads high, not a miniaturized adult
  assert.ok(child.headsTall>=2.4&&child.headsTall<=2.7,JSON.stringify(child));
  assert.ok(teen.headsTall>child.headsTall);
  assert.ok(adult.headsTall>child.headsTall);
- const xml=renderMatureCharacter(profile,'child','card',0);
+ const xml=renderMatureCharacter({...profile,outfitStyle:'casual'},'child','card',0);
  assert.ok(xml.includes('stage-child'));
  assert.ok(xml.includes('data-part="age-face"'));
  assert.ok(xml.includes('data-part="legs"'));
