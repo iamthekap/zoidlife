@@ -32,11 +32,16 @@ type Rig={x:number;y:number;w:number;h:number;torso:number;torsoW:number;leg:num
 // Successive stages gain longer visible torsos and legs while the head scales
 // down. All dimensions are measured on the same 96x118 SVG grid.
 const RIG:Record<MatureStage,Rig>={
- child:{x:33,y:10,w:30,h:29,torso:41,torsoW:28,leg:80},
+ // Larger rounded face and shorter limbs yield a visibly child-specific 1:2.5 silhouette.
+ child:{x:30,y:12,w:36,h:37,torso:49,torsoW:30,leg:83},
  teen:{x:34,y:7,w:28,h:23,torso:32,torsoW:33,leg:78},
  adult:{x:35,y:7,w:26,h:21,torso:30,torsoW:37,leg:77},
  senior:{x:34,y:8,w:28,h:24,torso:34,torsoW:36,leg:80}
 };
+export function characterStageProportions(stage:MatureStage):{head:number;total:number;headsTall:number}{
+ const rig=RIG[stage],head=rig.h+6,total=112-(rig.y-6);
+ return {head,total,headsTall:Math.round(total/head*100)/100};
+}
 const hash=(s:string):number=>[...s].reduce((v,c)=>(Math.imul(v,31)+c.charCodeAt(0))>>>0,2166136261);
 const rect=(x:number,y:number,w:number,h:number,c:string,extra='')=>
  '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" fill="'+c+'"'+extra+'/>';
