@@ -3,6 +3,7 @@ import type {CharacterProfile} from './characters';
 import {portraitLife} from './life-art.ts';
 import type {FaceMood} from './pixel-character-v3.ts';
 import {petPortrait,type Companion} from './pets.ts';
+import {destination,type JourneyId} from './travel.ts';
 type SceneKind = 'family'|'school'|'work'|'money'|'health'|'city'|'friend'|'leisure'|'retirement';
 type Scene = {kind:SceneKind; props:[string,string]; labelPt:string;labelEn:string};
 const SCENES:Record<SceneKind,Scene>={
@@ -114,11 +115,70 @@ export function sceneBackdrop(kind:SceneKind):string {
    layers.join('')+'</svg>';
 }
 
+/** Six destination-specific story scenes (pixel rectangles, no network images). */
+export function journeySceneBackdrop(id:JourneyId):string{
+ const pieces:string[]=[];
+ const r=(x:number,y:number,w:number,h:number,c:string)=>pieces.push(svgRect(x,y,w,h,c));
+ const sky:Record<JourneyId,string>={
+  coast:'#c6e8ff',mountains:'#b6d4e6',history:'#f0dbba',
+  metropolis:'#bbd0f5',family:'#e7ead9',expedition:'#b9e4d4'
+ };
+ r(0,0,240,140,sky[id]);
+ if(id==='coast'){
+  r(0,76,240,64,'#68b5d0');r(0,100,240,40,'#f1d69c');
+  for(let i=0;i<6;i++)r(i*42,85+i%2*7,30,4,'#d7f8fb');
+  r(175,14,27,27,'#f6e8a1');r(179,18,19,19,'#fff4b5');
+  r(18,67,6,68,'#876f49');r(9,36,21,31,'#579770');r(29,44,19,24,'#65aa7c');
+  r(14,40,14,4,'#418f72');r(5,49,17,5,'#418f72');
+  r(163,100,51,3,'#fff4e0');r(181,107,16,18,'#cda66a');
+ }else if(id==='mountains'){
+  r(0,88,240,52,'#73a98d');
+  for(const [x,peak,width] of [[0,38,90],[71,14,101],[165,36,83]]){
+   for(let step=0;step<6;step++){
+    const yy=peak+step*10,ww=Math.min(width,(step+1)*17);
+    r(x+Math.max(0,Math.floor((width-ww)/2)),yy,ww,11,step<2?'#e1ebec':'#617e91');
+   }
+  }
+  r(0,112,240,28,'#668c7b');r(25,116,160,9,'#b7d5bb');r(185,116,55,11,'#a0c8d1');
+ }else if(id==='history'){
+  r(0,103,240,37,'#c6a77b');r(17,39,95,67,'#b68b65');
+  r(25,31,79,14,'#e4bd89');r(19,45,12,57,'#855b46');r(95,45,12,57,'#855b46');
+  r(49,57,39,49,'#80584a');r(57,66,23,40,'#ae8b76');
+  r(144,33,80,74,'#d6b68c');r(155,23,59,14,'#f0d8ac');
+  for(const col of [154,173,192,211])r(col,47,7,55,'#987754');
+  r(138,101,92,8,'#89684c');r(15,108,209,5,'#f4e3c7');
+ }else if(id==='metropolis'){
+  r(0,103,240,37,'#a2adbf');r(10,30,48,74,'#607d9e');r(69,7,56,96,'#5875a2');
+  r(135,19,35,84,'#778db7');r(181,39,48,64,'#456b8e');
+  for(let i=0;i<5;i++)for(const x of [19,36,78,96,146,189,206])r(x,46+i*12,9,5,'#d9e9ed');
+  r(0,116,240,24,'#627389');for(let x=4;x<230;x+=39)r(x,127,22,3,'#f0f2ec');
+ }else if(id==='family'){
+  r(0,94,240,46,'#80ad81');r(19,49,115,49,'#f2dbb8');
+  r(9,41,135,13,'#9e674c');r(35,28,86,16,'#b77f65');
+  r(37,61,19,23,'#85b3c1');r(70,61,23,37,'#86684f');r(106,61,18,22,'#85b3c1');
+  r(176,59,9,54,'#6e644c');r(154,40,52,32,'#76a88a');
+  r(182,82,31,15,'#e0c0a2');r(156,108,58,8,'#b99464');
+ }else{
+  r(0,91,240,49,'#79b492');
+  for(const [x,y] of [[5,21],[39,10],[76,30],[171,11],[207,27]]){
+   r(x+10,y+32,8,82-y,'#755d48');r(x,y+5,35,33,'#3a8b6d');
+   r(x+5,y,26,25,'#63a883');r(x+10,y+12,12,12,'#7bc398');
+  }
+  r(93,81,73,18,'#b29b71');r(102,97,56,17,'#c8b58a');
+  r(0,116,240,24,'#517d72');r(112,116,20,24,'#ded0a5');
+ }
+ return '<svg class="scene-world journey-world" data-destination="'+id+
+  '" viewBox="0 0 240 140" preserveAspectRatio="xMidYMid slice" '+
+  'xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">'+
+  pieces.join('')+'</svg>';
+}
+
 export function eventScene(eventId:string,character:CharacterProfile,language:'pt-BR'|'en',age=20,category?:string,mood?:FaceMood,pet?:Pick<Companion,'species'|'name'>|null):string {
   const scene=category && Object.prototype.hasOwnProperty.call(SCENES,category)?SCENES[category as SceneKind]:SCENES[sceneType(eventId)];
-  const label=language==='en'?scene.labelEn:scene.labelPt;
+  const trip=eventId.startsWith('travel-')?destination(eventId.slice(7)):null;
+  const label=trip?(language==='en'?'TRAVEL':'VIAGEM'):(language==='en'?scene.labelEn:scene.labelPt);
   return '<div class="scene-visual scene-'+scene.kind+'" aria-label="'+label+'">'+
-    sceneBackdrop(scene.kind)+
+    (trip?journeySceneBackdrop(trip.id):sceneBackdrop(scene.kind))+
     '<div class="scene-avatar">'+portraitLife(character,age,'scene',mood)+'</div>'+
     (pet&&eventId.startsWith('pet-story-')?
       '<div class="scene-pet-actor" data-pet-species="'+pet.species+'">'+
