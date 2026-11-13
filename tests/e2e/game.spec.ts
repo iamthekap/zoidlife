@@ -1627,3 +1627,67 @@ test('save restoration drops future journey visits and preserves actual earlier 
  await expect(page.locator('.journey-travelogue')).not.toContainText('Costa do Atlântico');
  await expect(page.locator('.journey-travelogue')).toContainText('Circuito histórico');
 });
+
+test('a named pet is genuinely adopted, paid for, cared for once a year and saved across reload',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=20;s.simulation.balance=25000;s.pendingEvent=null;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-pet-adoption]')).toHaveCount(4);
+ await page.locator('[data-pet-name="dog"]').fill('Bento');
+ await page.locator('[data-pet-adopt="dog"]').click();
+ let state=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(state.simulation.balance).toBe(24350);
+ expect(state.simulation.pets.pets).toHaveLength(1);
+ expect(state.simulation.pets.pets[0]).toMatchObject({name:'Bento',species:'dog',
+  adoptedAt:20,alive:true,lastCareAge:20});
+ expect(state.chronicle.at(-1).eventId).toBe('pet-adopt-dog');
+ await expect(page.locator('.pet-family-info')).toContainText('Bento');
+ await expect(page.locator('[data-pet-adopt="cat"]')).toBeDisabled();
+ await expect(page.locator('[data-pet-care="pet-1"]')).toBeDisabled();
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('.pet-family-info strong')).toContainText('Bento');
+ await page.locator('.dock-age').click();await page.locator('[data-choice="0"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-pet-care="pet-1"]')).toBeEnabled();
+ const bondBefore=await page.locator('[data-pet-card="pet-1"] .pet-bond-meter').getAttribute('aria-valuenow');
+ await page.locator('[data-pet-care="pet-1"]').click();
+ const bondAfter=await page.locator('[data-pet-card="pet-1"] .pet-bond-meter').getAttribute('aria-valuenow');
+ expect(Number(bondAfter)).toBeGreaterThan(Number(bondBefore));
+ await expect(page.locator('[data-pet-care="pet-1"]')).toBeDisabled();
+ state=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(state.simulation.pets.pets[0].lastCareAge).toBe(21);
+ expect(state.chronicle.at(-1).eventId).toBe('pet-care-dog');
+});
+test('adoption names are escaped rather than inserted as executable HTML',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=22;s.simulation.balance=14000;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await page.locator('[data-pet-name="cat"]').fill('<b>Luna</b>');
+ await page.locator('[data-pet-adopt="cat"]').click();
+ await expect(page.locator('[data-pet-card="pet-1"] .pet-family-info strong')).toContainText('<b>Luna</b>');
+ await expect(page.locator('[data-pet-card="pet-1"] .pet-family-info b')).toHaveCount(0);
+ expect(errors).toEqual([]);
+});
+test('childhood pet adoption uses family allowance, not an imaginary child salary',async({page})=>{
+ await chooseBaby(page);
+ await advance(page,8);
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-pet-adoption]')).toHaveCount(4);
+ await page.locator('[data-pet-adopt="rabbit"]').click();
+ const state=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(state.simulation.balance).toBe(0);
+ expect(state.simulation.pets.pets[0]).toMatchObject({species:'rabbit',name:'Pipoca',adoptedAt:8});
+ await expect(page.locator('[data-pet-adopt="dog"]')).toBeDisabled();
+});
