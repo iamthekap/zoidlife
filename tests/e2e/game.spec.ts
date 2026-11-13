@@ -1685,9 +1685,10 @@ test('childhood pet adoption uses family allowance, not an imaginary child salar
  await advance(page,8);
  await page.locator('[data-tab="actions"]').click();
  await expect(page.locator('[data-pet-adoption]')).toHaveCount(4);
+ const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}').simulation.balance);
  await page.locator('[data-pet-adopt="rabbit"]').click();
  const state=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
- expect(state.simulation.balance).toBe(0);
+ expect(state.simulation.balance).toBe(before,'parents cover adoption; no imaginary child earnings');
  expect(state.simulation.pets.pets[0]).toMatchObject({species:'rabbit',name:'Pipoca',adoptedAt:8});
  await expect(page.locator('[data-pet-adopt="dog"]')).toBeDisabled();
 });
