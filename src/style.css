@@ -996,3 +996,11 @@ body:has(.event-modal-overlay){overflow:hidden;}
 .journey-description button:focus-visible{outline:3px solid #ff0044;outline-offset:3px;}
 @media(max-width:370px){.journey-grid{grid-template-columns:1fr;}}
 @media(prefers-reduced-motion:reduce){.journey-card,.journey-description button{transition:none!important;animation:none!important;}}
+
+.journey-travelogue{padding:12px 14px;border:1px solid #d0dfef;background:#f8fbff;border-radius:11px;display:grid;gap:9px;}
+.journey-travelogue h4{font-size:12px;color:#1b508a;text-transform:uppercase;letter-spacing:.035em;font-weight:900;}
+.journey-travelogue ol{list-style:none;padding:0;margin:0;display:grid;gap:6px;}
+.journey-travelogue li{border-bottom:1px dashed #cadbed;padding:6px 0;display:flex;justify-content:space-between;gap:9px;font-size:11px;color:#3e628e;}
+.journey-travelogue li:last-child{border-bottom:0;}
+.journey-travelogue li strong{flex-shrink:0;color:#195598;}
+@media(max-width:420px){.journey-travelogue{padding:11px 9px;}.journey-travelogue li{font-size:10px;}}

@@ -3,7 +3,7 @@
  * Audio is always silent until the player explicitly enables it by interacting.
  */
 export const SOUND_KEY='zoid-life-sound-v1';
-export type SoundCue='start'|'year'|'choice'|'success'|'career'|'social'|'finance'|'hobby'|'warning'|'ending'|'open';
+export type SoundCue='start'|'year'|'choice'|'success'|'career'|'social'|'finance'|'hobby'|'travel'|'warning'|'ending'|'open';
 export type SoundSettings={enabled:boolean;volume:number;music:boolean};
 export type Note={frequency:number;start:number;length:number;gain:number;wave:'sine'|'triangle'|'square'};
 export const DEFAULT_SOUND:SoundSettings={enabled:false,volume:0.32,music:false};
@@ -30,6 +30,7 @@ export function soundNotes(cue:SoundCue):readonly Note[]{
   case 'social':return [n(392,0,.13,.18,'sine'),n(494,.13,.16,.17,'sine')];
   case 'finance':return [n(554,0,.09,.15,'square'),n(660,.09,.11,.12,'sine')];
   case 'hobby':return [n(440,0,.12,.13),n(587,.12,.17,.18)];
+  case 'travel':return [n(330,0,.11,.14,'sine'),n(440,.095,.14,.14),n(587,.23,.26,.16,'sine')];
   case 'success':return [n(392,0,.12,.17),n(494,.11,.13,.16),n(659,.23,.24,.2)];
   case 'warning':return [n(262,0,.22,.2,'sine'),n(220,.2,.31,.2,'sine')];
   case 'ending':return [n(392,0,.29,.16,'sine'),n(330,.28,.33,.15,'sine'),n(262,.58,.66,.15,'sine')];

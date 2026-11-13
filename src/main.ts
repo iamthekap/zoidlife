@@ -15,7 +15,7 @@ import { makeLifeReport,reportAsText } from "./life-summary";
 import {GameSound} from "./audio";
 import {HOBBY_IDS,canPracticeHobby,hobbyName,hobbyCost,hobbyCreditAlternative,type HobbyId} from "./hobbies";
 import {hobbyEvents} from "./hobby-events";
-import {DESTINATIONS,destination,canTravel,type JourneyId} from "./travel";
+import {DESTINATIONS,destination,canTravel,normalizeTravelState,type JourneyId} from "./travel";
 import { healthLabel,type ConditionId } from "./health";
 import { OFFENSES,justiceLabel,legalStatus,type OffenseId } from "./justice";
 import { CAREERS,careerById,careerAvailable,careerLabel,careerRequirements,type OccupationId } from "./careers";
@@ -343,6 +343,8 @@ function loadLife(): Life|null {
     const fallbackFamily=makeFamily(name);
     const profile=normalizeProfile(r.profile,name);
     const simulation=loadSimulation(r.simulation);
+    // The future is not a lived achievement, even in manually altered/imported saves.
+    simulation.travel=normalizeTravelState({visits:simulation.travel.visits.filter(v=>v.age<=Number(r.age))});
     const history=Array.isArray(r.history)?r.history.filter((x):x is string=>typeof x==='string').slice(-6000):[];
     const recoveredArc=normalizeStoryArc(r.storyArc,Math.max(0,Math.min(110,r.age)));
     const storyArc=storyArcAllowed(recoveredArc,simulation,r.age)?recoveredArc:null;
@@ -962,7 +964,13 @@ function renderTravelStudio():string{
   safe(pt?'Viagens e descobertas':'Travel and discovery')+'</h3>'+
   '<p>'+safe(pt?'Escolha destinos que caibam no seu saldo. Cada viagem custa dinheiro, muda sua vida e fica no diário.':
     'Choose journeys you can afford. Travel costs money, changes your life and stays in your journal.')+'</p>'+
-  summary+'</div><div class="journey-grid">'+cards+'</div></section>';
+  summary+'</div><div class="journey-grid">'+cards+'</div>'+
+  (diary.visits.length?'<div class="journey-travelogue"><h4>'+
+   safe(pt?'Passaporte de memórias':'Travel passport')+'</h4><ol>'+
+   diary.visits.slice(-7).reverse().map(v=>'<li><span>'+
+     safe((pt?destination(v.id)?.pt:destination(v.id)?.en)??v.id)+
+     '</span><strong>'+safe(pt?'Aos ':'At age ')+v.age+
+     safe(pt?' anos':'')+'</strong></li>').join('')+'</ol></div>':'')+'</section>';
 }
 function travelFromUI(id:string):void{
  if(!life||!destination(id)||life.pendingEvent||life.simulation.ended)return;
@@ -971,7 +979,7 @@ function travelFromUI(id:string):void{
  const result=takeJourney(before,prior,life.age,id as JourneyId);
  if(!result.ok)return;
  life.simulation=result.state;life.stats=result.stats;
- sound.play('hobby');
+ sound.play('travel');
  recordStoryChoice('travel-'+id,language==='pt-BR'?trip.pt:trip.en,
   language==='pt-BR'?trip.ptDescription:trip.enDescription,
   language==='pt-BR'?'Viajar':'Travel',

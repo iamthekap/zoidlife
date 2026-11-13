@@ -63,9 +63,9 @@ test('travel history normalization rejects duplicate ages and invalid forged des
   {id:'mountains',age:19},{id:'coast',age:17},{id:'history',age:110},
   {id:'family',age:28},{id:'expedition',age:'30'},{id:'metropolis',age:NaN}
  ]});
- assert.deepEqual(x,{lastAge:110,visits:[
+ assert.deepEqual(x,{lastAge:28,visits:[
   {id:'mountains',age:19},{id:'coast',age:25},
-  {id:'family',age:28},{id:'history',age:110}
+  {id:'family',age:28}
  ]});
  assert.deepEqual(normalizeTravelState(null),createTravelState());
  assert.equal(recordTravel(x,110,'coast'),x);

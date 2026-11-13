@@ -36,7 +36,8 @@ export function normalizeTravelState(raw:unknown):TravelState{
  if(Array.isArray(r.visits))for(const item of r.visits.slice(-110)){
   if(!item||typeof item!=='object'||Array.isArray(item))continue;
   const p=item as Record<string,unknown>;
-  if(!destination(p.id)||!Number.isInteger(p.age)||Number(p.age)<18||Number(p.age)>110||ages.has(Number(p.age)))continue;
+  const trip=destination(p.id);
+  if(!trip||!Number.isInteger(p.age)||Number(p.age)<trip.minAge||Number(p.age)>105||ages.has(Number(p.age)))continue;
   ages.add(Number(p.age));visits.push({id:p.id as JourneyId,age:Number(p.age)});
  }
  visits.sort((a,b)=>a.age-b.age);
@@ -49,7 +50,9 @@ export function canTravel(state:TravelState,age:number,id:unknown,balance:number
   state.lastAge!==age&&balance>=trip.cost&&Number.isFinite(balance);
 }
 export function recordTravel(state:TravelState,age:number,id:JourneyId):TravelState{
- if(state.lastAge===age||!destination(id))return state;
+ const trip=destination(id);
+ if(state.lastAge===age||!trip||!Number.isInteger(age)||age<trip.minAge||age>105||
+    state.visits.some(x=>x.age===age))return state;
  const next=normalizeTravelState({visits:[...state.visits,{id,age}]});
  return {lastAge:age,visits:next.visits};
 }

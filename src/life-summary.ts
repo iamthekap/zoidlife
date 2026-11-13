@@ -3,6 +3,7 @@ import type {Simulation,Stats} from './simulation.ts';
 import type {SocialState} from './social.ts';
 import {careerById,careerLabel} from './careers.ts';
 import {HOBBY_IDS,hobbyName,normalizeHobbyBook} from './hobbies.ts';
+import {destination,normalizeTravelState} from './travel.ts';
 export type Locale='pt-BR'|'en';
 export type LifeReportInput={
  name:string;age:number;birthYear:number;stats:Stats;simulation:Simulation;social:SocialState;
@@ -49,6 +50,13 @@ export function makeLifeReport(input:LifeReportInput,lang:Locale):LifeReport{
    ' · '+record.awards+(lang==='pt-BR'?(record.awards===1?' conquista':' conquistas'):(record.awards===1?' award':' awards')));
   if(record.xp===100)achievements.push(
    (lang==='pt-BR'?'Domínio completo: ':'Mastered: ')+hobbyName(id,lang));
+ }
+ const livedTrips=normalizeTravelState(s.travel).visits.filter(v=>v.age<=input.age);
+ if(livedTrips.length>0){
+  const distinct=new Set(livedTrips.map(x=>x.id)).size;
+  achievements.push(txt(lang,'Descobriu novos destinos: ','Explored destinations: ')+distinct);
+  const last=destination(livedTrips[livedTrips.length-1].id);
+  if(last)achievements.push(txt(lang,'Última viagem: ','Latest journey: ')+(lang==='en'?last.en:last.pt));
  }
  // Imported history may contain notes from future ages: never report them as lived events.
  const news=input.history.filter(x=>{
