@@ -1692,3 +1692,51 @@ test('childhood pet adoption uses family allowance, not an imaginary child salar
  expect(state.simulation.pets.pets[0]).toMatchObject({species:'rabbit',name:'Pipoca',adoptedAt:8});
  await expect(page.locator('[data-pet-adopt="dog"]')).toBeDisabled();
 });
+
+test('a real living dog triggers a localized yearly decision and lasting companionship consequences',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=25;
+  saved.simulation.pets={schema:1,nextId:2,lastAdoptionAge:21,pets:[
+   {id:'pet-1',species:'dog',name:'Bento',adoptedAt:21,ageYears:4,
+    affection:75,energy:85,alive:true,lastCareAge:24,lastUpdatedAge:25}
+  ]};
+  saved.pendingEvent={id:'pet-story-pet-1-bond',title:'forged title',description:'forged',
+   choices:[{label:'tampered',result:'tampered',effects:{}},
+    {label:'tampered',result:'tampered',effects:{}},
+    {label:'tampered',result:'tampered',effects:{}}]};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('O parque dos cachorros');
+ await expect(page.locator('.event-modal-overlay p').last()).toContainText('Bento');
+ await expect(page.locator('.event-modal-overlay')).not.toContainText('tampered');
+ await page.locator('.event-language').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('The dog park');
+ await expect(page.locator('.event-modal-overlay p').last()).toContainText('Bento');
+ await page.locator('[data-choice="0"]').click();
+ let s=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(s.simulation.pets.pets[0].affection).toBe(87);
+ expect(s.simulation.pets.pets[0].energy).toBe(80);
+ expect(s.simulation.friends).toBe(34);
+ expect(s.chronicle.at(-1).eventId).toBe('pet-story-pet-1-bond');
+ expect(s.chronicle.at(-1).result).toContain('playful afternoon');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-pet-card="pet-1"] .pet-bond-meter')).toHaveAttribute('aria-valuenow','87');
+});
+test('forged animal-story events cannot grant rewards without a real companion',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=28;s.pendingEvent={id:'pet-story-pet-1-milestone'};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Um ano de pequenas escolhas');
+ await page.locator('[data-choice="0"]').click();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.chronicle.at(-1).eventId).toBe('quiet-year');
+ expect(saved.simulation.pets.pets.length).toBe(0);
+});
