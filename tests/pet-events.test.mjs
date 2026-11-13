@@ -26,7 +26,8 @@ test('all four animal species have two original contextual stories with 24 meani
    assert.notEqual(e.description,enEvent.description);
    assert.equal(e.choices.length,3);
    assert.ok(e.description.includes('Pipoca'));
-   pairs.push(e.id);
+   // Pet IDs are local to a life; include the species when checking seed diversity.
+   pairs.push(animal+':'+e.id);
    for(let choice=0;choice<3;choice++){
     const selected=e.choices[choice];
     assert.ok(selected.label&&selected.result);
