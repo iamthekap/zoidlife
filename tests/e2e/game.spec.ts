@@ -1549,3 +1549,64 @@ test('muting stops active WebAudio oscillators immediately instead of merely pre
  expect(await page.evaluate(()=>window.__soundStops)).toBeGreaterThan(before.stops);
  await expect(page.locator('.welcome-audio-toolbar [data-do="toggle-sound"]')).toHaveAttribute('aria-pressed','false');
 });
+
+test('paid family journey changes actual money, bonds and journal; next year resets its gate',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=20;s.simulation.balance=18000;s.simulation.debt=0;s.pendingEvent=null;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-journey-card]')).toHaveCount(6);
+ await expect(page.locator('[data-journey="expedition"]')).toBeEnabled();
+ await page.locator('[data-journey="family"]').click();
+ let s=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(s.simulation.balance).toBe(16200);
+ expect(s.simulation.family).toBe(83);
+ expect(s.simulation.travel).toMatchObject({lastAge:20,visits:[{id:'family',age:20}]});
+ expect(s.simulation.actionLedger.travel).toBe(20);
+ expect(s.chronicle.at(-1).eventId).toBe('travel-family');
+ await expect(page.locator('[data-journey="mountains"]')).toBeDisabled();
+ await expect(page.locator('.journey-memory')).toContainText('1');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-journey="family"]')).toBeDisabled();
+ await page.locator('.dock-age').click();await expect(page.locator('.event-modal-overlay')).toBeVisible();
+ await page.locator('[data-choice="0"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-journey="mountains"]')).toBeEnabled();
+ await page.locator('[data-journey="mountains"]').click();
+ s=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(s.simulation.travel.visits).toEqual([{id:'family',age:20},{id:'mountains',age:21}]);
+ expect(s.chronicle.at(-1).eventId).toBe('travel-mountains');
+});
+test('journey cards reject underage and unaffordable trips, and restore English travel memory',async({page})=>{
+ await chooseBaby(page);
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('.travel-studio')).toHaveCount(0);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=24;s.simulation.balance=1200;s.pendingEvent=null;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-journey-card]')).toHaveCount(6);
+ await expect(page.locator('[data-journey="family"]')).toBeDisabled();
+ await expect(page.locator('[data-journey="expedition"]')).toBeDisabled();
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.simulation.balance=8500;localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await page.locator('[data-journey="history"]').click();
+ await page.locator('[data-do="language"]').first().click();
+ await expect(page.locator('.journey-memory')).toContainText('Historic circuit');
+ let s=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(s.simulation.balance).toBe(5800);
+ expect(s.simulation.credits).toBe(2);
+ expect(s.chronicle.at(-1).eventId).toBe('travel-history');
+});
