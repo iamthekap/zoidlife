@@ -1004,3 +1004,48 @@ body:has(.event-modal-overlay){overflow:hidden;}
 .journey-travelogue li:last-child{border-bottom:0;}
 .journey-travelogue li strong{flex-shrink:0;color:#195598;}
 @media(max-width:420px){.journey-travelogue{padding:11px 9px;}.journey-travelogue li{font-size:10px;}}
+
+/* Four original companion portraits, with real health, affection and lifecycle states. */
+.pet-studio{display:grid;gap:16px;margin:22px 0 12px;padding-top:19px;border-top:2px solid #dce9fa;}
+.pet-intro{display:grid;gap:6px;}
+.pet-intro h3{color:#205184;font-size:clamp(16px,2.9vw,21px);font-weight:900;}
+.pet-intro p{color:#59718b;font-size:12px;line-height:1.6;}
+.pet-intro>span{width:max-content;padding:6px 10px;background:#f2eafa;border:1px solid #dac8ef;
+ border-radius:8px;color:#6d4799;font-size:10px;font-weight:900;}
+.pet-adoption-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;}
+.pet-adopt-card{display:grid;align-content:start;gap:7px;min-width:0;border:1px solid #d8d8ec;
+ background:linear-gradient(155deg,#fff,#f7f7ff);padding:12px 9px;border-radius:12px;}
+.pet-card-art{min-height:72px;display:flex;align-items:center;justify-content:center;background:#edf2f9;border-radius:9px;}
+.pet-pixel-art{width:72px;height:72px;max-width:100%;display:block;image-rendering:pixelated;}
+.pet-adopt-card strong{font-size:12px;color:#2f4a74;}
+.pet-adopt-card small{font-size:10px;color:#59728e;font-weight:850;min-height:18px;}
+.pet-adopt-card label{font-size:10px;color:#445b82;font-weight:800;display:grid;gap:4px;}
+.pet-adopt-card input{width:100%;min-width:0;border:1px solid #c6d6e8;border-radius:7px;
+ font:inherit;font-size:11px;padding:8px 6px;background:white;color:#23466c;}
+.pet-adopt-card button,.pet-family-card button{border:1px solid #a58abf;border-radius:8px;
+ background:#765bb5;color:white;min-height:36px;font-size:11px;font-weight:850;padding:7px 9px;cursor:pointer;}
+.pet-adopt-card button:disabled,.pet-family-card button:disabled{border-color:#d4d8e8;background:#ecedf5;color:#8591a5;cursor:not-allowed;}
+.pet-adopt-card input:focus-visible,.pet-adopt-card button:focus-visible,
+.pet-family-card button:focus-visible{outline:3px solid #ff0044;outline-offset:2px;}
+.pet-household{display:grid;gap:9px;}
+.pet-household h4{font-size:12px;color:#30538d;font-weight:900;text-transform:uppercase;}
+.pet-list{display:grid;gap:9px;}
+.pet-family-card{border:1px solid #cbdcf0;border-radius:12px;background:#fff;padding:9px;
+ display:flex;align-items:center;gap:12px;}
+.pet-family-image{width:67px;min-width:67px;height:67px;border-radius:8px;background:#f0f5ff;
+ display:flex;align-items:center;justify-content:center;}
+.pet-family-image .pet-pixel-art{width:63px;height:63px;}
+.pet-family-info{display:grid;gap:4px;min-width:0;flex:1;}
+.pet-family-info strong{font-size:13px;color:#244875;overflow-wrap:anywhere;}
+.pet-family-info>span{font-size:11px;color:#607891;}
+.pet-family-info small{font-size:10px;color:#6b7694;}
+.pet-bond-meter{height:7px;border-radius:8px;overflow:hidden;background:#e4eafa;}
+.pet-bond-meter>span{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,#7e6dca,#ff82b4);}
+.pet-family-card button{flex:0 0 auto;min-width:76px;}
+.pet-memorial{color:#7a7b89;font-size:10px;font-style:italic;font-weight:750;}
+@media(max-width:760px){.pet-adoption-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.pet-card-art{min-height:66px;}}
+@media(max-width:430px){.pet-adoption-grid{gap:7px;}
+ .pet-adopt-card{padding:8px 6px;}.pet-adopt-card label{font-size:9px;}
+ .pet-family-card{gap:6px;padding:7px;}.pet-family-image{width:55px;min-width:55px;height:55px;}
+ .pet-family-image .pet-pixel-art{width:55px;height:55px;}
+ .pet-family-card button{min-width:58px;padding:7px 5px;font-size:10px;}}
