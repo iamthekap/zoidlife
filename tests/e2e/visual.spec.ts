@@ -199,3 +199,28 @@ test('capture four original animal adoption cards and a persistent companion pro
  await expect(page.locator('.pet-family-card')).toBeVisible();
  await page.screenshot({path:'test-results/visual/32-companion-family-desktop.png',fullPage:true});
 });
+
+test('show a genuine companion story with the animal named in the annual decision, not a generic filler',async({page})=>{
+ test.setTimeout(90_000);
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ await page.locator('[data-do="preset-0"]').click();
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=25;
+  s.simulation.pets={schema:1,nextId:2,lastAdoptionAge:22,pets:[
+   {id:'pet-1',species:'cat',name:'Luna',adoptedAt:22,ageYears:3,
+    affection:87,energy:91,alive:true,lastCareAge:24,lastUpdatedAge:25}
+  ]};
+  s.pendingEvent={id:'pet-story-pet-1-milestone',title:'invalid injected text'};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Uma visita ao veterinário');
+ await expect(page.locator('.event-modal-overlay')).toContainText('Luna');
+ await page.screenshot({path:'test-results/visual/33-real-cat-story-modal-mobile.png',fullPage:false});
+ await page.locator('[data-choice="0"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-pet-card="pet-1"] .pet-bond-meter')).toHaveAttribute('aria-valuenow','98');
+ await page.screenshot({path:'test-results/visual/34-earned-cat-bond-mobile.png',fullPage:true});
+});
