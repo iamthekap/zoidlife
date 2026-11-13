@@ -74,3 +74,16 @@ test('special destiny is exclusively available to custom-created characters',()=
  assert.equal(special.origin,'custom');
  assert.equal(normalizeProfile({...special,nature:'scripting'}).nature,'human');
 });
+
+test('real clothing silhouette choices are validated and legacy character cuts remain unchanged',()=>{
+ const profile=normalizeProfile({name:'Ana Luz',country:'BR',city:'Recife',
+  skin:'tan',hair:'waves',hairColor:'black',eyes:'brown',gender:'woman',
+  outfit:'blue',outfitStyle:'sporty',birthday:6,birthMonth:9});
+ assert.equal(profile.outfitStyle,'sporty');
+ assert.equal(normalizeProfile({...profile,outfitStyle:'<script>'}).outfitStyle,undefined);
+ assert.equal(normalizeProfile({...profile,outfitStyle:'classic'}).outfitStyle,'classic');
+ const legacy={...profile};delete legacy.outfitStyle;
+ assert.equal(normalizeProfile(legacy).outfitStyle,undefined);
+ const candidates=randomCandidates(3);
+ assert.deepEqual(candidates.map(c=>c.outfitStyle),['classic','casual','sporty']);
+});

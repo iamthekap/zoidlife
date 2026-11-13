@@ -116,3 +116,22 @@ test('four independent facial expressions stay structurally intact and safe',()=
  });
  assert.equal(new Set(poses).size,4);
 });
+
+test('each saved garment cut changes geometry, not only its palette, in all ages',()=>{
+ for(const stage of ['child','teen','adult','senior']){
+  const shapes=['classic','casual','sporty'].map(outfitStyle=>
+   renderMatureCharacter({...profile,outfitStyle},stage,'card',1));
+  assert.equal(new Set(shapes).size,3,stage+' must have three different real silhouettes');
+  for(let i=0;i<3;i++){
+   assert.ok(shapes[i].includes('data-outfit-cut="'+['classic','casual','sporty'][i]+'"'));
+   assert.ok(shapes[i].includes('fill="#38836b"'),'eyes still inherit identity');
+   assert.ok(shapes[i].includes('fill="#ba8362"'),'skin still inherits identity');
+  }
+ }
+ const sporty=renderMatureCharacter({...profile,outfitStyle:'sporty'},'adult','card',1);
+ assert.ok(sporty.includes('data-part="adult-streetwear"'));
+ const classic=renderMatureCharacter({...profile,outfitStyle:'classic'},'adult','card',1);
+ assert.ok(classic.includes('data-part="adult-blazer"'));
+ const legacy=renderMatureCharacter(profile,'adult','card',1);
+ assert.ok(legacy.includes('data-outfit-cut="legacy"'));
+});

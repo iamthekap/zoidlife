@@ -3,7 +3,7 @@
  * Immutable genetics across ages: complexion, eyes, and hair pigment.
  * Every shape is a crisp, editable SVG primitive; no reference-game assets.
  */
-import type {CharacterProfile} from './characters.ts';
+import type {CharacterProfile,OutfitStyle} from './characters.ts';
 export type MatureStage='child'|'teen'|'adult'|'senior';
 export type FaceMood='cheerful'|'curious'|'determined'|'thoughtful';
 type Pal={light:string;mid:string;dark:string};
@@ -85,7 +85,7 @@ function trousers(d:Canvas,stage:MatureStage,cloth:Pal,skin:Pal,key:number,legY:
   }
  });
 }
-function outfit(d:Canvas,stage:MatureStage,cloth:Pal,skin:Pal,key:number):void{
+function outfit(d:Canvas,stage:MatureStage,cloth:Pal,skin:Pal,key:number,style?:OutfitStyle):void{
  const rig=RIG[stage],x=Math.floor(48-rig.torsoW/2),w=rig.torsoW,y=rig.torso;
  trousers(d,stage,cloth,skin,key,rig.leg);
  d.g('body-outfit',()=>{
@@ -130,7 +130,7 @@ function outfit(d:Canvas,stage:MatureStage,cloth:Pal,skin:Pal,key:number):void{
    d.r(x+5,rig.leg-4,w-10,4,cloth.dark);
    // More varied everyday silhouettes, regardless of gender or skin tone.
    // Child A: graphic tee, B: longer tunic, C: banded sporty pullover.
-   const childStyle=key%3;
+   const childStyle=style?({casual:0,classic:1,sporty:2} as const)[style]:key%3;
    if(childStyle===1){
      d.g('child-tunic',()=>{
        d.r(x+3,y+18,w-6,rig.leg-y-20,cloth.dark);
@@ -158,11 +158,26 @@ function outfit(d:Canvas,stage:MatureStage,cloth:Pal,skin:Pal,key:number):void{
    d.r(x+11,y+4,2,13,'#f0eee9');d.r(x+w-13,y+4,2,13,'#f0eee9');
    d.r(x+8,y+23,w-16,9,cloth.dark);d.r(x+10,y+24,w-20,7,cloth.light,' opacity=".42"');
    d.r(x+3,rig.leg-5,w-6,3,cloth.dark);
-   if(key%2===0){d.r(x+w+2,y+26,7,12,'#293345');d.r(x+w+3,y+27,5,9,'#6a8dbe');}
+   if(style==='classic')d.g('teen-smart-cardigan',()=>{
+     d.r(x+9,y+6,w-18,rig.leg-y-12,'#f2e9dc');
+     d.r(x+4,y+8,8,rig.leg-y-14,cloth.dark);
+     d.r(x+w-12,y+8,8,rig.leg-y-14,cloth.dark);
+     d.r(x+8,y+7,8,4,cloth.light);d.r(x+w-16,y+7,8,4,cloth.light);
+     d.r(47,y+10,2,16,'#b7a494');
+   });
+   else if(style==='sporty')d.g('teen-varsity-jacket',()=>{
+     d.r(x+3,y+6,w-6,7,cloth.dark);
+     d.r(x+9,y+8,w-18,5,cloth.light);
+     d.r(x+3,rig.leg-8,w-6,5,cloth.dark);
+     d.r(x+6,rig.leg-7,w-12,2,cloth.light);
+     d.r(x-6,y+13,7,4,cloth.light);d.r(x+w+1,y+13,7,4,cloth.light);
+     d.r(x+7,y+19,6,8,cloth.light);d.r(x+w-13,y+19,6,8,cloth.light);
+   });
+   else if(key%2===0){d.r(x+w+2,y+26,7,12,'#293345');d.r(x+w+3,y+27,5,9,'#6a8dbe');}
   }else if(stage==='adult'){
    // Three independent everyday styles — no more universal identical suit.
    // Stable from the person's identity, including after outfit-color changes.
-   const adultStyle=key%3;
+   const adultStyle=style?({classic:0,casual:1,sporty:2} as const)[style]:key%3;
    if(adultStyle===0)d.g('adult-blazer',()=>{
      d.r(x+Math.floor(w*.33),y+3,Math.floor(w*.34),rig.leg-y-5,'#fff8f0');
      d.r(x+5,y+5,10,5,cloth.light);d.r(x+w-15,y+5,10,5,cloth.light);
@@ -199,6 +214,17 @@ function outfit(d:Canvas,stage:MatureStage,cloth:Pal,skin:Pal,key:number):void{
    d.r(47,y+10,2,12,'#dfbc9e');
    d.r(x+5,rig.leg-6,w-10,4,cloth.light);
    d.r(x+5,y+3,w-10,2,cloth.light);
+   if(style==='sporty')d.g('senior-track-jacket',()=>{
+     d.r(x+3,y+9,w-6,4,cloth.dark);
+     d.r(x+3,rig.leg-9,w-6,5,cloth.dark);
+     d.r(x+7,y+13,4,rig.leg-y-25,cloth.light);
+     d.r(x+w-11,y+13,4,rig.leg-y-25,cloth.light);
+   });
+   else if(style==='casual')d.g('senior-soft-shirt',()=>{
+     d.r(x+8,y+6,w-16,15,cloth.light);
+     d.r(x+6,y+12,w-12,3,cloth.mid);
+     d.r(x+4,rig.leg-6,w-8,4,cloth.mid);
+   });
   }
  });
 }
@@ -348,12 +374,12 @@ export function renderMatureCharacter(p:CharacterProfile,stage:MatureStage,size=
  const cloth=CLOTH[p.outfit??'']??CLOTH.blue;
  if(size!=='story-actor')backdrop(d,key);
  scalpBehind(d,stage,p,hair);
- outfit(d,stage,cloth,skin,key);
+ outfit(d,stage,cloth,skin,key,p.outfitStyle);
  face(d,stage,p,skin,hair,key,mood);
  hairstyle(d,stage,p,hair,key);
  return '<svg class="portrait portrait-'+size+' stage-'+stage+' mature-v3" viewBox="0 0 96 118" '+
   'xmlns="http://www.w3.org/2000/svg" role="img" '+
   'aria-label="Original Zoid Life '+stage+' pixel art" data-renderer="mature-v3" '+
-  'data-style="clean-pixel-simulation-v3" data-pose="'+(stage==='senior'?'neutral':['neutral','thoughtful','greeting'][key%3])+
+  'data-style="clean-pixel-simulation-v3" data-outfit-cut="'+(p.outfitStyle??'legacy')+'" data-pose="'+(stage==='senior'?'neutral':['neutral','thoughtful','greeting'][key%3])+
   '" shape-rendering="crispEdges">'+d.d.join('')+'</svg>';
 }

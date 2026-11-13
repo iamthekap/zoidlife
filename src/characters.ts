@@ -5,6 +5,7 @@ export type Hair = 'short' | 'waves' | 'curls' | 'long';
 export type HairColor = 'black' | 'brown' | 'blonde' | 'red';
 export type Eye = 'brown' | 'blue' | 'green';
 export type Outfit = 'blue' | 'red' | 'mint' | 'ochre' | 'purple' | 'rose';
+export type OutfitStyle = 'classic' | 'casual' | 'sporty';
 export type Origin = 'generated' | 'custom';
 export type Nature = 'human' | 'vampire' | 'werewolf' | 'mage';
 export type Country = 'BR' | 'US' | 'PT' | 'UK' | 'CA';
@@ -19,6 +20,8 @@ export type CharacterProfile = {
   eyes: Eye;
   /** Optional to retain stable appearance of saves created before the outfit selector. */
   outfit?: Outfit;
+  /** Optional to preserve silhouettes of legacy saves until the player edits the look. */
+  outfitStyle?: OutfitStyle;
   origin?: Origin;
   nature?: Nature;
   birthday: number;
@@ -37,6 +40,7 @@ export const HAIRS: Hair[] = ['short', 'waves', 'curls', 'long'];
 export const HAIR_COLORS: HairColor[] = ['black', 'brown', 'blonde', 'red'];
 export const EYES: Eye[] = ['brown', 'blue', 'green'];
 export const OUTFITS: Outfit[]=['blue','red','mint','ochre','purple','rose'];
+export const OUTFIT_STYLES: OutfitStyle[]=['classic','casual','sporty'];
 export const NATURES: Nature[]=['human','vampire','werewolf','mage'];
 export const GENDERS: Gender[] = ['woman', 'man', 'nonbinary'];
 const firstNames: Record<Gender, string[]> = {
@@ -52,7 +56,7 @@ export function randomCharacter(): CharacterProfile {
   const country=pick(COUNTRIES);
   return { name: pick(firstNames[gender]) + ' ' + pick(surnames), gender,
     country, city: pick(CITIES[country]), skin: pick(SKINS), hair: pick(HAIRS),
-    hairColor: pick(HAIR_COLORS), eyes: pick(EYES), outfit:pick(OUTFITS),origin:'generated',nature:'human',
+    hairColor: pick(HAIR_COLORS), eyes: pick(EYES), outfit:pick(OUTFITS),outfitStyle:pick(OUTFIT_STYLES),origin:'generated',nature:'human',
     birthday: 1 + Math.floor(Math.random()*28), birthMonth: 1 + Math.floor(Math.random()*12) };
 }
 /** Preserves procedural genetics but creates names appropriate to the chosen identity.
@@ -84,7 +88,8 @@ export function randomCandidates(count = 3): CharacterProfile[] {
     for(let tries=0;names.has(candidate.name)&&tries<50;tries++)candidate=randomCharacter();
     if(names.has(candidate.name))candidate={...candidate,name:candidate.name+' '+(i+1)};
     const profile={...candidate,skin:skinOrder[i%skinOrder.length],
-      hair:hairOrder[i%hairOrder.length],hairColor:colors[i%colors.length],outfit:outfitOrder[i%outfitOrder.length]};
+      hair:hairOrder[i%hairOrder.length],hairColor:colors[i%colors.length],outfit:outfitOrder[i%outfitOrder.length],
+      outfitStyle:OUTFIT_STYLES[i%OUTFIT_STYLES.length]};
     names.add(profile.name);
     result.push(profile);
   }
@@ -104,6 +109,7 @@ export function normalizeProfile(raw: unknown, fallbackName='Pessoa'): Character
     hairColor: isOneOf(r.hairColor, HAIR_COLORS) ? r.hairColor : defaults.hairColor,
     eyes: isOneOf(r.eyes,EYES) ? r.eyes : defaults.eyes,
     ...(isOneOf(r.outfit,OUTFITS)?{outfit:r.outfit}:{}),
+    ...(isOneOf(r.outfitStyle,OUTFIT_STYLES)?{outfitStyle:r.outfitStyle}:{}),
     origin:r.origin==='custom'?'custom':'generated',
     nature:r.origin==='custom'&&isOneOf(r.nature,NATURES)?r.nature:'human',
     birthday: typeof r.birthday === 'number' && r.birthday >= 1 && r.birthday <= 28 ? Math.floor(r.birthday) : defaults.birthday,

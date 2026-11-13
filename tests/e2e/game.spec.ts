@@ -1740,3 +1740,31 @@ test('forged animal-story events cannot grant rewards without a real companion',
  expect(saved.chronicle.at(-1).eventId).toBe('quiet-year');
  expect(saved.simulation.pets.pets.length).toBe(0);
 });
+
+test('wardrobe cuts preview instantly and only persist when player confirms real styling',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=25;s.simulation.balance=3000;s.pendingEvent=null;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ await page.locator('[data-style-field="outfitStyle"]').selectOption('sporty');
+ await expect(page.locator('[data-style-preview] svg')).toHaveAttribute('data-outfit-cut','sporty');
+ await expect(page.locator('[data-style-preview] [data-part="adult-streetwear"]')).toBeVisible();
+ const unchanged=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(unchanged.profile.outfitStyle).toBe(before.profile.outfitStyle);
+ expect(unchanged.simulation.balance).toBe(3000);
+ await page.locator('[data-do="style-apply"]').click();
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(after.profile.outfitStyle).toBe('sporty');
+ expect(after.simulation.balance).toBe(2750);
+ expect(after.chronicle.at(-1).eventId).toBe('appearance-changed');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-style-field="outfitStyle"]')).toHaveValue('sporty');
+ await expect(page.locator('[data-style-preview] svg')).toHaveAttribute('data-outfit-cut','sporty');
+ await expect(page.locator('[data-do="style-apply"]')).toBeDisabled();
+});

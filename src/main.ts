@@ -1,5 +1,5 @@
 import "./style.css";
-import { randomCandidates, randomCharacter, normalizeProfile, portraitSvg, CITIES, COUNTRIES, GENDERS, SKINS, HAIRS, HAIR_COLORS, EYES, OUTFITS, NATURES, type Country, type CharacterProfile } from "./characters";
+import { randomCandidates, randomCharacter, normalizeProfile, portraitSvg, CITIES, COUNTRIES, GENDERS, SKINS, HAIRS, HAIR_COLORS, EYES, OUTFITS, OUTFIT_STYLES, NATURES, type Country, type CharacterProfile } from "./characters";
 import { extraEvents, eventAllowed } from "./events-plus";
 import { extendedEvents, extendedAllowed, type Scenario } from "./events-extended";
 import { advancedEvents } from "./events-advanced";
@@ -825,34 +825,47 @@ function actionButton(action: Action): string {
      (language==='pt-BR'?'Realizada neste ano':'Done this year'):u(action+'Info'))+'</span>'+
    '<i aria-hidden="true">›</i></button>';
 }
+function outfitStyleName(value:string):string {
+ const pt:Record<string,string>={classic:'Elegante',casual:'Casual',sporty:'Esportivo'};
+ const en:Record<string,string>={classic:'Classic',casual:'Casual',sporty:'Sporty'};
+ return (language==='pt-BR'?pt:en)[value]??value;
+}
 function styleStudio():string {
  if(!life||life.age<12||life.simulation.ended)return '';
  const p=life.profile;
  const options=(values:readonly string[],selected:string,kind:string)=>
   '<select data-style-field="'+kind+'">'+values.map(value=>option(value,
-   kind==='outfit'?outfitLabel(value):u(value),value===selected)).join('')+'</select>';
+   kind==='outfit'?outfitLabel(value):kind==='outfitStyle'?outfitStyleName(value):u(value),value===selected)).join('')+'</select>';
  const enabled=canAction('style');
  return '<section class="style-studio"><h3>'+safe(language==='pt-BR'?'Personalizar aparência':'Customize appearance')+'</h3>'+
   '<p>'+safe(language==='pt-BR'?'Cabelo e roupa podem mudar sem alterar os traços de nascimento. Uma mudança por ano. A partir da vida adulta, custa 250.':
     'Hair and clothing can change without altering birth traits. One change per year. Adults pay 250.')+'</p>'+
   '<div class="style-fields"><label>'+safe(language==='pt-BR'?'Penteado':'Hair style')+options(HAIRS,p.hair,'hair')+'</label>'+
   '<label>'+safe(language==='pt-BR'?'Cor do cabelo':'Hair color')+options(HAIR_COLORS,p.hairColor,'hairColor')+'</label>'+
-  '<label>'+safe(language==='pt-BR'?'Roupa':'Outfit')+options(OUTFITS,p.outfit??'blue','outfit')+'</label></div>'+
+  '<label>'+safe(language==='pt-BR'?'Cor da roupa':'Outfit color')+options(OUTFITS,p.outfit??'blue','outfit')+'</label>'+
+  '<label>'+safe(language==='pt-BR'?'Modelo da roupa':'Clothing style')+options(OUTFIT_STYLES,p.outfitStyle??'casual','outfitStyle')+'</label></div>'+
+  '<div class="style-preview" aria-label="'+safe(language==='pt-BR'?'Prévia do visual':'Appearance preview')+'">'+
+    '<div data-style-preview>'+portraitLife(p,life.age,'card',moodFromStats(life.stats))+'</div>'+
+    '<p>'+safe(language==='pt-BR'?'Veja seu novo visual antes de salvar; nenhuma mudança será cobrada até confirmar.':
+      'Preview before saving; no charge until you confirm.')+'</p></div>'+
   '<button class="style-save" type="button" data-do="style-apply"'+(enabled?'':' disabled')+'>'+
   safe(language==='pt-BR'?'Salvar novo visual':'Save new appearance')+'</button></section>';
 }
 function applyStyleFromUI():void {
  if(!life||!canAction('style'))return;
  const field=(k:string)=>appEl?.querySelector<HTMLSelectElement>('[data-style-field="'+k+'"]')?.value;
- const hair=field('hair'),hairColor=field('hairColor'),outfit=field('outfit');
+ const hair=field('hair'),hairColor=field('hairColor'),outfit=field('outfit'),outfitStyle=field('outfitStyle');
  if(!HAIRS.includes(hair as typeof HAIRS[number])||
   !HAIR_COLORS.includes(hairColor as typeof HAIR_COLORS[number])||
-  !OUTFITS.includes(outfit as typeof OUTFITS[number]))return;
- if(hair===life.profile.hair&&hairColor===life.profile.hairColor&&outfit===life.profile.outfit)return;
+  !OUTFITS.includes(outfit as typeof OUTFITS[number])||
+  !OUTFIT_STYLES.includes(outfitStyle as typeof OUTFIT_STYLES[number]))return;
+ if(hair===life.profile.hair&&hairColor===life.profile.hairColor&&outfit===life.profile.outfit&&
+  outfitStyle===life.profile.outfitStyle)return;
  const result=takeAction(life.simulation,life.stats,life.age,'style');
  if(!result.ok)return;
  life.profile={...life.profile,hair:hair as typeof HAIRS[number],
-  hairColor:hairColor as typeof HAIR_COLORS[number],outfit:outfit as typeof OUTFITS[number]};
+  hairColor:hairColor as typeof HAIR_COLORS[number],outfit:outfit as typeof OUTFITS[number],
+  outfitStyle:outfitStyle as typeof OUTFIT_STYLES[number]};
  life.simulation=result.state;life.stats=result.stats;
  recordStoryChoice('appearance-changed',language==='pt-BR'?'Novo visual':'New look',
   language==='pt-BR'?'Mudança de roupa e cabelo':'Outfit and hair changes',
@@ -1645,6 +1658,17 @@ appEl?.addEventListener("change",e=>{
   }
   if(fileInput.hasAttribute('data-sound-music')){
     sound.configure({music:fileInput.checked});render();return;
+  }
+  if(fileInput.hasAttribute('data-style-field')&&life&&scene==='playing'){
+    const val=(field:string,fallback:string)=>
+      appEl?.querySelector<HTMLSelectElement>('[data-style-field="'+field+'"]')?.value??fallback;
+    const profile=normalizeProfile({...life.profile,
+      hair:val('hair',life.profile.hair),hairColor:val('hairColor',life.profile.hairColor),
+      outfit:val('outfit',life.profile.outfit??'blue'),outfitStyle:val('outfitStyle',life.profile.outfitStyle??'casual')},
+      life.name);
+    const preview=appEl?.querySelector<HTMLElement>('[data-style-preview]');
+    if(preview)preview.innerHTML=portraitLife(profile,life.age,'card',moodFromStats(life.stats));
+    return;
   }
   if(fileInput.id==="life-save-file"){
     const chosen=fileInput.files?.[0];
