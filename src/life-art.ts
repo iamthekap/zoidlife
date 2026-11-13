@@ -8,7 +8,7 @@ export function lifeStage(age:number):LifeStage{
  return value<3?'baby':value<12?'child':value<18?'teen':value<65?'adult':'senior';
 }
 export function avatarFingerprint(p:CharacterProfile):string{
- return [p.name,p.gender,p.country,p.skin,p.hair,p.hairColor,p.eyes,p.outfit??'legacy'].join('|');
+ return [p.name,p.gender,p.country,p.skin,p.hair,p.hairColor,p.eyes,p.outfit??'legacy',p.outfitStyle??'legacy'].join('|');
 }
 export function moodFromStats(stats:{happiness:number;health:number}):FaceMood{
  if(stats.health<=30||stats.happiness<=30)return 'thoughtful';

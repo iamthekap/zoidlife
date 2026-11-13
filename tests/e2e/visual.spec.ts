@@ -224,3 +224,33 @@ test('show a genuine companion story with the animal named in the annual decisio
  await expect(page.locator('[data-pet-card="pet-1"] .pet-bond-meter')).toHaveAttribute('aria-valuenow','98');
  await page.screenshot({path:'test-results/visual/34-earned-cat-bond-mobile.png',fullPage:true});
 });
+
+test('capture actual three-cut adult wardrobe with preview-before-payment at desktop and mobile sizes',async({page})=>{
+ test.setTimeout(120_000);
+ await page.goto('/');
+ await page.locator('[data-do="preset-0"]').click();
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=29;s.simulation.balance=7000;s.profile.outfitStyle='classic';
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.setViewportSize({width:1440,height:900});
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ for(const style of ['classic','casual','sporty']){
+  await page.locator('[data-style-field="outfitStyle"]').selectOption(style);
+  await expect(page.locator('[data-style-preview] svg')).toHaveAttribute('data-outfit-cut',style);
+  const shape=style==='classic'?'adult-blazer':style==='casual'?'adult-casual-jacket':'adult-streetwear';
+  await expect(page.locator('[data-style-preview] [data-part="'+shape+'"]')).toBeVisible();
+  await page.locator('[data-style-preview]').scrollIntoViewIfNeeded();
+  await page.screenshot({path:'test-results/visual/35-adult-wardrobe-'+style+'-desktop.png',fullPage:false});
+ }
+ await page.setViewportSize({width:390,height:844});
+ await page.locator('[data-style-field="outfitStyle"]').selectOption('sporty');
+ await page.locator('[data-style-preview]').scrollIntoViewIfNeeded();
+ await page.screenshot({path:'test-results/visual/38-adult-sporty-wardrobe-mobile.png',fullPage:false});
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(after.profile.outfitStyle).toBe(before.profile.outfitStyle);
+ expect(after.simulation.balance).toBe(before.simulation.balance);
+});
