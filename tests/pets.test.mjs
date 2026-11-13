@@ -66,6 +66,11 @@ test('companions age, require yearly maintenance and eventually leave memorial e
    assert.ok(before>state.balance);
    assert.ok(outcome.notes.includes('pet-upkeep:170'));
   }
+  if(age<31){
+   const care=careForCompanion(state,st,age,'pet-1');
+   assert.equal(care.ok,true,'annual care prevents preventable neglect');
+   state=care.state;st=care.stats;
+  }
  }
  assert.equal(last,31);
  assert.equal(state.pets.pets[0].alive,false);
