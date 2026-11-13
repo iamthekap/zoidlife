@@ -1808,3 +1808,23 @@ test('mobile players can navigate to actually available life systems without hor
  }
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
 });
+
+test('a real paid trip keeps its distinct visual destination in the permanent illustrated story',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=26;s.simulation.balance=8000;s.simulation.debt=0;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await page.locator('[data-journey="coast"]').click();
+ await page.locator('[data-tab="story"]').click();
+ await expect(page.locator('[data-chronicle-event="travel-coast"] .journey-world')).toHaveAttribute('data-destination','coast');
+ await expect(page.locator('[data-chronicle-event="travel-coast"] .scene-label')).toContainText('VIAGEM');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('[data-chronicle-event="travel-coast"] .journey-world')).toBeVisible();
+ const s=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(s.simulation.travel.visits[0]).toMatchObject({id:'coast',age:26});
+ expect(s.simulation.balance).toBe(5800);
+});
