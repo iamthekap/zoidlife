@@ -492,7 +492,7 @@ function render(): void {
   const shell='<div class="app-shell">'+header+
    (scene==="welcome"?renderWelcome():scene==="selection"?renderSelection():
      scene==="custom"?renderCustom():renderPlay())+
-   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.9.0 · PT / EN · '+safe(__ZOID_BUILD_COMMIT__)+'</span></footer></div>';
+   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.10.0 · PT / EN · '+safe(__ZOID_BUILD_COMMIT__)+'</span></footer></div>';
   app.innerHTML=shell;
   if(scene==='playing'&&life?.pendingEvent&&tab==='story'){
     // Prevent keyboard and assistive-technology interaction with the obscured game.
@@ -530,7 +530,7 @@ function renderWelcome(): string {
        'The existing file was preserved in this browser. Back it up before starting again.')+'</p>'+
       (recoveryAvailable?button(language==='pt-BR'?'Baixar cópia de recuperação':'Download recovery copy','export-recovery','secondary'):'')+
       '</div>':'')+'</section>'+
-    '<div class="entry-footer"><span>'+safe(u("noLogin"))+'</span><span>BLUE & RED EDITION · 0.9.0</span></div></main>';
+    '<div class="entry-footer"><span>'+safe(u("noLogin"))+'</span><span>BLUE & RED EDITION · 0.10.0</span></div></main>';
 }
 function renderSelection(): string { return renderWelcome(); }
 function option(value: string,label: string, selected: boolean): string {

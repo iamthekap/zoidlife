@@ -61,3 +61,20 @@ The user has not accepted visual fidelity to their reference art. Full-scale con
 
 ### On the next development cycle
 Verify branch HEAD and the newest CI run, inspect any failures in full, verify browser screenshots and newest Cloudflare preview SHA; continue improvements only from the confirmed current state. See `docs/RELEASE_CHECKLIST.md` for the unchanged production gate.
+
+## Continuation — preview 0.10: animals, skills, audio, clothing and destinations
+
+### Implemented, not a claim of visual approval
+- Original, locally synthesized WebAudio with 16 distinct cues including separate pet species, welcome consent, configurable volume, ambience, mute and voice cleanup.
+- Six earned annual talent paths and 12 bilingual conditional stories, 36 player outcomes, career portfolio opportunities and honest recap achievements.
+- Six priced trips, once-yearly and legal/age gates, original CSS destination scenes, valid travel diary and age-filtered lifetime summaries.
+- Four sprite animals with player-given names, adoption and care, yearly costs, ageing, affection, death/memorial and strict save normalization. Eight living-pet conditional adventures (two per species) add 24 decisions and actual affection/energy changes. The chosen animal is visually present in pet popups and their journal scenes.
+- Three genuinely different shapes of outfits in childhood, teen, adulthood and senior stages. The actions tab has keyboard-accessible wardrobe preview without charging or mutating the current save until the player confirms. Legacy silhouettes are preserved if no new style value exists.
+- Quick links for navigating large mobile activity sections; no external/paid game assets or APIs.
+
+### Evidence and explicit holdbacks
+- Prior full baseline at `dfabf2543ec8e3473263589a8c31139bb293477b`: [GitHub Actions #43347784831](https://github.com/iamthekap/zoidlife/actions/runs/43347784831), **197 Node / 92 browser tests, success**.
+- Wardrobe and core pet-story candidate at `b6d440ff347af26822d068cbb3f1ec5f3185b6ce`: [GitHub Actions #43495509012](https://github.com/iamthekap/zoidlife/actions/runs/43495509012), **204 Node / 97 browser tests, success**; includes actual wardrobe and companion visual artifacts.
+- **The current HEAD MUST be checked against its own CI**, especially the new illustrated pet actors, species sounds and mobile section navigation; previous green runs do not certify later changes.
+- User approval of character art, real hardware/device checks, real browser use of the Cloudflare preview URL and confirmed production deployment remain pending. GitHub PR bot has posted a branch preview but cloud Web/terminal cannot resolve its hostname here. Do not equate a green Cloudflare build or PR comment with live QA.
+- Next: inspect the latest HEAD build+browser evidence and screenshots, repair failures, update PR #8 exact SHA, and preserve `main` and Cloudflare production branch `feat/initial-web-foundation` until approval.

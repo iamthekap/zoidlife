@@ -1,4 +1,4 @@
-# Zoid Life 0.9 — release gates (not a production acceptance certificate)
+# Zoid Life 0.10 — release gates (not a production acceptance certificate)
 
 ## Product and game loop
 - [x] Loading, three visible newborn candidates and free custom creator
@@ -9,6 +9,13 @@
 - [x] Savings, debts, property, investment purchase **and redemption**
 - [x] Health conditions, legal choices, age gates and ending recap
 - [x] JSON export/import, corrupted-save recovery and storage error feedback
+- [x] Opt-in original WebAudio: separate mute, volume, ambience, species cues and immediate voice stop on silence
+- [x] Six practice-based talent skills, 12 conditionally unlocked stories and earned résumé awards
+- [x] Six paid journeys with exact cost, once-yearly gate, age-safe passport and distinct local artwork
+- [x] Four original animals: adoption, naming, care, upkeep, ageing, memorials, two-living limit
+- [x] Eight species-specific conditional pet stories with real bond and wellness effects
+- [x] Explicit classic/casual/sporty silhouette selections with live preview before any charge
+- [x] Pet pixel artwork inside the actual event and journal scenes; mobile category quick navigation
 
 ## Verification before any release
 - [x] TypeScript and Vite production bundle compiled in GitHub Actions

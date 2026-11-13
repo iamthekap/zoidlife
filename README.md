@@ -1,6 +1,6 @@
 # Zoid Life
 
-Independent browser-based life simulator developed in the NOVA STEAM VERDE collection. The current `0.9.0` label is a **preview version**, not a claim of final production acceptance.
+Independent browser-based life simulator developed in the NOVA STEAM VERDE collection. The current `0.10.0` label is a **preview version**, not a claim of final production acceptance.
 
 ## Play
 - Start immediately from three original, genetically distinct newborn candidates or create a completely free custom character.
@@ -9,6 +9,12 @@ Independent browser-based life simulator developed in the NOVA STEAM VERDE colle
 - Use named parents, friends, classmates, partners and children; unlock school, 45 occupations, promotions, voluntary resignation, investment and redemption, home purchase, health, crime and generational progression.
 - Portable, validated JSON life saves. Corrupted local saves can be downloaded for recovery before overwriting. Browser-storage failures are visible; the current life can still be exported.
 - Blue **Zoid** / red **Life** brand. Original pixel art, pt-BR and English. No mandatory sign-in or paid API.
+- Optional original procedural WebAudio cues, ambience and 0–100% volume, always silent until user consent; separate from the life save.
+- Six earned talent tracks with annual practice, milestones and twelve unlocked bilingual narrative scenarios (36 genuine choices).
+- Six paid discovery trips with year limits, real financial and social changes, unique original postcard scenes and a lifelong travel passport.
+- Four original animal companions: adoption, naming, care, energy, affection, upkeep, lifespan and truthful family memorials. Eight species-specific bilingual annual situations add 24 conditional choices with persistent pet consequences.
+- Three real clothing silhouettes (not only colors) per life stage, with a preview-before-payment wardrobe selector and immutable inherited skin/iris/hair identity.
+- Actual companion sprites appear in their own year-decision scenes and the permanent choice journal. Mobile actions have accessible quick links to talents, travel, pets, appearance and legal consequences.
 
 ## Development
 Node.js 22+:
