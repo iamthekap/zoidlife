@@ -62,3 +62,17 @@ test('earned hobbies appear in the final report, while unused paths generate no 
  assert.ok(reportAsText(en,'en').includes('Developed talent: Music · 4 awards'));
  assert.ok(reportAsText(en,'en').includes('Mastered: Music'));
 });
+
+test('earned travel memories are counted by real distinct places without claiming a future journey',()=>{
+ const s={...createSimulation(),travel:{lastAge:39,visits:[
+   {id:'coast',age:23},{id:'history',age:33},{id:'history',age:39}
+ ]}};
+ const pt=makeLifeReport({...input,age:35,simulation:s},'pt-BR');
+ assert.ok(pt.achievements.includes('Descobriu novos destinos: 2'));
+ assert.ok(pt.achievements.includes('Última viagem: Circuito histórico'));
+ const en=makeLifeReport({...input,age:35,simulation:s},'en');
+ assert.ok(en.achievements.includes('Explored destinations: 2'));
+ assert.ok(en.achievements.includes('Latest journey: Historic circuit'));
+ const early=makeLifeReport({...input,age:18,simulation:s},'pt-BR');
+ assert.ok(!early.achievements.some(a=>a.includes('destinos')||a.includes('viagem')));
+});

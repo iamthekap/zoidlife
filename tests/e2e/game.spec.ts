@@ -1610,3 +1610,20 @@ test('journey cards reject underage and unaffordable trips, and restore English 
  expect(s.simulation.credits).toBe(2);
  expect(s.chronicle.at(-1).eventId).toBe('travel-history');
 });
+
+test('save restoration drops future journey visits and preserves actual earlier travel',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=27;s.simulation.balance=14000;s.simulation.travel={
+   lastAge:99,visits:[{id:'family',age:25},{id:'coast',age:62},{id:'expedition',age:18},{id:'history',age:26}]
+  };
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('.journey-memory')).toContainText('2');
+ await expect(page.locator('.journey-travelogue li')).toHaveCount(2);
+ await expect(page.locator('.journey-travelogue')).not.toContainText('Costa do Atlântico');
+ await expect(page.locator('.journey-travelogue')).toContainText('Circuito histórico');
+});

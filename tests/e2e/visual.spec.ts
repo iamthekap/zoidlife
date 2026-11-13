@@ -154,3 +154,24 @@ test('capture soundtrack preferences, earned talents and emotional adult poses i
  await expect(page.locator('.identity-portrait [data-part="age-expression-thoughtful"]')).toBeVisible();
  await page.screenshot({path:'test-results/visual/27-adult-thoughtful-expression-desktop.png',fullPage:false});
 });
+
+test('capture six live-priced postcard destinations and persistent visited passport',async({page})=>{
+ test.setTimeout(100_000);
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ await page.locator('[data-do="preset-0"]').click();
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=24;s.simulation.balance=12000;s.simulation.debt=0;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-journey-card]')).toHaveCount(6);
+ await expect(page.locator('.journey-grid')).toHaveCSS('display','grid');
+ await page.screenshot({path:'test-results/visual/28-six-travel-postcards-mobile.png',fullPage:true});
+ await page.locator('[data-journey="history"]').click();
+ await expect(page.locator('.journey-travelogue li')).toHaveCount(1);
+ await expect(page.locator('[data-journey="history"]')).toBeDisabled();
+ await page.screenshot({path:'test-results/visual/29-visited-travel-passport-mobile.png',fullPage:true});
+});
