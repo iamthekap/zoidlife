@@ -48,7 +48,7 @@ test('child haircut and clothing have deliberately shorter cut and shorts, not a
 
 test('adult clothing varies across identities while genetic hair/eyes remain intact',()=>{
  const styles=new Set();
- const base={...profile,skin:'tan',hair:'short',eyes:'brown'};
+ const base={...profile,skin:'tan',hair:'short',eyes:'brown',outfitStyle:undefined};
  for(const name of ['Ana Moraes','Bia Costa','Joana Souza','Luisa Vale','Davi Cruz','Marcos Dias','Pedro Lima','Maya Neves','Isadora Luz','Caio Melo','Raul Nunes','Alma Duarte']){
   const svg=renderMatureCharacter({...base,name},'adult');
   const kind=/data-part="(adult-blazer|adult-casual-jacket|adult-streetwear)"/.exec(svg)?.[1];
@@ -62,7 +62,7 @@ test('adult clothing varies across identities while genetic hair/eyes remain int
 test('childhood clothing has three distinct shape layers at fixed genetics',()=>{
  const expected=['child-graphic-tee','child-tunic','child-sporty-pullover'];
  for(let i=0;i<3;i++){
-  const svg=renderMatureCharacter(profile,'child','card',i);
+  const svg=renderMatureCharacter({...profile,outfitStyle:undefined},'child','card',i);
   assert.ok(svg.includes('data-part="'+expected[i]+'"'),expected[i]+' absent');
   assert.ok(svg.includes('fill="#ba8362"'));
   assert.ok(svg.includes('fill="#38836b"'));
@@ -132,6 +132,6 @@ test('each saved garment cut changes geometry, not only its palette, in all ages
  assert.ok(sporty.includes('data-part="adult-streetwear"'));
  const classic=renderMatureCharacter({...profile,outfitStyle:'classic'},'adult','card',1);
  assert.ok(classic.includes('data-part="adult-blazer"'));
- const legacy=renderMatureCharacter(profile,'adult','card',1);
+ const legacy=renderMatureCharacter({...profile,outfitStyle:undefined},'adult','card',1);
  assert.ok(legacy.includes('data-outfit-cut="legacy"'));
 });
