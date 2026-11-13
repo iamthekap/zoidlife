@@ -38,7 +38,10 @@ export function normalizePetHousehold(raw:unknown):PetHousehold{
    lastUpdatedAge});
  }
  const maxId=Math.max(0,...pets.map(x=>Number(x.id.slice(4))));
- result.pets=pets.slice(-12);
+ // Extra living pets in hand-edited saves are invalid, not proof of adoptions.
+ // Retain the two most recent living companions and authentic older memorials.
+ let living=0;
+ result.pets=pets.slice(-12).reverse().filter(p=>!p.alive||++living<=2).reverse();
  result.nextId=Math.min(100000,Math.max(maxId+1,1,
   Number.isInteger(input.nextId)?Number(input.nextId):1));
  result.lastAdoptionAge=Math.max(-1,...result.pets.map(x=>x.adoptedAt));

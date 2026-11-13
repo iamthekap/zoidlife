@@ -113,3 +113,16 @@ test('pure companion helpers reject invalid duplicate care without changing save
  assert.equal(grown.maintenance,0);
  assert.equal(grown.state.pets[0].alive,true);
 });
+
+test('malformed saves never manufacture more than two simultaneously living companions',()=>{
+ const household=createPetHousehold();
+ const raw={pets:[]};
+ for(let age=20;age<=23;age++){
+  raw.pets.push({id:'pet-'+(age-19),species:'cat',name:'Gato '+age,adoptedAt:age,
+   ageYears:0,affection:70,energy:90,alive:true,lastCareAge:age,lastUpdatedAge:age});
+ }
+ const clean=normalizePetHousehold(raw);
+ assert.deepEqual(clean.pets.filter(p=>p.alive).map(p=>p.id),['pet-3','pet-4']);
+ assert.equal(canAdoptPet(clean,24,'dog','Rex'),false);
+ assert.equal(clean.nextId,5);
+});
