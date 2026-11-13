@@ -841,7 +841,7 @@ function styleStudio():string {
   '<select data-style-field="'+kind+'">'+values.map(value=>option(value,
    kind==='outfit'?outfitLabel(value):kind==='outfitStyle'?outfitStyleName(value):u(value),value===selected)).join('')+'</select>';
  const enabled=canAction('style');
- return '<section class="style-studio"><h3>'+safe(language==='pt-BR'?'Personalizar aparência':'Customize appearance')+'</h3>'+
+ return '<section id="life-appearance" class="style-studio"><h3>'+safe(language==='pt-BR'?'Personalizar aparência':'Customize appearance')+'</h3>'+
   '<p>'+safe(language==='pt-BR'?'Cabelo e roupa podem mudar sem alterar os traços de nascimento. Uma mudança por ano. A partir da vida adulta, custa 250.':
     'Hair and clothing can change without altering birth traits. One change per year. Adults pay 250.')+'</p>'+
   '<div class="style-fields"><label>'+safe(language==='pt-BR'?'Penteado':'Hair style')+options(HAIRS,p.hair,'hair')+'</label>'+
@@ -897,7 +897,7 @@ function justiceActions():string {
   ' — '+safe(justiceLabel(h.id,language))+': '+
   safe(h.caught?(language==='pt-BR'?'Condenado':'Convicted'):(language==='pt-BR'?'Sem condenação':'Not convicted'))+
   '</li>').join('');
- return '<section class="justice-board"><h3>'+safe(title)+'</h3><p>'+safe(intro)+'</p>'+
+ return '<section id="life-justice" class="justice-board"><h3>'+safe(title)+'</h3><p>'+safe(intro)+'</p>'+
   '<div class="justice-status">'+safe(legalStatus(legal,age,language))+
   ' · '+safe(language==='pt-BR'?'Condenações':'Convictions')+': '+legal.convictions+'</div>'+
   '<div class="justice-options">'+options+'</div>'+
@@ -941,7 +941,7 @@ function renderHobbyStudio():string{
        used>=2?(pt?'Limite anual atingido':'Yearly limit reached'):
        pt?'Praticar agora':'Practice now')+'</button></article>';
  }).join('');
- return '<section class="talent-studio" aria-label="'+safe(pt?'Talentos e hobbies':'Talents and hobbies')+'">'+
+ return '<section id="life-talents" class="talent-studio" aria-label="'+safe(pt?'Talentos e hobbies':'Talents and hobbies')+'">'+
   '<div class="talent-intro"><h3>'+safe(pt?'Talentos que crescem com você':'Talents that grow with you')+'</h3>'+
   '<p>'+safe(pt?'Escolha até duas atividades por ano. Seu progresso abre caminhos de carreira, gera conquistas e muda sua história.':
      'Choose up to two activities per year. Progress unlocks career paths, earns awards and changes your story.')+'</p>'+
@@ -994,7 +994,7 @@ function renderTravelStudio():string{
      destination(diary.visits[diary.visits.length-1].id)?.en)??'')+'</p>':
   '<p class="journey-memory">'+safe(pt?'Sua próxima viagem ainda está por acontecer.':
     'Your next journey is still ahead of you.')+'</p>';
- return '<section class="travel-studio"><div class="travel-intro"><h3>'+
+ return '<section id="life-travel" class="travel-studio"><div class="travel-intro"><h3>'+
   safe(pt?'Viagens e descobertas':'Travel and discovery')+'</h3>'+
   '<p>'+safe(pt?'Escolha destinos que caibam no seu saldo. Cada viagem custa dinheiro, muda sua vida e fica no diário.':
     'Choose journeys you can afford. Travel costs money, changes your life and stays in your journal.')+'</p>'+
@@ -1061,7 +1061,7 @@ function renderPetStudio():string{
       safe(p.lastCareAge===age?(pt?'Cuidado neste ano':'Cared for this year'):pt?'Cuidar':'Care')+'</button>':
      '<span class="pet-memorial">'+safe(pt?'Em memória':'In memory')+'</span>')+'</article>';
   }).join('')+'</div></div>':'';
- return '<section class="pet-studio" aria-label="'+safe(pt?'Animais de estimação':'Animal companions')+'">'+
+ return '<section id="life-pets" class="pet-studio" aria-label="'+safe(pt?'Animais de estimação':'Animal companions')+'">'+
   '<div class="pet-intro"><h3>'+safe(pt?'Companheiros de vida':'Lifelong companions')+'</h3>'+
   '<p>'+safe(pt?'Adote até dois animais. Eles envelhecem, precisam de cuidados e deixam lembranças na sua história.':
     'Adopt up to two pets. They age, need care and create memories in your story.')+'</p>'+
@@ -1104,6 +1104,20 @@ function carePetFromUI(id:string):void{
  for(const note of result.notes)life.history.push(life.age+': '+caption(note));
  saveLife();tab='actions';render();
 }
+function activityQuickLinks():string{
+ if(!life)return '';
+ const pt=language==='pt-BR';
+ const links:[string,string][]=[
+  ...(life.age>=6?[['#life-talents',pt?'Talentos':'Talents'] as [string,string]]:[]),
+  ...(life.age>=18?[['#life-travel',pt?'Viagens':'Travel'] as [string,string]]:[]),
+  ...(life.age>=8?[['#life-pets',pt?'Animais':'Pets'] as [string,string]]:[]),
+  ...(life.age>=12?[['#life-appearance',pt?'Meu visual':'My style'] as [string,string],
+    ['#life-justice',pt?'Consequências':'Consequences'] as [string,string]]:[])
+ ];
+ if(!links.length)return '';
+ return '<nav class="activity-quick-links" aria-label="'+safe(pt?'Ir para a atividade':'Jump to activity')+'">'+
+  links.map(([href,label])=>'<a href="'+href+'">'+safe(label)+'</a>').join('')+'</nav>';
+}
 function renderActions(): string {
   if(!life)return '';
   const note=life.pendingEvent?u("blockedEvent"):(language==="pt-BR"?"Você pode fazer atividades diferentes no mesmo ano. Cada uma pode ser realizada uma vez por ano.":"Do different activities in the same year. Each activity is available once per year.");
@@ -1114,6 +1128,7 @@ function renderActions(): string {
        life!.age<16?['study','socialize','care','train','style','mystic'].includes(a):
        life!.age<18?!['home','child','invest','withdraw','retire'].includes(a):true)
       .map(actionButton).join('')+'</div>'+
+    activityQuickLinks()+
     (isMysticOrigin(life.profile)?'<div class="special-origin"><strong>'+safe(mysticNatureLabel(life.profile.nature!,language))+
     '</strong><span>'+safe(language==='pt-BR'?'Domínio místico ':'Mystic mastery ')+(life.simulation.mysticMastery??0)+'/100</span></div>':'')+
     renderHobbyStudio()+renderTravelStudio()+renderPetStudio()+styleStudio()+(life.age>=12?justiceActions():'')+'</section>';
