@@ -1828,3 +1828,39 @@ test('a real paid trip keeps its distinct visual destination in the permanent il
  expect(s.simulation.travel.visits[0]).toMatchObject({id:'coast',age:26});
  expect(s.simulation.balance).toBe(5800);
 });
+
+test('compact 320px viewport keeps sounds, pet adoption, wardrobe and travel controls reachable',async({page})=>{
+ await page.setViewportSize({width:320,height:720});
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=28;saved.simulation.balance=9000;saved.pendingEvent=null;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-journey-card]')).toHaveCount(6);
+ await expect(page.locator('[data-pet-adoption]')).toHaveCount(4);
+ await expect(page.locator('[data-style-field="outfitStyle"]')).toBeVisible();
+ await expect(page.locator('.activity-quick-links a')).toHaveCount(5);
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(321);
+ await page.locator('[data-pet-adopt="bird"]').click();
+ await expect(page.locator('[data-pet-card="pet-1"]')).toBeVisible();
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(321);
+ await page.locator('.game-menu').click();
+ await expect(page.locator('[data-sound-enabled]')).toBeVisible();
+ await expect(page.locator('[data-sound-volume]')).toBeVisible();
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(321);
+});
+test('tablet viewport supports illustrated modal, growing age and life-stage gallery without clipping',async({page})=>{
+ await page.setViewportSize({width:768,height:1024});
+ await chooseBaby(page);
+ await page.locator('.dock-age').click();
+ await expect(page.locator('.event-modal-overlay')).toBeVisible();
+ await expect(page.locator('.event-modal-overlay [data-choice]')).toHaveCount(3);
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(769);
+ await page.locator('[data-choice="1"]').click();
+ await expect(page.locator('.event-modal-overlay')).toHaveCount(0);
+ await expect(page.locator('.story-chapters')).toBeVisible();
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(769);
+});
