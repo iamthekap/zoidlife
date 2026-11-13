@@ -38,3 +38,28 @@ test('unknown or malformed ledgers cannot create arbitrary keys',()=>{
  assert.equal(loaded.actionLedger.invest,undefined);
  assert.equal(Object.hasOwn(loaded.actionLedger,'extra'),false);
 });
+
+test('age rules apply in the simulation even when UI is bypassed or a save is manipulated',()=>{
+ const s=createSimulation();
+ const restricted=[
+  [0,'job'],[4,'study'],[5,'train'],[10,'style'],[10,'crime'],[15,'budget'],
+  [15,'job'],[15,'work'],[17,'invest'],[18,'home'],[19,'child'],[59,'retire']
+ ];
+ for(const [age,action] of restricted){
+  assert.equal(canTakeAction(s,age,action),false,age+':'+action);
+  const result=takeAction({...s,balance:100000},stats,age,action);
+  assert.equal(result.ok,false,age+':'+action);
+ }
+ assert.equal(canTakeAction(s,0,'care'),true);
+ assert.equal(canTakeAction(s,0,'socialize'),true);
+ assert.equal(canTakeAction(s,6,'study'),true);
+ assert.equal(canTakeAction(s,12,'style'),true);
+ assert.equal(canTakeAction(s,18,'invest'),true);
+ assert.equal(canTakeAction(s,21,'home'),true);
+});
+test('socializing with a dating partner never silently marries them',()=>{
+ let s={...createSimulation(),relationship:'dating',partner:88};
+ s=takeAction(s,stats,26,'socialize').state;
+ assert.equal(s.relationship,'dating');
+ assert.equal(s.partner,100);
+});

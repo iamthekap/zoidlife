@@ -75,3 +75,88 @@ test('after a breakup a later relationship introduces a different partner',()=>{
  assert.equal(next.social.people.filter(p=>p.role==='partner').length,1);
  assert.equal(next.social.people.filter(p=>p.role==='friend').length,1);
 });
+
+test('friendship milestones create persistent named friends with consistent local identity',()=>{
+ const fresh=initialSocial(player);
+ const first=syncSocial(fresh,player,12,'single',0,0,42);
+ const friends=first.social.people.filter(p=>p.role==='friend');
+ assert.equal(friends.length,1);
+ assert.equal(friends[0].profile.city,player.city);
+ assert.equal(friends[0].profile.country,player.country);
+ assert.equal(first.notes.includes('friend-introduced'),true);
+ const again=syncSocial(first.social,player,13,'single',0,0,42);
+ assert.equal(again.social.people.filter(p=>p.role==='friend').length,1);
+ const advanced=syncSocial(again.social,player,20,'single',0,0,90);
+ assert.equal(advanced.social.people.filter(p=>p.role==='friend').length,3);
+ assert.equal(new Set(advanced.social.people.map(p=>p.id)).size,advanced.social.people.length);
+});
+test('different social actions change one person without replacing anybody else',()=>{
+ const initial=initialSocial(player);
+ const first=initial.people[0],other=initial.people[1];
+ const gifted=spendSocialTime(initial,first.id,10,22);
+ assert.equal(gifted.people[0].closeness,Math.min(100,first.closeness+22));
+ assert.equal(gifted.people[1].closeness,other.closeness);
+ assert.equal(gifted.people[0].lastSharedAge,10);
+});
+
+test('normalized relationship memories survive save migration but invalid records do not',()=>{
+ const social=initialSocial(player);
+ social.people[0].memories=[
+  {age:13,kind:'compliment',bondChange:12},
+  {age:13,kind:'<script>',bondChange:999}
+ ];
+ const loaded=normalizeSocial(social,player,15);
+ assert.deepEqual(loaded.people[0].memories,[{age:13,kind:'compliment',bondChange:12}]);
+ assert.equal(loaded.people[1].memories?.length,0);
+});
+
+test('new parents have distinct role-consistent first names across many procedural births',()=>{
+ for(let i=0;i<120;i++){
+  const playerName='Luiza Costa';
+  const state=initialSocial({...player,name:playerName});
+  const [mother,father]=state.people;
+  const firsts=[mother.profile.name.split(' ')[0],father.profile.name.split(' ')[0]];
+  assert.equal(mother.profile.gender,'woman');
+  assert.equal(father.profile.gender,'man');
+  assert.notEqual(firsts[0],firsts[1]);
+  assert.ok(!firsts.includes('Luiza'));
+  assert.ok(mother.profile.name.endsWith('Costa'));
+  assert.ok(father.profile.name.endsWith('Costa'));
+ }
+});
+
+test('schoolmates enter at six, remain in the school story and cannot duplicate',()=>{
+ const social=initialSocial(player);
+ assert.equal(social.people.some(p=>p.role==='classmate'),false);
+ const age5=syncSocial(social,player,5,'single',0,0);
+ assert.equal(age5.social.people.some(p=>p.role==='classmate'),false);
+ const age6=syncSocial(age5.social,player,6,'single',0,0);
+ assert.equal(age6.notes.includes('classmate-introduced'),true);
+ const peer=age6.social.people.find(p=>p.role==='classmate');
+ assert.ok(peer);
+ assert.equal(personAge(peer,6),6);
+ assert.equal(peer.profile.city,player.city);
+ assert.equal(peer.profile.country,player.country);
+ const future=syncSocial(age6.social,player,17,'single',0,0);
+ assert.equal(future.social.people.filter(p=>p.role==='classmate').length,1);
+ const adult=normalizeSocial(future.social,player,22);
+ assert.equal(adult.people.filter(p=>p.role==='classmate').length,0);
+ assert.equal(adult.people.filter(p=>p.id==='classmate-school'&&p.role==='friend').length,1);
+});
+
+test('graduation converts the same schoolmate into a friend, preserving memories and genetic profile',()=>{
+ const stage=syncSocial(initialSocial(player),player,6,'single',0,0,0);
+ const peer=stage.social.people.find(p=>p.id==='classmate-school');
+ peer.memories=[{age:15,kind:'compliment',bondChange:15}];
+ peer.closeness=74;
+ const grad=syncSocial(stage.social,player,18,'single',0,0,0);
+ const adult=grad.social.people.find(p=>p.id==='classmate-school');
+ assert.equal(adult.role,'friend');
+ assert.equal(adult.profile.name,peer.profile.name);
+ assert.equal(adult.closeness,74);
+ assert.deepEqual(adult.memories,[{age:15,kind:'compliment',bondChange:15}]);
+ assert.equal(grad.social.people.filter(p=>p.id==='classmate-school').length,1);
+ const later=syncSocial(grad.social,player,35,'single',0,0,0);
+ assert.equal(later.social.people.filter(p=>p.id==='classmate-school').length,1);
+ assert.equal(later.notes.includes('classmate-graduated'),false);
+});

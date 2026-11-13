@@ -4,6 +4,10 @@ export type Skin = 'light' | 'tan' | 'brown' | 'deep';
 export type Hair = 'short' | 'waves' | 'curls' | 'long';
 export type HairColor = 'black' | 'brown' | 'blonde' | 'red';
 export type Eye = 'brown' | 'blue' | 'green';
+export type Outfit = 'blue' | 'red' | 'mint' | 'ochre' | 'purple' | 'rose';
+export type OutfitStyle = 'classic' | 'casual' | 'sporty';
+export type Origin = 'generated' | 'custom';
+export type Nature = 'human' | 'vampire' | 'werewolf' | 'mage';
 export type Country = 'BR' | 'US' | 'PT' | 'UK' | 'CA';
 export type CharacterProfile = {
   name: string;
@@ -14,6 +18,12 @@ export type CharacterProfile = {
   hair: Hair;
   hairColor: HairColor;
   eyes: Eye;
+  /** Optional to retain stable appearance of saves created before the outfit selector. */
+  outfit?: Outfit;
+  /** Optional to preserve silhouettes of legacy saves until the player edits the look. */
+  outfitStyle?: OutfitStyle;
+  origin?: Origin;
+  nature?: Nature;
   birthday: number;
   birthMonth: number;
 };
@@ -29,6 +39,9 @@ export const SKINS: Skin[] = ['light', 'tan', 'brown', 'deep'];
 export const HAIRS: Hair[] = ['short', 'waves', 'curls', 'long'];
 export const HAIR_COLORS: HairColor[] = ['black', 'brown', 'blonde', 'red'];
 export const EYES: Eye[] = ['brown', 'blue', 'green'];
+export const OUTFITS: Outfit[]=['blue','red','mint','ochre','purple','rose'];
+export const OUTFIT_STYLES: OutfitStyle[]=['classic','casual','sporty'];
+export const NATURES: Nature[]=['human','vampire','werewolf','mage'];
 export const GENDERS: Gender[] = ['woman', 'man', 'nonbinary'];
 const firstNames: Record<Gender, string[]> = {
   woman: ['Luiza','Luna','Marina','Camila','Bianca','Sofia','Elisa','Isabela','Nina','Cecília'],
@@ -43,15 +56,42 @@ export function randomCharacter(): CharacterProfile {
   const country=pick(COUNTRIES);
   return { name: pick(firstNames[gender]) + ' ' + pick(surnames), gender,
     country, city: pick(CITIES[country]), skin: pick(SKINS), hair: pick(HAIRS),
-    hairColor: pick(HAIR_COLORS), eyes: pick(EYES),
+    hairColor: pick(HAIR_COLORS), eyes: pick(EYES), outfit:pick(OUTFITS),outfitStyle:pick(OUTFIT_STYLES),origin:'generated',nature:'human',
     birthday: 1 + Math.floor(Math.random()*28), birthMonth: 1 + Math.floor(Math.random()*12) };
 }
+/** Preserves procedural genetics but creates names appropriate to the chosen identity.
+ * Prevents duplicate first names in a newly created family without rewriting old saves. */
+export function randomCharacterForGender(gender:Gender,excludedFirstNames:readonly string[]=[]):CharacterProfile {
+ const profile=randomCharacter();
+ const excluded=new Set(excludedFirstNames.map(n=>n.trim().toLocaleLowerCase()));
+ const candidates=firstNames[gender].filter(name=>!excluded.has(name.toLocaleLowerCase()));
+ const first=pick(candidates.length?candidates:firstNames[gender]);
+ return {...profile,gender,name:first+' '+pick(surnames)};
+}
+
 export function randomCandidates(count = 3): CharacterProfile[] {
-  const names = new Set<string>();
-  const result: CharacterProfile[] = [];
-  while(result.length < Math.min(8, Math.max(1, count))) {
-    const candidate = randomCharacter();
-    if (!names.has(candidate.name)) { names.add(candidate.name); result.push(candidate); }
+  const total=Math.min(8,Math.max(1,Math.floor(Number.isFinite(count)?count:3)));
+  const names=new Set<string>();
+  const result:CharacterProfile[]=[];
+  // Every trio begins with three different skin tones and hairstyles;
+  // player appearance, gender, city and eye color remain independently generated.
+  const shuffle=<T>(arr:readonly T[]):T[]=>{
+    const copy=[...arr];
+    for(let i=copy.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));[copy[i],copy[j]]=[copy[j],copy[i]];
+    }
+    return copy;
+  };
+  const skinOrder=shuffle(SKINS),hairOrder=shuffle(HAIRS),colors=shuffle(HAIR_COLORS),outfitOrder=shuffle(OUTFITS);
+  for(let i=0;i<total;i++){
+    let candidate=randomCharacter();
+    for(let tries=0;names.has(candidate.name)&&tries<50;tries++)candidate=randomCharacter();
+    if(names.has(candidate.name))candidate={...candidate,name:candidate.name+' '+(i+1)};
+    const profile={...candidate,skin:skinOrder[i%skinOrder.length],
+      hair:hairOrder[i%hairOrder.length],hairColor:colors[i%colors.length],outfit:outfitOrder[i%outfitOrder.length],
+      outfitStyle:OUTFIT_STYLES[i%OUTFIT_STYLES.length]};
+    names.add(profile.name);
+    result.push(profile);
   }
   return result;
 }
@@ -68,6 +108,10 @@ export function normalizeProfile(raw: unknown, fallbackName='Pessoa'): Character
     hair: isOneOf(r.hair,HAIRS) ? r.hair : defaults.hair,
     hairColor: isOneOf(r.hairColor, HAIR_COLORS) ? r.hairColor : defaults.hairColor,
     eyes: isOneOf(r.eyes,EYES) ? r.eyes : defaults.eyes,
+    ...(isOneOf(r.outfit,OUTFITS)?{outfit:r.outfit}:{}),
+    ...(isOneOf(r.outfitStyle,OUTFIT_STYLES)?{outfitStyle:r.outfitStyle}:{}),
+    origin:r.origin==='custom'?'custom':'generated',
+    nature:r.origin==='custom'&&isOneOf(r.nature,NATURES)?r.nature:'human',
     birthday: typeof r.birthday === 'number' && r.birthday >= 1 && r.birthday <= 28 ? Math.floor(r.birthday) : defaults.birthday,
     birthMonth: typeof r.birthMonth === 'number' && r.birthMonth >= 1 && r.birthMonth <= 12 ? Math.floor(r.birthMonth) : defaults.birthMonth
   };

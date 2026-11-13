@@ -24,8 +24,9 @@ test('one baby portrait is a full-body seated character',()=>{
  const svg=portraitLife(character,0,'card');
  assert.ok(svg.includes('viewBox="0 0 144 176"'));
  assert.ok(svg.includes('stage-baby'));
- assert.ok(svg.includes('y="159"'));
- assert.ok(svg.includes('y="126"'));
+ assert.ok(svg.includes('data-style="clean-pixel-simulation-v2"'));
+ assert.ok(svg.includes('data-part="seated-onesie"'));
+ assert.ok(svg.includes('data-part="infant-hands"') || svg.includes('data-part="seated-onesie"'));
 });
 test('distinct features produce distinct yet deterministic sprites',()=>{
  const original=portraitLife(character,0);
@@ -66,4 +67,23 @@ test('babies inherit colors and hair identity while hair remains infant-style',(
  assert.notEqual(baby,portraitLife({...character,skin:'deep'},0));
  assert.notEqual(baby,portraitLife({...character,eyes:'blue'},0));
  assert.notEqual(baby,portraitLife(character,4));
+});
+
+test('real health and happiness select visible expressions without rewriting identity genes',async()=>{
+ const {moodFromStats}=await import('../src/life-art.ts');
+ const happy=moodFromStats({happiness:92,health:90});
+ const worried=moodFromStats({happiness:12,health:90});
+ const focused=moodFromStats({happiness:54,health:95});
+ const curious=moodFromStats({happiness:52,health:61});
+ assert.deepEqual([happy,worried,focused,curious],['cheerful','thoughtful','determined','curious']);
+ const h=portraitLife(character,28,'card',happy),w=portraitLife(character,28,'card',worried);
+ assert.notEqual(h,w);
+ assert.ok(h.includes('data-part="age-expression-cheerful"'));
+ assert.ok(w.includes('data-part="age-expression-thoughtful"'));
+ assert.equal(avatarFingerprint(character),avatarFingerprint({...character}));
+ for(const svg of [h,w]){
+  assert.ok(svg.includes('data-part="age-face"'));
+  assert.ok(svg.includes('data-part="legs"'));
+  assert.ok(svg.includes('#38836b'));assert.ok(svg.includes('#d3a45b'));
+ }
 });

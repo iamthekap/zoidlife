@@ -1,14 +1,31 @@
 import "./style.css";
-import { randomCandidates, randomCharacter, normalizeProfile, portraitSvg, CITIES, COUNTRIES, GENDERS, SKINS, HAIRS, HAIR_COLORS, EYES, type Country, type CharacterProfile } from "./characters";
+import { randomCandidates, randomCharacter, normalizeProfile, portraitSvg, CITIES, COUNTRIES, GENDERS, SKINS, HAIRS, HAIR_COLORS, EYES, OUTFITS, OUTFIT_STYLES, NATURES, type Country, type CharacterProfile } from "./characters";
 import { extraEvents, eventAllowed } from "./events-plus";
-import { extendedEvents, extendedAllowed } from "./events-extended";
+import { extendedEvents, extendedAllowed, type Scenario } from "./events-extended";
+import { advancedEvents } from "./events-advanced";
+import {careerEvents} from "./career-events";
+import {isMysticOrigin,practiceMystic,mysticEvents,mysticNatureLabel} from "./mystic";
 import { selectEvent, recordEvent, migrateLedger, type EventLedger } from "./event-engine";
 import { eventScene, iconSvg } from "./event-scenes";
-import { portraitLife, lifeStage } from "./life-art";
-import { validateLifeSave, serializeLife, saveFilename } from "./save-io";
-import { initialSocial, normalizeSocial, syncSocial, spendSocialTime, personAge, personLabel, type SocialState } from "./social";
+import { portraitLife, lifeStage,moodFromStats } from "./life-art";
+import { renderStoryboardTimeline } from "./storyboard";
+import {normalizeChronicle,livedHistory,type ChronicleEvent} from "./chronicle";
+import {normalizeStoryArc,startStoryArc,storyArcEvent,afterStoryArcChoice,storyArcAllowed,type StoryArc} from "./story-arcs";
+import { makeLifeReport,reportAsText } from "./life-summary";
+import {GameSound} from "./audio";
+import {HOBBY_IDS,canPracticeHobby,hobbyName,hobbyCost,hobbyCreditAlternative,type HobbyId} from "./hobbies";
+import {hobbyEvents} from "./hobby-events";
+import {DESTINATIONS,destination,canTravel,normalizeTravelState,type JourneyId} from "./travel";
+import {PET_SPECIES,PET_COST,petLabel,petPortrait,canAdoptPet,normalizePetHousehold,type PetSpecies} from "./pets";
+import {petStoryEvents,applyPetStoryChoice} from "./pet-events";
+import { healthLabel,type ConditionId } from "./health";
+import { OFFENSES,justiceLabel,legalStatus,type OffenseId } from "./justice";
+import { CAREERS,careerById,careerAvailable,careerLabel,careerRequirements,type OccupationId } from "./careers";
+import { validateLifeSave, serializeLife, saveFilename, MAX_SAVE_BYTES } from "./save-io";
+import { initialSocial, normalizeSocial, syncSocial, personAge, personLabel, type SocialState } from "./social";
+import {SOCIAL_KINDS,interactionLabel,interactionCost,canInteract,resolveSocialEncounter,recentSocialMemory,type Lang} from "./social-interactions";
 
-import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, type Simulation, type Action, type WorldImpact, canTakeAction } from "./simulation";
+import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, applyCareer, applyOffense, practiceHobby, takeJourney, adoptCompanion,careForCompanion, type Simulation, type Action, type WorldImpact, canTakeAction, STUDY_TRACKS, selectStudyTrack, type StudyTrack } from "./simulation";
 
 type Language = "pt-BR" | "en";
 type StatKey = "happiness" | "health" | "smarts" | "looks";
@@ -22,6 +39,8 @@ type Life = {
   stats: Stats;
   pendingEvent: LifeEvent | null;
   history: string[];
+  chronicle: ChronicleEvent[];
+  storyArc: StoryArc|null;
   seenEventIds: string[];
   eventLedger: EventLedger;
   lastEventId: string | null;
@@ -29,6 +48,8 @@ type Life = {
   profile: CharacterProfile;
   familyMembers: {name:string; kind:"mother" | "father"; birthAge:number}[];
   social: SocialState;
+  /** Only verified predecessor data is retained; a child may begin a new playable generation. */
+  ancestors?: {name:string;age:number;birthYear:number;career:string}[];
 };
 
 const copy = {
@@ -62,7 +83,7 @@ const copy = {
         { label: "Praticar por conta própria", result: "Você aprendeu no seu ritmo e desenvolveu disciplina.", effects: { smarts: 5, happiness: 3 } },
         { label: "Deixar para outra hora", result: "Você preferiu manter sua rotina como estava.", effects: { happiness: 1 } }
       ]},
-      { id: "first-job", minAge: 15, maxAge: 19, title: "Seu primeiro dinheiro", description: "Surge a oportunidade de fazer um trabalho temporário e ganhar seu próprio dinheiro. Isso pode exigir abrir mão de parte do seu tempo livre.", choices: [
+      { id: "first-job", minAge: 16, maxAge: 19, title: "Seu primeiro dinheiro", description: "Surge a oportunidade de fazer um trabalho temporário e ganhar seu próprio dinheiro. Isso pode exigir abrir mão de parte do seu tempo livre.", choices: [
         { label: "Aceitar o trabalho", result: "Você ganhou experiência e sentiu orgulho de conquistar seu próprio dinheiro.", effects: { happiness: 5, smarts: 4, health: -2 } },
         { label: "Continuar focando nos estudos", result: "Você decidiu priorizar sua formação neste momento.", effects: { smarts: 6 } },
         { label: "Aproveitar o tempo livre", result: "Você escolheu descansar e passar mais tempo com amigos.", effects: { happiness: 6, health: 2 } }
@@ -114,7 +135,7 @@ const copy = {
         { label: "Practice on your own", result: "You learned at your own pace and developed discipline.", effects: { smarts: 5, happiness: 3 } },
         { label: "Leave it for another time", result: "You decided to keep your routine as it was.", effects: { happiness: 1 } }
       ]},
-      { id: "first-job", minAge: 15, maxAge: 19, title: "Your first earnings", description: "A temporary job opportunity comes up. It could mean earning your own money, but giving up some free time.", choices: [
+      { id: "first-job", minAge: 16, maxAge: 19, title: "Your first earnings", description: "A temporary job opportunity comes up. It could mean earning your own money, but giving up some free time.", choices: [
         { label: "Take the job", result: "You gained experience and felt proud to earn your own money.", effects: { happiness: 5, smarts: 4, health: -2 } },
         { label: "Focus on your studies", result: "You decided to prioritize your education for now.", effects: { smarts: 6 } },
         { label: "Enjoy your free time", result: "You chose to rest and spend more time with friends.", effects: { happiness: 6, health: 2 } }
@@ -139,18 +160,26 @@ const copy = {
 } satisfies Record<Language, any>;
 
 
+declare const __ZOID_BUILD_COMMIT__: string;
 const STORAGE_KEY = "zoid-life-save-v1";
 const LANG_KEY = "zoid-life-language";
 type Scene = "welcome" | "selection" | "custom" | "playing";
 type Tab = "story" | "actions" | "people" | "career" | "finances";
-let language: Language = localStorage.getItem(LANG_KEY) === "en" ? "en" : "pt-BR";
+let language: Language = (()=>{try{return localStorage.getItem(LANG_KEY)==='en'?'en':'pt-BR';}
+  catch{return 'pt-BR';}})();
+let loadError=false;
+let recoveryAvailable=false;
 let life: Life | null = loadLife();
 let scene: Scene = "welcome";
 let tab: Tab = "story";
 let menuOpen=false;
+let chaptersOpen=true;
+let journalVisibleCount=60;
+const sound=new GameSound();
 let menuError="";
+let saveError=false;
 let candidates = randomCandidates(3);
-let custom = { ...randomCharacter(), name: "" };
+let custom:CharacterProfile = { ...randomCharacter(), name: "", origin:"custom", nature:"human" };
 let customStats: Stats = {happiness: 70, health: 80, smarts: 55, looks: 60};
 const titles: Record<Language, Record<string,string>> = {
   "pt-BR": {
@@ -173,8 +202,12 @@ const titles: Record<Language, Record<string,string>> = {
     overview:"Indicadores", actionOnce:"Você pode fazer uma atividade por ano.",
     blockedEvent:"Resolva o acontecimento atual antes de realizar uma atividade.",
     actionDone:"Você já escolheu uma atividade neste ano.",
-    study:"Estudar", job:"Procurar emprego", socialize:"Socializar",
-    invest:"Investir", home:"Comprar imóvel", child:"Ter um filho",
+    train:"Treinar esporte",trainInfo:"Evolua sua aptidão para carreiras esportivas.",
+    mystic:"Exercitar poderes",mysticInfo:"Treine habilidades únicas da sua origem.",
+    work:"Dedicar-se ao trabalho",workInfo:"Aumente a experiência e conquiste promoções.",
+    style:"Mudar aparência",styleInfo:"Mude roupas ou cabelo sem alterar sua história.",
+    study:"Estudar", job:"Procurar emprego", resign:"Pedir demissão",resignInfo:"Encerre seu emprego atual; experiência anterior será preservada.", socialize:"Socializar",
+    invest:"Investir", withdraw:"Resgatar investimento",withdrawInfo:"Traga até 5 mil de volta para o saldo sem criar renda artificial.", home:"Comprar imóvel", child:"Ter um filho",
     care:"Cuidar da saúde", budget:"Organizar finanças", retire:"Aposentar",
     studyInfo:"Aprenda e avance na formação.", jobInfo:"Tente conseguir uma ocupação compatível com sua experiência.",
     socializeInfo:"Fortaleça os vínculos que importam.", careInfo:"Melhore o bem-estar, com custos quando adulto.",
@@ -232,8 +265,12 @@ const titles: Record<Language, Record<string,string>> = {
     overview:"Vitals", actionOnce:"You can take one activity per year.",
     blockedEvent:"Resolve your current event before taking an activity.",
     actionDone:"You've already completed an activity this year.",
-    study:"Study", job:"Find work", socialize:"Socialize",
-    invest:"Invest", home:"Buy a home", child:"Have a child", care:"Look after health", budget:"Manage finances", retire:"Retire",
+    train:"Sports training",trainInfo:"Build the athletic skill needed for sports careers.",
+    mystic:"Practice powers",mysticInfo:"Develop abilities from your special origin.",
+    work:"Work harder",workInfo:"Build experience and earn promotions.",
+    style:"Change appearance",styleInfo:"Change clothes or hair without losing your story.",
+    study:"Study", job:"Find work",resign:"Resign",resignInfo:"Leave your current job while keeping earned experience.", socialize:"Socialize",
+    invest:"Invest",withdraw:"Withdraw investment",withdrawInfo:"Move up to 5,000 invested units into your balance without artificial income.", home:"Buy a home", child:"Have a child", care:"Look after health", budget:"Manage finances", retire:"Retire",
     studyInfo:"Keep learning and work toward your degree.", jobInfo:"Find work that matches your experience.",
     socializeInfo:"Strengthen bonds with people who matter.", careInfo:"Improve well-being, with costs for adults.",
     budgetInfo:"Use savings to pay down debts.", retireInfo:"Leave your job behind and enter a new chapter.",
@@ -274,30 +311,83 @@ function safe(value: string): string {
   return String(value).replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char] || char));
 }
 function clamp(n: number): number { return Math.max(0,Math.min(100,Math.round(n))); }
+/** Persist only the chosen event identifier; rebuild choices from trusted game data.
+ * An unavailable legacy event becomes a quiet year instead of an untrusted payload.
+ */
+function restorePendingEvent(raw:unknown,profile:CharacterProfile,simulation:Simulation,age:number,arc:StoryArc|null):LifeEvent|null{
+ if(!raw||typeof raw!=='object')return null;
+ const id=(raw as Partial<LifeEvent>).id;
+ if(typeof id!=='string')return quietEvent();
+ if(id==='quiet-year')return quietEvent();
+ if(id.startsWith('arc-')){
+  const episode=storyArcAllowed(arc,simulation,age)?storyArcEvent(arc,language):null;
+  return episode?.id===id&&age===episode.minAge?episode:quietEvent();
+ }
+ const pool:LifeEvent[]=[...(copy[language].events as LifeEvent[]),...extraEvents(language),
+  ...extendedEvents(language),...advancedEvents(language),...hobbyEvents(language,simulation),...petStoryEvents(language,simulation,age),...mysticEvents(language,profile),
+  ...careerEvents(language,simulation)];
+ const match=pool.find(x=>x.id===id);
+ if(!match||age<match.minAge||age>match.maxAge)return quietEvent();
+ // A valid event ID alone does not prove it is playable in this character's
+ // current career, family or educational context.
+ if(!eventAllowed(match,simulation))return quietEvent();
+ if('condition' in match&&!extendedAllowed(match as Scenario,simulation))return quietEvent();
+ return match;
+}
 function loadLife(): Life|null {
   try {
     const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return null;
+    recoveryAvailable=true;
     const r=JSON.parse(raw) as Partial<Life>;
-    if(typeof r.name!=='string' || !r.name.trim() || typeof r.age!=='number' || !Number.isInteger(r.age) || !r.stats) return null;
+    if(!r||typeof r.name!=='string' || !r.name.trim() || typeof r.age!=='number' || !Number.isInteger(r.age) || !r.stats){loadError=true;return null;}
     const stats=Object.fromEntries((['happiness','health','smarts','looks'] as StatKey[]).map(k => [k,clamp(Number(r.stats?.[k]??50))])) as Stats;
     const name=r.name.trim().slice(0,52);
     const fallbackFamily=makeFamily(name);
     const profile=normalizeProfile(r.profile,name);
     const simulation=loadSimulation(r.simulation);
-    return { name,birthYear:Number.isInteger(r.birthYear)?Number(r.birthYear):new Date().getFullYear(),
+    // The future is not a lived achievement, even in manually altered/imported saves.
+    simulation.travel=normalizeTravelState({visits:simulation.travel.visits.filter(v=>v.age<=Number(r.age))});
+    simulation.pets=normalizePetHousehold({nextId:simulation.pets.nextId,
+     pets:simulation.pets.pets.filter(p=>p.adoptedAt<=Number(r.age)).map(p=>({
+       ...p,
+       lastCareAge:p.lastCareAge<=Number(r.age)?p.lastCareAge:-1,
+       lastUpdatedAge:Math.min(p.lastUpdatedAge,Number(r.age)),
+       ageYears:Math.min(p.ageYears,Math.max(0,Number(r.age)-p.adoptedAt))
+     }))});
+    const history=Array.isArray(r.history)?r.history.filter((x):x is string=>typeof x==='string').slice(-6000):[];
+    const recoveredArc=normalizeStoryArc(r.storyArc,Math.max(0,Math.min(110,r.age)));
+    const storyArc=storyArcAllowed(recoveredArc,simulation,r.age)?recoveredArc:null;
+    const restored:Life={ name,birthYear:Number.isInteger(r.birthYear)?Number(r.birthYear):new Date().getFullYear(),
       age:Math.min(110,Math.max(0,r.age)),stats,
-      pendingEvent:r.pendingEvent && typeof r.pendingEvent==='object' ? r.pendingEvent:null,
-      history:Array.isArray(r.history)?r.history.filter((x):x is string=>typeof x==='string').slice(-300):[],
+      pendingEvent:restorePendingEvent(r.pendingEvent,profile,simulation,r.age,storyArc),storyArc,
+      history,chronicle:normalizeChronicle(r.chronicle,history,Math.max(0,Math.min(110,r.age))),
       seenEventIds:Array.isArray(r.seenEventIds)?r.seenEventIds.filter((x):x is string=>typeof x==='string'):[],
       eventLedger:migrateLedger(r.eventLedger,r.seenEventIds),
       lastEventId:typeof r.lastEventId==='string'?r.lastEventId:null,
       simulation,profile,
+      ancestors:Array.isArray(r.ancestors)?r.ancestors.slice(-12).filter(
+       (a):a is NonNullable<Life['ancestors']>[number]=>Boolean(a)&&typeof a.name==='string'&&
+        a.name.length<=52&&Number.isInteger(a.age)&&a.age>=0&&a.age<=110&&
+        Number.isInteger(a.birthYear)&&typeof a.career==='string'&&a.career.length<=100):[],
       social:normalizeSocial(r.social,profile,r.age,simulation.children,Array.isArray(r.familyMembers)?r.familyMembers:fallbackFamily),
       familyMembers:Array.isArray(r.familyMembers) && r.familyMembers.length>0 ? r.familyMembers : fallbackFamily
     };
-  } catch { return null; }
+    // One-time migration: older saves could keep a schoolmate label after 18
+    // even when the live UI normalized it to an adult friend. Persist the
+    // normalized identity/memories so reloading doesn't revert saved state.
+    if(restored.age>=18&&Array.isArray(r.social?.people)&&
+      r.social.people.some(p=>p?.role==='classmate')){
+      try { localStorage.setItem(STORAGE_KEY,JSON.stringify(restored)); }
+      catch { /* Private browsing may disallow writes; current state still works. */ }
+    }
+    loadError=false;recoveryAvailable=false;
+    return restored;
+  } catch { loadError=true;return null; }
 }
-function saveLife(): void { try { if(life) localStorage.setItem(STORAGE_KEY,JSON.stringify(life)); } catch { /* Browser may restrict local saves */ } }
+function saveLife(): void {
+ try {if(life)localStorage.setItem(STORAGE_KEY,JSON.stringify(life));saveError=false;loadError=false;recoveryAvailable=false;}
+ catch {saveError=true;} // Never claim a successful save after quota/security failure.
+}
 function makeFamily(name: string): Life['familyMembers'] {
   const last=name.trim().split(/\s+/).slice(-1)[0]||"Costa";
   return [{name:"Ana "+last,kind:"mother",birthAge:26+Math.floor(Math.random()*13)},
@@ -305,15 +395,16 @@ function makeFamily(name: string): Life['familyMembers'] {
 }
 function createLife(profile: CharacterProfile, stats: Stats): void {
   // Prevent accidental overwrites when someone picks a new baby or submits the editor.
-  if(life && !window.confirm(language==='pt-BR'?
+  if((life||loadError) && !window.confirm(language==='pt-BR'?
     'Começar uma nova vida vai substituir o progresso salvo neste navegador. Exporte seu save no menu antes, se quiser guardá-lo. Continuar?':
     'A new life will replace this browser save. Export it from the menu first if you want to keep it. Continue?'))return;
   const normalized=normalizeProfile(profile,profile.name);
+  if(normalized.origin!=='custom')normalized.nature='human';
   life={ name:normalized.name, profile:normalized, familyMembers:makeFamily(normalized.name),
     social:initialSocial(normalized),
     birthYear:new Date().getFullYear(),age:0,
-    stats:{...stats},pendingEvent:null,history:[u("birthNote")+" "+normalized.city+", "+countryName(normalized.country)+"."],
-    seenEventIds:[],eventLedger:{},lastEventId:null,simulation:createSimulation() };
+    stats:{...stats},pendingEvent:null,history:[u("birthNote")+" "+normalized.city+", "+countryName(normalized.country)+"."],chronicle:[],storyArc:null,
+    seenEventIds:[],eventLedger:{},lastEventId:null,simulation:createSimulation(),ancestors:[] };
   tab="story";scene="playing";saveLife();render();
 }
 function countryName(c: Country): string {
@@ -326,11 +417,59 @@ function cash(amount: number): string {
   return new Intl.NumberFormat(language==="pt-BR"?"pt-BR":"en-US",{style:"currency",currency:code,maximumFractionDigits:0}).format(amount);
 }
 function caption(s: string): string {
+  if(s==='classmate-graduated')return language==='pt-BR'?'A amizade da escola continuou depois da formatura.':'A school friendship continued after graduation.';
   if(s.startsWith("job:"))return u("newJob")+": "+u(s.slice(4));
+  if(s.startsWith("occupation:")){const role=careerById(s.slice(11));return role?careerLabel(role,language):u("job");}
+  if(s.startsWith('pet-upkeep:'))return (language==='pt-BR'?'Cuidados anuais dos animais: ':'Annual pet care: ')+cash(Number(s.slice(11)));
+  if(s.startsWith('pet-farewell:'))return (language==='pt-BR'?'Seu companheiro partiu: ':'A companion passed away: ')+s.slice(13);
+  if(s.startsWith('pet-adopted:')){
+    const parts=s.split(':'),id=parts[1] as PetSpecies;
+    return (language==='pt-BR'?'Sua família acolheu ':'Your family adopted ')+
+      parts.slice(2).join(':')+' ('+(PET_SPECIES.includes(id)?petLabel(id,language):'pet')+').';
+  }
+  if(s.startsWith('pet-cared:'))return language==='pt-BR'?'Você cuidou do seu animal de estimação.':'You cared for your companion.';
+  if(s.startsWith('trip:')){
+    const trip=destination(s.slice(5));if(trip)return (language==='pt-BR'?'Visitou ':'Visited ')+
+      (language==='pt-BR'?trip.pt:trip.en)+'.';
+  }
+  if(s.startsWith('trip-cost:'))return (language==='pt-BR'?'Custo da viagem: ':'Journey cost: ')+cash(Number(s.slice(10)));
+  if(s.startsWith('hobby:')){
+    const [,id,level]=s.split(':');
+    if(HOBBY_IDS.includes(id as HobbyId))return (language==='pt-BR'?'Talento praticado: ':'Practiced talent: ')+
+      hobbyName(id as HobbyId,language)+' · '+level+'/100';
+  }
+  if(s.startsWith('hobby-award:')){
+    const [,id,rank]=s.split(':');
+    if(HOBBY_IDS.includes(id as HobbyId))return (language==='pt-BR'?'Conquista em ':'Milestone in ')+hobbyName(id as HobbyId,language)+' · '+rank+'/4';
+  }
+  if(s.startsWith('hobby-career:'))return language==='pt-BR'?
+    'Seu talento fortaleceu sua carreira.':'Your talent advanced your career.';
+  if(s.startsWith('training:'))return (language==='pt-BR'?'Treino esportivo: ':'Sports training: ')+s.slice(9);
+  if(s.startsWith('mystic-mastery:'))return (language==='pt-BR'?'Domínio místico: ':'Mystic mastery: ')+s.slice(15);
+  if(s==='style-changed')return language==='pt-BR'?'Mudou o visual do personagem.':'Updated the character appearance.';
+  if(s.startsWith('study-track:'))return (language==='pt-BR'?'Formação: ':'Academic track: ')+s.slice(12);
+  if(s.startsWith('career-effort:'))return (language==='pt-BR'?'Dedicação: ':'Work effort: ')+s.slice(14);
+  if(s.startsWith('career-promotion:'))return (language==='pt-BR'?'Promoção! Nível ':'Promotion! Level ')+s.slice(17);
+  if(s.startsWith('sport-win:'))return (language==='pt-BR'?'Vitória esportiva, premiação: ':'Sports victory, prize: ')+cash(Number(s.slice(10)));
+  if(s.startsWith("health-start:")||s.startsWith("health-treated:")||s.startsWith("health-recovered:")){
+    const name=s.split(':')[1] as ConditionId;
+    const label=['fatigue','strain','mobility'].includes(name)?healthLabel(name,language):'';
+    if(label)return (s.startsWith('health-start:')?
+       (language==='pt-BR'?'Condição identificada: ':'Condition developed: '):
+      s.startsWith('health-recovered:')?
+       (language==='pt-BR'?'Recuperação: ':'Recovered: '):
+       (language==='pt-BR'?'Tratamento: ':'Treatment: '))+label;
+  }
+  if(s.startsWith('justice-convicted:'))return (language==='pt-BR'?'Foi condenado(a) por ':'Convicted of ')+justiceLabel(s.slice(18) as OffenseId,language);
+  if(s.startsWith('justice-avoided:'))return (language==='pt-BR'?'Não houve condenação por ':'No conviction for ')+justiceLabel(s.slice(16) as OffenseId,language);
+  if(s.startsWith('justice-fine:'))return (language==='pt-BR'?'Multa aplicada: ':'Fine: ')+cash(Number(s.slice(13)));
+  if(s.startsWith('justice-sentence:'))return (language==='pt-BR'?'Pena de ':'Sentence of ')+Number(s.slice(17))+(language==='pt-BR'?' anos.':' years.');
+  if(s==='justice-released')return language==='pt-BR'?'Cumpriu a pena e voltou à liberdade.':'Sentence completed and released.';
   if(s.startsWith("income:"))return u("incomeNote")+": "+cash(Number(s.slice(7)));
   if(s.startsWith("expenses:"))return u("expenseNote")+": "+cash(Number(s.slice(9)));
   if(s.startsWith("debt-paid:"))return u("debtPaid")+": "+cash(Number(s.slice(10)));
   if(s.startsWith("investment:"))return u("investmentNote")+": "+cash(Number(s.slice(11)));
+  if(s.startsWith("withdrawal:"))return (language==='pt-BR'?'Investimento resgatado':'Investment redeemed')+": "+cash(Number(s.slice(11)));
   if(s.startsWith("childcare:"))return u("childcare")+": "+cash(Number(s.slice(10)));
   if(s.startsWith("story-income:"))return (language==="pt-BR"?"Recebeu":"Received")+": "+cash(Number(s.slice(13)));
   if(s.startsWith("story-expense:"))return (language==="pt-BR"?"Gastou":"Spent")+": "+cash(Number(s.slice(14)));
@@ -353,13 +492,23 @@ function render(): void {
   const shell='<div class="app-shell">'+header+
    (scene==="welcome"?renderWelcome():scene==="selection"?renderSelection():
      scene==="custom"?renderCustom():renderPlay())+
-   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.5.2 · PT / EN</span></footer></div>';
+   '<footer class="global-footer"><span>ZOID LIFE</span><span>GAME BUILD 0.10.0 · PT / EN · '+safe(__ZOID_BUILD_COMMIT__)+'</span></footer></div>';
   app.innerHTML=shell;
+  if(scene==='playing'&&life?.pendingEvent&&tab==='story'){
+    // Prevent keyboard and assistive-technology interaction with the obscured game.
+    for(const selector of ['.game-status','.game-dock','.game-side','.story-chapters',
+      '.life-journal','.mobile-vitals','.current-phase']){
+      const background=app.querySelector<HTMLElement>(selector);
+      if(background){background.inert=true;background.setAttribute('aria-hidden','true');}
+    }
+    app.querySelector<HTMLButtonElement>('.event-choices .choice')?.focus({preventScroll:true});
+  }
 }
 function renderWelcome(): string {
   const hasSave=Boolean(life);
   return '<main class="welcome-screen" data-screen="candidates">'+
     '<section class="welcome-headline"><button type="button" class="welcome-language" data-do="language" aria-label="'+safe(u("languages"))+'">'+(language==='pt-BR'?'EN':'PT')+'</button>'+ 
+    '<div class="welcome-audio-toolbar"><button type="button" data-do="toggle-sound" class="sound-toggle" aria-pressed="'+sound.settings.enabled+'" aria-label="'+safe(language==='pt-BR'?'Ativar ou desativar os sons':'Toggle game sounds')+'">'+(sound.settings.enabled?'♫':'♪')+' <span>'+safe(sound.settings.enabled?(language==='pt-BR'?'Som ligado':'Sound on'):(language==='pt-BR'?'Ativar sons':'Enable sounds'))+'</span></button></div>'+
     '<div class="eyebrow"><span class="dot"></span>'+safe(u("gameLabel"))+'</div>'+
     '<div class="welcome-logo">ZOID<span>LIFE</span></div>'+
     '<h1>'+safe(language==="pt-BR"?"Quem você vai ser nesta vida?":"Who will you be in this life?")+'</h1>'+
@@ -374,17 +523,33 @@ function renderWelcome(): string {
     '<div class="newborn-tools">'+button(language==="pt-BR"?"↻ Sortear outros três":"↻ Reroll three","reroll","secondary")+
     button(language==="pt-BR"?"+ Criar meu personagem":"+ Create my own","custom","outline")+'</div>'+
     (hasSave?'<div class="continue-life">'+button(u("continue"),"continue","primary")+
-      '<span>'+safe(life!.name)+' · '+safe(ageText(life!.age))+'</span></div>':'')+'</section>'+
-    '<div class="entry-footer"><span>'+safe(u("noLogin"))+'</span><span>BLUE EDITION · 0.5.2</span></div></main>';
+      '<span>'+safe(life!.name)+' · '+safe(ageText(life!.age))+'</span></div>':
+      loadError?'<div class="save-recovery" role="alert"><strong>'+
+      safe(language==='pt-BR'?'Não foi possível restaurar sua vida salva.':'Could not restore your saved life.')+'</strong>'+
+      '<p>'+safe(language==='pt-BR'?'O arquivo foi mantido neste navegador. Faça um backup antes de começar outra vida.':
+       'The existing file was preserved in this browser. Back it up before starting again.')+'</p>'+
+      (recoveryAvailable?button(language==='pt-BR'?'Baixar cópia de recuperação':'Download recovery copy','export-recovery','secondary'):'')+
+      '</div>':'')+'</section>'+
+    '<div class="entry-footer"><span>'+safe(u("noLogin"))+'</span><span>BLUE & RED EDITION · 0.10.0</span></div></main>';
 }
 function renderSelection(): string { return renderWelcome(); }
 function option(value: string,label: string, selected: boolean): string {
   return '<option value="'+safe(value)+'"'+(selected?' selected':'')+'>'+safe(label)+'</option>';
 }
+function natureLabel(value:string):string {
+ const pt:Record<string,string>={human:'Humano',vampire:'Vampiro',werewolf:'Lobisomem',mage:'Mago(a)'};
+ const en:Record<string,string>={human:'Human',vampire:'Vampire',werewolf:'Werewolf',mage:'Mage'};
+ return (language==='en'?en:pt)[value]||value;
+}
+function outfitLabel(value:string):string{
+ const pt:Record<string,string>={blue:'Azul',red:'Vermelho',mint:'Verde-água',ochre:'Ocre',purple:'Roxo',rose:'Rosa'};
+ const en:Record<string,string>={blue:'Blue',red:'Red',mint:'Mint',ochre:'Ochre',purple:'Purple',rose:'Rose'};
+ return (language==='en'?en:pt)[value]||value;
+}
 function selectField(name: string,label: string, options: string[]): string {
   const current=String((custom as unknown as Record<string,string|number>)[name]);
   return '<label class="form-field"><span>'+safe(label)+'</span><select name="'+safe(name)+'" data-custom="'+safe(name)+'">'+
-   options.map(v=>option(v,name==='country'?countryName(v as Country):u(v),v===current)).join('')+
+   options.map(v=>option(v,name==='country'?countryName(v as Country):name==='outfit'?outfitLabel(v):name==='nature'?natureLabel(v):u(v),v===current)).join('')+
    '</select></label>';
 }
 function renderCustom(): string {
@@ -402,7 +567,11 @@ function renderCustom(): string {
     selectField("gender",u("gender"),GENDERS)+selectField("country",u("country"),COUNTRIES)+
     selectField("city",u("city"),[...CITIES[custom.country]])+
     selectField("skin",u("skin"),SKINS)+selectField("hair",u("hair"),HAIRS)+
-    selectField("hairColor",u("hairColor"),HAIR_COLORS)+selectField("eyes",u("eyes"),EYES)+numeric+
+    selectField("hairColor",u("hairColor"),HAIR_COLORS)+selectField("eyes",u("eyes"),EYES)+
+    selectField("outfit",language==="pt-BR"?"Roupa do personagem":"Character outfit",OUTFITS)+
+    '<div class="origin-explanation wide"><strong>'+safe(language==='pt-BR'?'Destino especial exclusivo da criação':'Custom-only special destiny')+'</strong>'+
+    '<p>'+safe(language==='pt-BR'?'Vampiro, lobisomem e mago só podem ser escolhidos ao criar sua pessoa do zero. Os três bebês sorteados sempre começam como humanos.':'Vampire, werewolf and mage are only available when you create a character. All three random babies always start human.')+'</p></div>'+
+    selectField("nature",language==="pt-BR"?"Natureza do personagem":"Character nature",NATURES)+numeric+
     '<fieldset class="stats-editor wide"><legend>'+safe(u("overview"))+'</legend>'+
     sliders.map(k=>'<label class="slider-field"><span>'+safe(u(k))+'</span><input data-stat="'+k+'" name="'+k+
       '" type="range" min="10" max="100" step="5" value="'+customStats[k]+'"/><output data-value="'+k+'">'+customStats[k]+'%</output></label>').join('')+
@@ -417,10 +586,13 @@ function tabs(): string {
 }
 function gameDock():string {
   if(!life)return '';
-  const dockTab=(key:Tab,symbol:string)=>
-    '<button type="button" data-tab="'+key+'" class="dock-tab'+(tab===key?' active':'')+
-    '" aria-label="'+safe(u(key))+'"><span aria-hidden="true" class="dock-icon">'+iconSvg(symbol,29)+
-    '</span><span>'+safe(u(key))+'</span></button>';
+  const dockTab=(key:Tab,symbol:string)=>{
+    const label=key==='career'&&life?.age!==undefined&&life.age<16?
+       (life.age<6?(language==='pt-BR'?'Crescer':'Grow'):(language==='pt-BR'?'Escola':'School')):u(key);
+    return '<button type="button" data-tab="'+key+'" class="dock-tab'+(tab===key?' active':'')+
+    '" aria-label="'+safe(label)+'"><span aria-hidden="true" class="dock-icon">'+iconSvg(symbol,29)+
+    '</span><span>'+safe(label)+'</span></button>';
+  };
   const locked=Boolean(life.pendingEvent||life.simulation.ended);
   const age='<button type="button" data-do="age-up" class="dock-age"'+(locked?' disabled':'')+
    ' aria-label="'+safe(u("ageUp"))+'" title="'+safe(locked?u("advanceBlocked"):u("ageUp"))+'">'+
@@ -440,13 +612,17 @@ function renderPlay(): string {
   return '<main class="game-layout" data-screen="playing">'+
     '<header class="game-status">'+
      '<button type="button" class="game-identity" data-tab="story" aria-label="'+safe(u("story"))+'">'+
-     '<span class="identity-portrait">'+portraitLife(p,life.age,"tiny")+'</span>'+
+     '<span class="identity-portrait">'+portraitLife(p,life.age,"tiny",moodFromStats(life.stats))+'</span>'+
      '<span class="identity-copy"><strong>'+safe(life.name)+'</strong>'+
      '<span>'+safe(p.city)+', '+safe(countryName(p.country))+' · '+safe(ageText(life.age))+'</span></span></button>'+
      '<div class="game-status-money"><small>'+safe(u("balance"))+'</small><strong>'+safe(cash(s.balance))+'</strong></div>'+ 
+     '<button type="button" class="sound-toggle sound-toggle-mini" data-do="toggle-sound" aria-pressed="'+sound.settings.enabled+'" aria-label="'+safe(language==='pt-BR'?'Ativar ou desativar os sons':'Toggle game sounds')+'">'+(sound.settings.enabled?'♫':'♪')+'</button>'+
      '<button type="button" class="game-language" data-do="language" aria-label="'+safe(u("languages"))+'">'+(language==='pt-BR'?'EN':'PT')+'</button>'+
      '<button type="button" data-do="toggle-menu" class="game-menu" title="'+safe(u("newLife"))+'" aria-label="'+safe(u("newLife"))+'">☰</button>'+
     '</header>'+
+    (saveError?'<p class="save-warning" role="alert">'+safe(language==='pt-BR'?
+     'Não foi possível salvar neste navegador. Exporte sua vida para não perder o progresso.':
+     'Could not save in this browser. Export your life to avoid losing progress.')+'</p>':'')+
     '<div class="game-content-layout"><section class="game-main">'+
       '<div class="current-phase"><span class="subtle-label">'+safe(language==='pt-BR'?'SUA HISTÓRIA':'YOUR STORY')+'</span>'+
       '<span>'+safe(phase)+'</span></div>'+
@@ -454,7 +630,7 @@ function renderPlay(): string {
         tab==='people'?renderPeople():tab==='career'?renderCareer():renderFinances())+
       '<div class="mobile-vitals">'+renderVitals()+'</div></section>'+
       '<aside class="game-side">'+renderVitals()+
-        '<div class="inspector-card side-profile">'+portraitLife(p,life.age,"medium")+
+        '<div class="inspector-card side-profile">'+portraitLife(p,life.age,"medium",moodFromStats(life.stats))+
         '<strong>'+safe(life.name)+'</strong><span>'+safe(ageText(life.age))+'</span></div></aside>'+
     '</div>'+gameDock()+(menuOpen?renderGameMenu():'')+'</main>';
 }
@@ -462,58 +638,186 @@ function renderPlay(): string {
 function renderVitals(): string {
   if (!life)return '';
   const icons:Record<StatKey,string>={happiness:"♡",health:"+",smarts:"✧",looks:"◈"};
+  const conditions=life.simulation.conditions??[];
+  const conditionHtml=conditions.length?'<div class="health-conditions"><h3>'+
+   safe(language==='pt-BR'?'Saúde ao longo da vida':'Lifelong health')+'</h3>'+
+   conditions.map(c=>'<div class="health-condition"><strong>'+safe(healthLabel(c.id,language))+'</strong>'+
+    '<small>'+safe(language==='pt-BR'?'Intensidade':'Severity')+': '+c.severity+'/3</small></div>').join('')+
+   '<p>'+safe(language==='pt-BR'?'A atividade Cuidar-se ajuda na recuperação.':
+    'The self-care action helps recovery.')+'</p></div>':'';
   return '<section class="inspector-card vitals"><h2>'+safe(u("overview"))+'</h2>'+
    (["happiness","health","smarts","looks"] as StatKey[]).map(k=>'<div class="vital">'+
     '<div class="vital-label"><span>'+icons[k]+' '+safe(u(k))+'</span><b>'+life!.stats[k]+'%</b></div>'+
-    '<div class="bar"><span style="width:'+clamp(life!.stats[k])+'%"></span></div></div>').join('')+'</section>';
+    '<div class="bar"><span style="width:'+clamp(life!.stats[k])+'%"></span></div></div>').join('')+
+   conditionHtml+'</section>';
 }
 /** Timeline is a chronological record, not a random event card with no history. */
+/** One chronological source of truth: every saved action is kept, with story cards for actual decisions. */
 function timelineEntries():string {
-  if(!life)return '';
-  const entries=life.history.slice(-100).reverse();
-  const item=(line:string)=>{
-    const parsed=/^(\d{1,3}):\s*(.*)$/.exec(line);
-    const age=parsed?Number(parsed[1]):0,text=parsed?parsed[2]:line;
-    const icon=/escol|estud|schol|faculdade|educa|curso|gradua|univer|aprend/i.test(text)?'book':
+ if(!life)return '';
+ const records=livedHistory(life.history,life.age);
+ const entries=records.slice(-journalVisibleCount).reverse();
+ const stories=new Map(life.chronicle.map(entry=>[entry.historyIndex,entry]));
+ const item=(entry:typeof entries[number])=>{
+   const age=entry.age,text=entry.text;
+   const detail=stories.get(entry.historyIndex);
+   const kind=detail?' story-decision':'';
+   const symbol=/escol|estud|schol|faculdade|educa|curso|gradua|univer|aprend/i.test(text)?'book':
       /trabal|empreg|carreira|job|work|profiss/i.test(text)?'briefcase':
       /dinheiro|saldo|receb|dívida|invest|income|debt|cash|financ/i.test(text)?'wallet':
       /saúde|health|médic|doença|hospital/i.test(text)?'medkit':
       /amig|famíl|relacion|casou|namor|child|partner|friend/i.test(text)?'heart':'star';
-    return '<li class="life-entry"><span class="entry-glyph">'+iconSvg(icon,24)+'</span>'+
-      '<div class="entry-content"><span class="entry-age">'+safe(u("age"))+': '+age+'</span>'+
-      '<p>'+safe(text)+'</p></div></li>';
-  };
-  return '<section class="life-journal"><div class="journal-heading"><h2>'+safe(u("timeline"))+'</h2>'+
-    '<span>'+entries.length+' '+safe(language==='pt-BR'?'registros':'entries')+'</span></div>'+
-    (entries.length?'<ol>'+entries.map(item).join('')+'</ol>':'<p>'+safe(u("noTimeline"))+'</p>')+'</section>';
+   const chapter=detail?
+     '<div class="chronicle-panel" data-chronicle-event="'+safe(detail.eventId)+'">'+
+     '<div class="chronicle-illustration">'+eventScene(detail.eventId,life!.profile,language,age,detail.category,undefined,petForEvent(detail.eventId))+'</div>'+
+     '<div class="chronicle-story">'+(detail.eventId.startsWith('arc-')?
+     '<span class="chronicle-linked">'+safe(language==='pt-BR'?'Capítulo de uma decisão anterior':'A previous choice returns')+'</span>':'')+
+     '<h3>'+safe(detail.title)+'</h3>'+
+     '<p class="chronicle-prompt">'+safe(detail.description)+'</p>'+
+     '<p class="chronicle-choice"><strong>'+safe(language==='pt-BR'?'Sua escolha:':'Your choice:')+'</strong> '+safe(detail.choice)+'</p>'+
+     '<p class="chronicle-result"><strong>'+safe(language==='pt-BR'?'Consequência:':'Outcome:')+'</strong> '+safe(detail.result)+'</p>'+
+     '</div></div>':'<p>'+safe(text)+'</p>';
+   return '<li class="life-entry'+kind+'" data-history-index="'+entry.historyIndex+'">'+
+     '<span class="entry-glyph">'+iconSvg(symbol,24)+'</span>'+
+     '<div class="entry-content"><span class="entry-age">'+safe(u("age"))+': '+age+'</span>'+
+     chapter+'</div></li>';
+ };
+ const remaining=records.length-entries.length;
+ return '<section class="life-journal" aria-label="'+safe(u("timeline"))+'"><div class="journal-heading"><h2>'+safe(u("timeline"))+'</h2>'+
+    '<span>'+records.length+' '+safe(language==='pt-BR'?'registros':'entries')+'</span></div>'+
+    (entries.length?'<ol>'+entries.map(item).join('')+'</ol>':'<p>'+safe(u("noTimeline"))+'</p>')+
+    (remaining>0?'<button type="button" class="journal-more" data-do="more-history">'+
+      safe(language==='pt-BR'?'Ver registros anteriores':'Show older records')+' ('+remaining+')</button>':'')+'</section>';
+}
+
+function continueAsDescendant(id:string):void{
+ if(!life||!life.simulation.ended)return;
+ const previous=life;
+ const child=previous.social.people.find(p=>p.id===id&&p.role==='child'&&p.alive);
+ if(!child)return;
+ const nextAge=personAge(child,previous.age);
+ if(nextAge<0||nextAge>=110)return;
+ const confirmation=language==='pt-BR'?
+   'Continuar como descendente substituirá este save. Você pode exportar o resumo e o save anterior no menu. Continuar?':
+   'Continuing as a descendant replaces this save. You can export the previous life before continuing. Proceed?';
+ if(!window.confirm(confirmation))return;
+ const childProfile=normalizeProfile(child.profile,child.profile.name);
+ const family=initialSocial(childProfile);
+ const priorParentRole=previous.profile.gender==='man'?'father':'mother';
+ const priorParent=family.people.find(p=>p.role===priorParentRole);
+ if(priorParent){
+   priorParent.profile={...previous.profile};
+   if(previous.profile.gender==='nonbinary'){priorParent.role='parent';priorParent.id='parent-primary';}
+   priorParent.alive=false;
+   priorParent.closeness=0;
+   priorParent.bornAtPlayerAge=-child.bornAtPlayerAge;
+ }
+ const parentNetWorth=Math.max(0,previous.simulation.balance+previous.simulation.investments+
+   previous.simulation.homeValue-previous.simulation.debt);
+ const inherited=Math.min(250000,Math.floor(parentNetWorth*.15));
+ const simulation=createSimulation();
+ simulation.balance=inherited;
+ const ancestors=[...(previous.ancestors??[]),
+  {name:previous.name,age:previous.age,birthYear:previous.birthYear,
+   career:makeLifeReport({...previous},language).profession}].slice(-12);
+ life={
+   name:childProfile.name,profile:childProfile,birthYear:previous.birthYear+child.bornAtPlayerAge,
+   age:nextAge,stats:{happiness:65,health:Math.max(40,80-Math.floor(nextAge/5)),smarts:55,looks:60},
+   history:[nextAge+': '+(language==='pt-BR'?'Você assumiu o próximo capítulo da família.':
+    'You began the next chapter of your family.')],chronicle:[],
+   pendingEvent:null,storyArc:null,seenEventIds:[],eventLedger:{},lastEventId:null,simulation,
+   social:family,familyMembers:makeFamily(childProfile.name),ancestors
+ };
+ scene='playing';tab='story';menuOpen=false;saveLife();render();
+}
+
+function renderLifeRecap():string{
+ if(!life)return '';
+ const report=makeLifeReport({...life},language);
+ const metric=(label:string,value:string)=>'<div class="recap-metric"><span>'+safe(label)+'</span><strong>'+safe(value)+'</strong></div>';
+ const pt=language==='pt-BR';
+ return '<section class="life-recap" data-recap-age="'+life.age+'">'+
+  '<div class="recap-header"><span class="recap-overline">ZOID LIFE</span>'+
+  '<h2>'+safe(pt?'Uma vida inteira':'A whole lifetime')+'</h2>'+
+  '<p>'+safe(life.name)+' · '+safe(ageText(life.age))+' · '+report.birthYear+'–'+report.endYear+'</p></div>'+
+  '<div class="recap-metrics">'+
+   metric(pt?'Patrimônio líquido':'Net worth',cash(report.netWorth))+
+   metric(pt?'Profissão':'Career',report.profession)+
+   metric(pt?'Escolaridade':'Education',report.education)+
+   metric(pt?'Filhos':'Children',String(report.children))+
+   metric(pt?'Amigos próximos':'Friends',String(report.friends))+
+   metric(pt?'Dívida':'Debt',cash(report.debt))+
+   metric(pt?'Investimentos':'Investments',cash(report.investments))+
+   metric(pt?'Imóveis':'Property',cash(report.property))+
+  '</div>'+
+  (report.achievements.length?'<h3>'+safe(pt?'Conquistas reais':'Real achievements')+'</h3>'+
+   '<ul class="recap-achievements">'+report.achievements.map(x=>'<li>'+safe(x)+'</li>').join('')+'</ul>':'')+
+  '<h3>'+safe(pt?'Acontecimentos marcantes':'Life moments')+'</h3>'+
+  '<ol class="recap-events">'+(report.events.length?report.events.map(x=>'<li>'+safe(x)+'</li>').join(''):
+   '<li>'+safe(pt?'Essa vida ainda não tem acontecimentos registrados.':'No events have been recorded.')+'</li>')+'</ol>'+
+  '<div class="recap-actions">'+button(pt?'Exportar resumo (.txt)':'Download life summary (.txt)','download-recap','secondary')+
+   button(u('newLife'),'new-life','primary')+'</div>'+
+   (life.social.people.some(p=>p.role==='child'&&p.alive)?
+    '<div class="recap-descendants"><h3>'+safe(pt?'Continuar sua linhagem':'Continue your family line')+'</h3>'+
+    life.social.people.filter(p=>p.role==='child'&&p.alive&&personAge(p,life!.age)<110).map(p=>
+      '<button type="button" data-descendant="'+safe(p.id)+'"><span>'+portraitLife(p.profile,personAge(p,life!.age),'tiny')+
+      '</span><strong>'+safe(p.profile.name)+'</strong><small>'+safe(ageText(personAge(p,life!.age)))+'</small></button>').join('')+
+    '</div>':'')+
+   (life.ancestors?.length?'<div class="recap-ancestors"><h3>'+safe(pt?'Gerações anteriores':'Previous generations')+'</h3>'+
+      life.ancestors.map(p=>'<p>'+safe(p.name)+' · '+p.age+' · '+safe(p.career)+'</p>').join('')+'</div>':'')+
+   '</section>';
+}
+function downloadLifeRecap():void{
+ if(!life)return;
+ const report=makeLifeReport({...life},language);
+ const data=reportAsText(report,language);
+ const url=URL.createObjectURL(new Blob([data],{type:'text/plain;charset=utf-8'}));
+ const a=document.createElement('a');
+ a.href=url;a.download=saveFilename(life.name).replace(/\.json$/,'.txt');
+ document.body.appendChild(a);a.click();a.remove();
+ window.setTimeout(()=>URL.revokeObjectURL(url),1200);
+}
+
+function petForEvent(eventId:string){
+ if(!life||!eventId.startsWith('pet-story-'))return null;
+ return life.simulation.pets.pets.find(p=>eventId.startsWith('pet-story-'+p.id+'-'))??null;
 }
 function renderStory():string {
   if(!life)return '';
   const event=life.pendingEvent;
-  const eventHtml=event?'<section class="story-event decision-card">'+
-      eventScene(event.id,life.profile,language,life.age,event.category)+
-      '<div class="decision-body"><span class="story-label">'+safe(u("event"))+' · '+safe(ageText(life.age))+'</span>'+
-      '<h2>'+safe(event.title)+'</h2><p>'+safe(event.description)+'</p>'+
+  const eventHtml=event?'<div class="event-modal-overlay" data-event-modal="true">'+
+   '<section class="story-event decision-card" role="dialog" aria-modal="true" aria-labelledby="current-event-title">'+
+      eventScene(event.id,life.profile,language,life.age,event.category,moodFromStats(life.stats),petForEvent(event.id))+
+      '<div class="decision-body"><div class="decision-tools"><span class="story-label">'+safe(u("event"))+' · '+safe(ageText(life.age))+'</span>'+
+      '<button type="button" data-do="language" class="event-language" aria-label="'+safe(u("languages"))+'">'+
+      (language==='pt-BR'?'EN':'PT')+'</button></div>'+
+      '<h2 id="current-event-title">'+safe(event.title)+'</h2>'+
+      (event.id.startsWith('arc-')?'<div class="story-arc-badge" data-story-arc="'+safe(event.id)+'">'+
+      safe(language==='pt-BR'?'CONTINUAÇÃO DA SUA HISTÓRIA':'YOUR STORY CONTINUES')+'</div>':'')+
+      '<p>'+safe(event.description)+'</p>'+
       '<div class="event-choices">'+event.choices.map((c,i)=>'<button type="button" data-choice="'+i+
       '" class="choice"><span>'+safe(c.label)+'</span><span class="choice-index">'+(i+1)+'</span></button>').join('')+
-      '</div></div></section>':
-    life.simulation.ended?'<section class="story-event end-event"><h2>'+safe(u("ended"))+'</h2><p>'+safe(u("endedText"))+'</p>'+
-     button(u("newLife"),"new-life","primary")+'</section>':
-    '<div class="age-ready"><span class="ready-spark">✦</span>'+
-     '<span>'+safe(language==='pt-BR'?'Um novo ano espera por você. Use + Idade no centro da barra inferior.':
-      'A new year is waiting. Press + Age in the center below.')+'</span></div>';
-  return '<section class="story-layout game-feed">'+
-    '<div class="story-intro"><div><strong>'+safe(language==='pt-BR'?'Diário de vida':'Life journal')+'</strong>'+
-    '<span>'+safe(u("year"))+' '+(life.birthYear+life.age)+'</span></div>'+
-    '<button type="button" data-tab="actions" class="subtle-link">'+safe(u("actions"))+'</button></div>'+
-    eventHtml+timelineEntries()+'</section>';
+      '</div></div></section></div>':
+    life.simulation.ended?renderLifeRecap():'';
+
+  // The latest choice and actual chronological journal come first.
+  // Illustrated chapters are the supporting storybook, not a giant landing banner.
+  const chapterTitle=language==='pt-BR'?'Capítulos ilustrados da vida':'Illustrated life chapters';
+  return '<section class="story-layout game-feed" data-story-first="journal">'+
+    '<div class="story-primary" data-story-priority="current">'+eventHtml+timelineEntries()+'</div>'+
+    '<details class="story-chapters"'+(chaptersOpen?' open':'')+'><summary class="story-chapters-toggle">'+
+      '<span>'+safe(chapterTitle)+'</span><span aria-hidden="true">▾</span></summary>'+
+      renderStoryboardTimeline(life.profile,life.age,life.history,language)+
+    '</details></section>';
 }
 
-const actionTypes: Action[]=['study','job','socialize','care','budget','invest','home','child','retire'];
+const actionTypes: Action[]=['study','job','work','resign','train','socialize','care','budget','invest','withdraw','home','child','retire'];
 function canAction(action: Action): boolean {
   if (!life || life.simulation.ended || life.pendingEvent || !canTakeAction(life.simulation,life.age,action))return false;
-  return action==='study'?life.age>=6:action==='job'?life.age>=16&&life.age<65:
+  return action==='study'?life.age>=6:action==='style'?life.age>=12:action==='work'?life.age>=16&&!['none','retired'].includes(life.simulation.job):action==='train'?life.age>=6&&life.age<85:
+    action==='mystic'?life.age>=12&&isMysticOrigin(life.profile):action==='resign'?life.age>=16&&life.age<65&&!['none','retired'].includes(life.simulation.job):action==='job'?life.age>=16&&life.age<65:
     action==='budget'?life.age>=16:action==='invest'?life.age>=18&&life.simulation.balance>=1000:
+    action==='withdraw'?life.age>=18&&life.simulation.investments>0:
     action==='home'?life.age>=21&&!life.simulation.homeOwned&&life.simulation.balance>=25000:
     action==='child'?life.age>=20&&life.age<=55&&life.simulation.relationship!=='single'&&life.simulation.partner>=50&&life.simulation.children<8:
     action==='retire'?life.age>=60&&!['none','retired'].includes(life.simulation.job):true;
@@ -525,62 +829,469 @@ function actionButton(action: Action): string {
      (language==='pt-BR'?'Realizada neste ano':'Done this year'):u(action+'Info'))+'</span>'+
    '<i aria-hidden="true">›</i></button>';
 }
+function outfitStyleName(value:string):string {
+ const pt:Record<string,string>={classic:'Elegante',casual:'Casual',sporty:'Esportivo'};
+ const en:Record<string,string>={classic:'Classic',casual:'Casual',sporty:'Sporty'};
+ return (language==='pt-BR'?pt:en)[value]??value;
+}
+function styleStudio():string {
+ if(!life||life.age<12||life.simulation.ended)return '';
+ const p=life.profile;
+ const options=(values:readonly string[],selected:string,kind:string)=>
+  '<select data-style-field="'+kind+'">'+values.map(value=>option(value,
+   kind==='outfit'?outfitLabel(value):kind==='outfitStyle'?outfitStyleName(value):u(value),value===selected)).join('')+'</select>';
+ const enabled=canAction('style');
+ return '<section id="life-appearance" class="style-studio"><h3>'+safe(language==='pt-BR'?'Personalizar aparência':'Customize appearance')+'</h3>'+
+  '<p>'+safe(language==='pt-BR'?'Cabelo e roupa podem mudar sem alterar os traços de nascimento. Uma mudança por ano. A partir da vida adulta, custa 250.':
+    'Hair and clothing can change without altering birth traits. One change per year. Adults pay 250.')+'</p>'+
+  '<div class="style-fields"><label>'+safe(language==='pt-BR'?'Penteado':'Hair style')+options(HAIRS,p.hair,'hair')+'</label>'+
+  '<label>'+safe(language==='pt-BR'?'Cor do cabelo':'Hair color')+options(HAIR_COLORS,p.hairColor,'hairColor')+'</label>'+
+  '<label>'+safe(language==='pt-BR'?'Cor da roupa':'Outfit color')+options(OUTFITS,p.outfit??'blue','outfit')+'</label>'+
+  '<label>'+safe(language==='pt-BR'?'Modelo da roupa':'Clothing style')+options(OUTFIT_STYLES,p.outfitStyle??'casual','outfitStyle')+'</label></div>'+
+  '<div class="style-preview" aria-label="'+safe(language==='pt-BR'?'Prévia do visual':'Appearance preview')+'">'+
+    '<div data-style-preview>'+portraitLife(p,life.age,'card',moodFromStats(life.stats))+'</div>'+
+    '<p>'+safe(language==='pt-BR'?'Veja seu novo visual antes de salvar; nenhuma mudança será cobrada até confirmar.':
+      'Preview before saving; no charge until you confirm.')+'</p></div>'+
+  '<button class="style-save" type="button" data-do="style-apply"'+(enabled?'':' disabled')+'>'+
+  safe(language==='pt-BR'?'Salvar novo visual':'Save new appearance')+'</button></section>';
+}
+function applyStyleFromUI():void {
+ if(!life||!canAction('style'))return;
+ const field=(k:string)=>appEl?.querySelector<HTMLSelectElement>('[data-style-field="'+k+'"]')?.value;
+ const hair=field('hair'),hairColor=field('hairColor'),outfit=field('outfit'),outfitStyle=field('outfitStyle');
+ if(!HAIRS.includes(hair as typeof HAIRS[number])||
+  !HAIR_COLORS.includes(hairColor as typeof HAIR_COLORS[number])||
+  !OUTFITS.includes(outfit as typeof OUTFITS[number])||
+  !OUTFIT_STYLES.includes(outfitStyle as typeof OUTFIT_STYLES[number]))return;
+ if(hair===life.profile.hair&&hairColor===life.profile.hairColor&&outfit===life.profile.outfit&&
+  outfitStyle===life.profile.outfitStyle)return;
+ const result=takeAction(life.simulation,life.stats,life.age,'style');
+ if(!result.ok)return;
+ life.profile={...life.profile,hair:hair as typeof HAIRS[number],
+  hairColor:hairColor as typeof HAIR_COLORS[number],outfit:outfit as typeof OUTFITS[number],
+  outfitStyle:outfitStyle as typeof OUTFIT_STYLES[number]};
+ life.simulation=result.state;life.stats=result.stats;
+ recordStoryChoice('appearance-changed',language==='pt-BR'?'Novo visual':'New look',
+  language==='pt-BR'?'Mudança de roupa e cabelo':'Outfit and hair changes',
+  language==='pt-BR'?'Salvar novo visual':'Save new appearance',
+  language==='pt-BR'?'Atualizou seu visual.':'Updated their appearance.','leisure');
+ for(const note of result.notes)life.history.push(life.age+': '+caption(note));
+ saveLife();render();
+}
+
+function justiceActions():string {
+ if(!life)return '';
+ const age=life.age,legal=life.simulation.justice,available=canTakeAction(life.simulation,age,'crime');
+ const title=language==='pt-BR'?'Escolhas e consequências legais':'Choices and legal consequences';
+ const intro=language==='pt-BR'?'As ações ilegais podem resultar em multas, antecedentes e prisão.':
+  'Illegal actions may lead to fines, a criminal record and prison.';
+ const options=OFFENSES.map(o=>{
+  const can=available&&!life!.pendingEvent&&age>=o.age&&age<110;
+  return '<div class="justice-option"><div><strong>'+safe(justiceLabel(o.id,language))+'</strong>'+
+   '<small>'+safe(language==='pt-BR'?'A partir dos ':'From age ')+o.age+
+   safe(language==='pt-BR'?' anos':'')+'</small></div>'+
+   '<button type="button" data-offense="'+o.id+'"'+(can?'':' disabled')+'>'+
+   safe(language==='pt-BR'?'Escolher':'Choose')+'</button></div>';
+ }).join('');
+ const log=legal.history.slice(-3).reverse().map(h=>'<li>'+h.age+
+  ' — '+safe(justiceLabel(h.id,language))+': '+
+  safe(h.caught?(language==='pt-BR'?'Condenado':'Convicted'):(language==='pt-BR'?'Sem condenação':'Not convicted'))+
+  '</li>').join('');
+ return '<section id="life-justice" class="justice-board"><h3>'+safe(title)+'</h3><p>'+safe(intro)+'</p>'+
+  '<div class="justice-status">'+safe(legalStatus(legal,age,language))+
+  ' · '+safe(language==='pt-BR'?'Condenações':'Convictions')+': '+legal.convictions+'</div>'+
+  '<div class="justice-options">'+options+'</div>'+
+  (log?'<ol class="justice-history">'+log+'</ol>':'')+'</section>';
+}
+function chooseOffense(id:string):void{
+ if(!life||life.pendingEvent||life.simulation.ended)return;
+ const offense=OFFENSES.find(o=>o.id===id);
+ if(!offense||life.age<offense.age)return;
+ const before=life.simulation,prior=life.stats;
+ const result=applyOffense(life.simulation,life.stats,life.age,offense.id);
+ if(!result.ok)return;
+ life.simulation=result.state;life.stats=result.stats;
+ recordStoryChoice('legal-'+offense.id,language==='pt-BR'?'Escolha legal':'Legal decision',
+  justiceLabel(offense.id,language),justiceLabel(offense.id,language),
+  (language==='pt-BR'?'Decidiu cometer: ':'Decided to commit: ')+justiceLabel(offense.id,language)+
+  ' · '+describeActualChanges(before,life.simulation,prior,life.stats),'city');
+ for(const note of result.notes)life.history.push(life.age+': '+caption(note));
+ saveLife();tab='actions';render();
+}
+
+function renderHobbyStudio():string{
+ if(!life||life.age<6)return '';
+ const s=life.simulation,book=s.hobbies;
+ const pt=language==='pt-BR';
+ const used=HOBBY_IDS.filter(id=>book[id].lastAge===life!.age).length;
+ const rows=HOBBY_IDS.map(id=>{
+  const record=book[id],able=!life!.pendingEvent&&!s.ended&&s.justice.incarceratedUntil<=life!.age&&
+    canPracticeHobby(book,life!.age,id);
+  const cost=life!.age>=18?hobbyCost(id):0;
+  const label=hobbyName(id,language);
+  return '<article class="talent-card" data-hobby-card="'+id+'">'+
+    '<div class="talent-head"><strong>'+safe(label)+'</strong><span>'+record.xp+'/100</span></div>'+
+    '<div class="talent-track" role="progressbar" aria-label="'+safe(label)+'" aria-valuenow="'+record.xp+'" aria-valuemin="0" aria-valuemax="100">'+
+      '<span style="width:'+record.xp+'%"></span></div>'+
+    '<div class="talent-details"><small>'+safe(pt?'Conquistas':'Awards')+': '+record.awards+'/4</small>'+
+      (cost?'<small>'+safe(pt?'Custo: ':'Cost: ')+safe(cash(cost))+'</small>':'')+'</div>'+
+    '<button type="button" data-hobby="'+id+'"'+(able?'':' disabled')+'>'+
+      safe(record.lastAge===life!.age?(pt?'Já praticado':'Practiced this year'):
+       record.xp>=100?(pt?'Domínio completo':'Mastered'):
+       used>=2?(pt?'Limite anual atingido':'Yearly limit reached'):
+       pt?'Praticar agora':'Practice now')+'</button></article>';
+ }).join('');
+ return '<section id="life-talents" class="talent-studio" aria-label="'+safe(pt?'Talentos e hobbies':'Talents and hobbies')+'">'+
+  '<div class="talent-intro"><h3>'+safe(pt?'Talentos que crescem com você':'Talents that grow with you')+'</h3>'+
+  '<p>'+safe(pt?'Escolha até duas atividades por ano. Seu progresso abre caminhos de carreira, gera conquistas e muda sua história.':
+     'Choose up to two activities per year. Progress unlocks career paths, earns awards and changes your story.')+'</p>'+
+  '<span>'+used+'/2 '+safe(pt?'atividades neste ano':'activities this year')+'</span></div>'+
+  '<div class="talent-grid">'+rows+'</div></section>';
+}
+function practiceHobbyFromUI(id:string):void{
+ if(!life||!HOBBY_IDS.includes(id as HobbyId)||life.pendingEvent||life.simulation.ended)return;
+ const skill=id as HobbyId,before=life.simulation,prior=life.stats;
+ const done=practiceHobby(life.simulation,life.stats,life.age,skill);
+ if(!done.ok)return;
+ life.simulation=done.state;life.stats=done.stats;
+ sound.play(done.notes.some(n=>n.startsWith('hobby-award:'))?'success':'hobby');
+ const xp=done.state.hobbies[skill].xp,awards=done.state.hobbies[skill].awards;
+ const result=(language==='pt-BR'?'Você praticou ':'You practiced ')+hobbyName(skill,language)+
+   ' · '+xp+'/100 · '+(language==='pt-BR'?'Conquistas ':'Awards ')+awards+'/4. '+
+   describeActualChanges(before,done.state,prior,done.stats);
+ recordStoryChoice('hobby-'+skill,hobbyName(skill,language),
+   language==='pt-BR'?'Você decidiu desenvolver este talento.':'You chose to develop this talent.',
+   language==='pt-BR'?'Praticar':'Practice',result,
+   skill==='sports'?'health':skill==='volunteering'?'family':skill==='coding'?'school':'leisure');
+ for(const note of done.notes)life.history.push(life.age+': '+caption(note));
+ saveLife();tab='actions';render();
+}
+
+function renderTravelStudio():string{
+ if(!life||life.age<18)return '';
+ const pt=language==='pt-BR',diary=life.simulation.travel;
+ const cards=DESTINATIONS.map((item,i)=>{
+  const able=!life!.pendingEvent&&!life!.simulation.ended&&
+    canTakeAction(life!.simulation,life!.age,'travel')&&
+    canTravel(diary,life!.age,item.id,life!.simulation.balance);
+  const already=diary.visits.some(x=>x.id===item.id);
+  return '<article class="journey-card journey-'+item.id+'" data-journey-card="'+item.id+'">'+
+    '<div class="journey-picture" aria-hidden="true">'+
+    '<span class="journey-sky"></span><span class="journey-landscape"></span><span class="journey-route"></span></div>'+
+    '<div class="journey-description"><span class="journey-counter">'+(i+1)+' / '+DESTINATIONS.length+
+      (already?' · '+safe(pt?'Já visitado':'Visited'):'')+'</span>'+
+    '<strong>'+safe(pt?item.pt:item.en)+'</strong>'+
+    '<p>'+safe(pt?item.ptDescription:item.enDescription)+'</p>'+
+    '<span class="journey-cost">'+safe(cash(item.cost))+'</span>'+
+    '<button type="button" data-journey="'+item.id+'"'+(able?'':' disabled')+'>'+
+    safe(diary.lastAge===life!.age?(pt?'Viagem deste ano realizada':'Trip already taken this year'):
+      able?(pt?'Viajar agora':'Take this journey'):(pt?'Indisponível':'Unavailable'))+'</button></div></article>';
+ }).join('');
+ const summary=diary.visits.length?
+  '<p class="journey-memory">'+safe(pt?'Viagens realizadas: ':'Trips taken: ')+diary.visits.length+
+  ' · '+safe(pt?'Último destino: ':'Most recent: ')+
+   safe((pt?destination(diary.visits[diary.visits.length-1].id)?.pt:
+     destination(diary.visits[diary.visits.length-1].id)?.en)??'')+'</p>':
+  '<p class="journey-memory">'+safe(pt?'Sua próxima viagem ainda está por acontecer.':
+    'Your next journey is still ahead of you.')+'</p>';
+ return '<section id="life-travel" class="travel-studio"><div class="travel-intro"><h3>'+
+  safe(pt?'Viagens e descobertas':'Travel and discovery')+'</h3>'+
+  '<p>'+safe(pt?'Escolha destinos que caibam no seu saldo. Cada viagem custa dinheiro, muda sua vida e fica no diário.':
+    'Choose journeys you can afford. Travel costs money, changes your life and stays in your journal.')+'</p>'+
+  summary+'</div><div class="journey-grid">'+cards+'</div>'+
+  (diary.visits.length?'<div class="journey-travelogue"><h4>'+
+   safe(pt?'Passaporte de memórias':'Travel passport')+'</h4><ol>'+
+   diary.visits.slice(-7).reverse().map(v=>'<li><span>'+
+     safe((pt?destination(v.id)?.pt:destination(v.id)?.en)??v.id)+
+     '</span><strong>'+safe(pt?'Aos ':'At age ')+v.age+
+     safe(pt?' anos':'')+'</strong></li>').join('')+'</ol></div>':'')+'</section>';
+}
+function travelFromUI(id:string):void{
+ if(!life||!destination(id)||life.pendingEvent||life.simulation.ended)return;
+ const trip=destination(id)!;
+ const before=life.simulation,prior=life.stats;
+ const result=takeJourney(before,prior,life.age,id as JourneyId);
+ if(!result.ok)return;
+ life.simulation=result.state;life.stats=result.stats;
+ sound.play('travel');
+ recordStoryChoice('travel-'+id,language==='pt-BR'?trip.pt:trip.en,
+  language==='pt-BR'?trip.ptDescription:trip.enDescription,
+  language==='pt-BR'?'Viajar':'Travel',
+  (language==='pt-BR'?'Você fez uma viagem para ':'You visited ')+
+   (language==='pt-BR'?trip.pt:trip.en)+'. · '+
+   describeActualChanges(before,result.state,prior,result.stats),
+  id==='history'?'school':id==='family'?'family':'leisure');
+ for(const note of result.notes)life.history.push(life.age+': '+caption(note));
+ saveLife();tab='actions';render();
+}
+
+function renderPetStudio():string{
+ if(!life||life.age<8)return '';
+ const s=life.simulation,age=life.age,pt=language==='pt-BR',house=s.pets;
+ const alive=house.pets.filter(p=>p.alive);
+ const names:Record<PetSpecies,string>={dog:'Rex',cat:'Luna',rabbit:'Pipoca',bird:'Tico'};
+ const adoption=PET_SPECIES.map(species=>{
+  const cost=age>=18?PET_COST[species]:0;
+  const allowed=!life!.pendingEvent&&!s.ended&&s.justice.incarceratedUntil<=age&&
+    canAdoptPet(house,age,species,names[species])&&s.balance>=cost;
+  return '<article class="pet-adopt-card" data-pet-adoption="'+species+'">'+
+   '<div class="pet-card-art">'+petPortrait(species)+'</div>'+
+   '<strong>'+safe(petLabel(species,language))+'</strong>'+
+   '<small>'+safe(cost?cash(cost):(pt?'Adotar com a família':'Family adoption'))+'</small>'+
+   '<label>'+safe(pt?'Nome do companheiro':'Companion name')+
+   '<input type="text" maxlength="28" data-pet-name="'+species+'" autocomplete="off" placeholder="'+safe(names[species])+'"/></label>'+
+   '<button type="button" data-pet-adopt="'+species+'"'+(allowed?'':' disabled')+'>'+
+    safe(pt?'Adotar':'Adopt')+'</button></article>';
+ }).join('');
+ const companions=house.pets.length?'<div class="pet-household"><h4>'+
+  safe(pt?'Meus companheiros':'My companions')+'</h4><div class="pet-list">'+
+  house.pets.slice(-10).reverse().map(p=>{
+   const canCare=p.alive&&!life!.pendingEvent&&!s.ended&&s.justice.incarceratedUntil<=age&&
+    p.lastCareAge!==age&&age>=p.adoptedAt;
+   return '<article class="pet-family-card" data-pet-card="'+safe(p.id)+'">'+
+    '<span class="pet-family-image">'+petPortrait(p.species)+'</span>'+
+    '<div class="pet-family-info"><strong>'+safe(p.name)+'</strong>'+
+    '<span>'+safe(petLabel(p.species,language))+' · '+
+     p.ageYears+' '+safe(pt?'anos':'years')+'</span>'+
+    '<small>'+safe(pt?'Vínculo':'Bond')+': '+p.affection+'/100 · '+
+     safe(pt?'Energia':'Energy')+': '+p.energy+'/100</small>'+
+    '<div class="pet-bond-meter" role="progressbar" aria-label="'+safe(pt?'Vínculo de ':'Bond with ')+safe(p.name)+'" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+p.affection+'">'+
+     '<span style="width:'+p.affection+'%"></span></div></div>'+
+    (p.alive?'<button type="button" data-pet-care="'+safe(p.id)+'"'+(canCare?'':' disabled')+'>'+
+      safe(p.lastCareAge===age?(pt?'Cuidado neste ano':'Cared for this year'):pt?'Cuidar':'Care')+'</button>':
+     '<span class="pet-memorial">'+safe(pt?'Em memória':'In memory')+'</span>')+'</article>';
+  }).join('')+'</div></div>':'';
+ return '<section id="life-pets" class="pet-studio" aria-label="'+safe(pt?'Animais de estimação':'Animal companions')+'">'+
+  '<div class="pet-intro"><h3>'+safe(pt?'Companheiros de vida':'Lifelong companions')+'</h3>'+
+  '<p>'+safe(pt?'Adote até dois animais. Eles envelhecem, precisam de cuidados e deixam lembranças na sua história.':
+    'Adopt up to two pets. They age, need care and create memories in your story.')+'</p>'+
+  '<span>'+alive.length+'/2 '+safe(pt?'animais em casa':'pets at home')+'</span></div>'+
+  companions+'<div class="pet-adoption-grid">'+adoption+'</div></section>';
+}
+function adoptPetFromUI(id:string):void{
+ if(!life||!PET_SPECIES.includes(id as PetSpecies)||life.pendingEvent||life.simulation.ended)return;
+ const species=id as PetSpecies,field=appEl?.querySelector<HTMLInputElement>('[data-pet-name="'+species+'"]');
+ const fallback:Record<PetSpecies,string>={dog:'Rex',cat:'Luna',rabbit:'Pipoca',bird:'Tico'};
+ const name=field?.value.trim()||fallback[species];
+ const before=life.simulation,prior=life.stats;
+ const applied=adoptCompanion(before,prior,life.age,species,name);
+ if(!applied.ok)return;
+ life.simulation=applied.state;life.stats=applied.stats;
+ sound.play(species);
+ recordStoryChoice('pet-adopt-'+species,
+   language==='pt-BR'?'Nova adoção':'New adoption',petLabel(species,language)+' · '+name,
+   language==='pt-BR'?'Acolher um companheiro':'Welcome a companion',
+   (language==='pt-BR'?'Você acolheu ':'You adopted ')+name+'. · '+
+    describeActualChanges(before,applied.state,prior,applied.stats),'family');
+ for(const note of applied.notes)life.history.push(life.age+': '+caption(note));
+ saveLife();tab='actions';render();
+}
+function carePetFromUI(id:string):void{
+ if(!life||life.pendingEvent||life.simulation.ended)return;
+ const pet=life.simulation.pets.pets.find(p=>p.id===id);
+ if(!pet)return;
+ const before=life.simulation,prior=life.stats;
+ const result=careForCompanion(before,prior,life.age,id);
+ if(!result.ok)return;
+ life.simulation=result.state;life.stats=result.stats;
+ sound.play(pet.species);
+ recordStoryChoice('pet-care-'+pet.species,
+   language==='pt-BR'?'Cuidar do companheiro':'Care for a companion',
+   petLabel(pet.species,language)+' · '+pet.name,
+   language==='pt-BR'?'Dar atenção e carinho':'Offer care and affection',
+   (language==='pt-BR'?'Você cuidou de ':'You cared for ')+pet.name+'. · '+
+    describeActualChanges(before,result.state,prior,result.stats),'family');
+ for(const note of result.notes)life.history.push(life.age+': '+caption(note));
+ saveLife();tab='actions';render();
+}
+function activityQuickLinks():string{
+ if(!life)return '';
+ const pt=language==='pt-BR';
+ const links:[string,string][]=[
+  ...(life.age>=6?[['#life-talents',pt?'Talentos':'Talents'] as [string,string]]:[]),
+  ...(life.age>=18?[['#life-travel',pt?'Viagens':'Travel'] as [string,string]]:[]),
+  ...(life.age>=8?[['#life-pets',pt?'Animais':'Pets'] as [string,string]]:[]),
+  ...(life.age>=12?[['#life-appearance',pt?'Meu visual':'My style'] as [string,string],
+    ['#life-justice',pt?'Consequências':'Consequences'] as [string,string]]:[])
+ ];
+ if(!links.length)return '';
+ return '<nav class="activity-quick-links" aria-label="'+safe(pt?'Ir para a atividade':'Jump to activity')+'">'+
+  links.map(([href,label])=>'<a href="'+href+'">'+safe(label)+'</a>').join('')+'</nav>';
+}
 function renderActions(): string {
   if(!life)return '';
   const note=life.pendingEvent?u("blockedEvent"):(language==="pt-BR"?"Você pode fazer atividades diferentes no mesmo ano. Cada uma pode ser realizada uma vez por ano.":"Do different activities in the same year. Each activity is available once per year.");
   return '<section class="content-panel"><div class="panel-heading"><h2>'+safe(u("actions"))+'</h2><p>'+safe(note)+'</p></div>'+
-    '<div class="activity-grid">'+actionTypes.map(actionButton).join('')+'</div></section>';
+    '<div class="activity-grid">'+(isMysticOrigin(life.profile)?[...actionTypes,'mystic' as Action]:actionTypes)
+      .filter(a=>life!.age<6?['socialize','care'].includes(a):
+       life!.age<12?['study','socialize','care','train'].includes(a):
+       life!.age<16?['study','socialize','care','train','style','mystic'].includes(a):
+       life!.age<18?!['home','child','invest','withdraw','retire'].includes(a):true)
+      .map(actionButton).join('')+'</div>'+
+    activityQuickLinks()+
+    (isMysticOrigin(life.profile)?'<div class="special-origin"><strong>'+safe(mysticNatureLabel(life.profile.nature!,language))+
+    '</strong><span>'+safe(language==='pt-BR'?'Domínio místico ':'Mystic mastery ')+(life.simulation.mysticMastery??0)+'/100</span></div>':'')+
+    renderHobbyStudio()+renderTravelStudio()+renderPetStudio()+styleStudio()+(life.age>=12?justiceActions():'')+'</section>';
 }
 function progress(label: string, amount: number): string {
   return '<div class="relationship-progress"><div><span>'+safe(label)+'</span><b>'+clamp(amount)+'%</b></div>'+
   '<div class="bar"><span style="width:'+clamp(amount)+'%"></span></div></div>';
 }
 function renderPeople(): string {
-  if(!life)return '';
-  const s=life.simulation;
-  const social=life.social.people;
-  const bondRow=(p:typeof social[number])=>{
-    const age=personAge(p,life!.age);
-    const canVisit=p.alive&&!life!.pendingEvent&&!s.ended&&canTakeAction(s,life!.age,"socialize");
-    return '<article class="person-card"><div class="person-art">'+portraitLife(p.profile,age,"tiny")+'</div>'+
-      '<div class="person-details"><strong>'+safe(p.profile.name)+'</strong>'+
-      '<span>'+safe(personLabel(p.role,language))+' · '+safe(ageText(age))+
-      (p.alive?'':(language==="pt-BR"?" · Falecido":" · Deceased"))+'</span>'+
-      '<div class="person-bond"><span style="width:'+p.closeness+'%"></span></div>'+
-      '<small>'+safe(language==="pt-BR"?"Vínculo":"Bond")+': '+p.closeness+'%</small></div>'+
-      '<button type="button" data-person="'+safe(p.id)+'"'+(canVisit?'':' disabled')+
-       ' class="person-visit">'+safe(language==="pt-BR"?"Conversar":"Spend time")+'</button></article>';
-  };
-  return '<section class="content-panel people-panel"><div class="panel-heading"><h2>'+safe(u("people"))+'</h2>'+
-   '<p>'+safe(u("relationship"))+': '+safe(u(s.relationship))+' · '+safe(language==="pt-BR"?"Cada pessoa tem uma história e um vínculo próprio.":"Every person has their own story and bond.")+'</p></div>'+
-   '<div class="relation-grid">'+progress(u("family"),s.family)+progress(u("friends"),s.friends)+
-   (s.relationship!=="single"?progress(u("partner"),s.partner):'')+'</div>'+
-   '<div class="people-list">'+social.map(bondRow).join('')+'</div>'+
-   '<div class="data-list">'+pair(u("children"),String(s.children))+'</div>'+
-   '<div class="context-action activity-grid">'+actionButton("child")+'</div></section>';
+ if(!life)return '';
+ const s=life.simulation,social=life.social.people;
+ const bondRow=(p:typeof social[number])=>{
+   const age=personAge(p,life!.age);
+   const actions=(p.role==='partner'?SOCIAL_KINDS:SOCIAL_KINDS.filter(k=>k!=='propose')).map(kind=>{
+     const can=p.alive&&!life!.pendingEvent&&!s.ended&&canInteract(life!.social,s,life!.age,p.id,kind);
+     const cost=interactionCost(kind),label=interactionLabel(kind,language);
+     return '<button type="button" data-person="'+safe(p.id)+'" data-kind="'+safe(kind)+'"'+(can?'':' disabled')+
+       ' class="person-visit social-'+kind+'">'+safe(label)+(cost?' · '+safe(cash(cost)):'')+'</button>';
+   }).join('');
+   const last=recentSocialMemory(life!.social,p.id);
+   const memory=last?'<span class="person-last-memory">'+last.age+
+     (language==='pt-BR'?' anos · ':' yrs · ')+safe(interactionLabel(last.kind,language))+
+     ' · '+(last.bondChange>0?'+':'')+last.bondChange+'%</span>':'';
+   return '<article class="person-card"><div class="person-art">'+portraitLife(p.profile,age,"tiny")+'</div>'+
+    '<div class="person-details"><strong>'+safe(p.profile.name)+'</strong>'+
+    '<span>'+safe(personLabel(p.role,language))+' · '+safe(ageText(age))+
+    (p.alive?'':(language==="pt-BR"?" · Falecido":" · Deceased"))+'</span>'+
+    '<div class="person-bond"><span style="width:'+p.closeness+'%"></span></div>'+
+    '<small>'+safe(language==="pt-BR"?"Vínculo":"Bond")+': '+p.closeness+'%</small>'+memory+'</div>'+
+    '<div class="person-actions">'+actions+'</div></article>';
+ };
+ return '<section class="content-panel people-panel"><div class="panel-heading"><h2>'+safe(u("people"))+'</h2>'+
+  '<p>'+safe(u("relationship"))+': '+safe(u(s.relationship))+' · '+safe(language==="pt-BR"?
+  "Cada personagem lembra das suas interações, com consequências para o vínculo. Uma ação social por ano.":
+  "Each character remembers interactions with lasting bond consequences. One social action per year.")+'</p></div>'+
+  '<div class="relation-grid">'+progress(u("family"),s.family)+progress(u("friends"),s.friends)+
+  (s.relationship!=="single"?progress(u("partner"),s.partner):'')+'</div>'+
+  '<div class="people-list">'+social.map(bondRow).join('')+'</div>'+
+  '<div class="data-list">'+pair(u("children"),String(s.children))+'</div>'+
+  '<div class="context-action activity-grid">'+actionButton("child")+'</div></section>';
 }
+
 function pair(label: string,value:string): string {return '<div class="data-row"><span>'+safe(label)+'</span><strong>'+safe(value)+'</strong></div>';}
+function studyTrackLabel(track:StudyTrack):string {
+ const labels:Record<StudyTrack,[string,string]>={
+  general:['Geral','General'],
+  medicine:['Medicina e Saúde','Medicine & Health'],
+  law:['Direito','Law'],
+  science:['Ciências e Engenharia','Science & Engineering'],
+  arts:['Artes','Arts']
+ };
+ return labels[track][language==='en'?1:0];
+}
+function chooseStudyTrackFromUI():void {
+ if(!life||life.pendingEvent||life.simulation.ended)return;
+ const raw=appEl?.querySelector<HTMLSelectElement>('[data-study-track]')?.value;
+ if(!STUDY_TRACKS.includes(raw as StudyTrack))return;
+ const outcome=selectStudyTrack(life.simulation,life.stats,life.age,raw as StudyTrack);
+ if(!outcome.ok)return;
+ life.simulation=outcome.state;life.stats=outcome.stats;
+ recordStoryChoice('academic-focus',language==='pt-BR'?'Escolha acadêmica':'Academic decision',
+  studyTrackLabel(raw as StudyTrack),language==='pt-BR'?'Selecionar especialização':'Choose specialization',
+  (language==='pt-BR'?'Escolheu a área acadêmica ':'Selected academic focus ')+studyTrackLabel(raw as StudyTrack)+'.',
+  'school');
+ for(const note of outcome.notes)life.history.push(life.age+': '+caption(note));
+ saveLife();tab='career';render();
+}
+
+function renderSchool():string{
+ if(!life||life.age>=16)return '';
+ const child=life.age<6;
+ const next=child?Math.max(0,6-life.age):Math.max(0,16-life.age);
+ const heading=child?(language==='pt-BR'?'Primeiros anos':'Early years'):
+  (language==='pt-BR'?'Vida escolar':'School years');
+ const explanation=child?
+  (language==='pt-BR'?'Nesta fase, o mais importante é crescer, brincar e conhecer sua família. A escola começará aos 6 anos.':
+   'For now, growing up, playing and bonding with family matter most. School begins at age six.'):
+  (language==='pt-BR'?'Estude para desenvolver inteligência e conquistar novas oportunidades quando crescer. As profissões aparecerão a partir dos 16 anos.':
+   'Study to develop your mind and open opportunities as you grow. Jobs appear when you reach sixteen.');
+ return '<section class="content-panel school-panel" data-age-mode="'+(child?'early':'school')+'">'+
+  '<div class="panel-heading"><h2>'+safe(heading)+'</h2><p>'+safe(explanation)+'</p></div>'+
+  '<div class="school-lead"><span class="school-icon">'+iconSvg(child?'heart':'book',34)+'</span>'+
+   '<div><strong>'+safe(child?(language==='pt-BR'?'Tempo de descobrir':'Time to discover'):
+    (language==='pt-BR'?'Seu aprendizado':'Your learning'))+'</strong>'+
+   '<span>'+safe(language==='pt-BR'?'Próxima etapa em ':'Next stage in ')+next+' '+
+   safe(language==='pt-BR'?(next===1?'ano':'anos'):(next===1?'year':'years'))+'</span></div></div>'+
+  '<div class="data-list">'+pair(language==='pt-BR'?'Idade':'Age',ageText(life.age))+
+   (child?'':pair(u("degree"),u(life.simulation.education))+pair(u("credits"),String(life.simulation.credits)))+
+   pair(u("smarts"),life.stats.smarts+'%')+'</div>'+
+  (child?'':'<div class="activity-grid">'+actionButton("study")+actionButton("train")+'</div>')+
+  '<p class="school-reminder">'+safe(child?
+   (language==='pt-BR'?'Suas relações e o diário de vida já estão disponíveis.':'Your relationships and life journal are already available.'):
+   (language==='pt-BR'?'As decisões de estudo ficam registradas e afetam as oportunidades futuras.':'School choices are saved and affect future possibilities.'))+'</p></section>';
+}
+
 function renderCareer(): string {
   if(!life)return '';
+  if(life.age<16)return renderSchool();
   const s=life.simulation;
-  return '<section class="content-panel"><div class="panel-heading"><h2>'+safe(u("career"))+'</h2></div>'+
-    '<div class="data-list">'+pair(u("degree"),u(s.education))+pair(u("credits"),String(s.credits))+
-    pair(u("currentJob"),u(s.job))+pair(u("experience"),String(s.experience))+
-    pair(u("income"),cash(annualSalary(s)))+'</div>'+
-    '<div class="activity-grid">'+actionButton("study")+actionButton("job")+'</div></section>';
+  const role=careerById(s.occupation);
+  const jobLabel=role && role.job===s.job ? careerLabel(role,language):u(s.job);
+  const allowed=canAction('job');
+  const visibleCareers=life.age<18?CAREERS.filter(c=>c.age<=life!.age):CAREERS;
+  const vacancies=visibleCareers.map(c=>{
+    const active=c.id===s.occupation&&c.job===s.job;
+    const qualified=careerAvailable(s,life!.age,c,life!.profile);
+    const actionable=allowed&&qualified&&!active;
+    return '<article class="career-vacancy'+(active?' current':'')+'" data-career-card="'+c.id+'">'+
+      '<div class="career-vacancy-info"><strong>'+safe(careerLabel(c,language))+'</strong>'+
+      '<span>'+safe(careerRequirements(c,language))+
+       (hobbyCreditAlternative(c.id,s.hobbies)?' · '+safe(language==='pt-BR'?'Portfólio de talento':'Talent portfolio'):'')+'</span>'+
+      '<small>'+safe(language==='pt-BR'?'Salário anual':'Annual salary')+' · '+safe(cash(c.salary))+'</small></div>'+
+      '<button type="button" data-career="'+c.id+'"'+(actionable?'':' disabled')+
+      ' class="career-apply">'+safe(active?(language==='pt-BR'?'Atual':'Current'):
+        !qualified?(language==='pt-BR'?'Bloqueada':'Locked'):(language==='pt-BR'?'Candidatar-se':'Apply'))+'</button></article>';
+  }).join('');
+  return '<section class="content-panel career-page"><div class="panel-heading"><h2>'+safe(u("career"))+'</h2>'+
+   '<p>'+safe(life.age<18?
+      (language==='pt-BR'?'Primeiros trabalhos compatíveis com sua idade. Profissões avançadas surgirão depois.':
+       'Early work suited to your age. More career options appear as you get older.'):
+      (language==='pt-BR'?'Escolha uma profissão. Cada vaga exige requisitos reais e define sua renda.':
+       'Choose a profession. Each vacancy has requirements and a different salary.'))+'</p></div>'+
+   '<div class="data-list">'+pair(u("degree"),u(s.education))+pair(u("credits"),String(s.credits))+
+   pair(u("currentJob"),safe(jobLabel))+pair(u("experience"),String(s.experience))+
+   pair(language==='pt-BR'?'Especialização':'Academic track',safe(studyTrackLabel(s.studyTrack??'general')))+
+   pair(u("income"),cash(annualSalary(s)))+pair(language==='pt-BR'?'Treino esportivo':'Athletic training',String(s.training??0))+
+   pair(language==='pt-BR'?'Nível profissional':'Career level',String(s.careerLevel??0))+
+   pair(language==='pt-BR'?'Dedicação':'Work effort',String(s.careerMomentum??0))+
+   pair(language==='pt-BR'?'Vitórias esportivas':'Sports victories',String(s.sportsVictories??0))+'</div>'+
+   '<div class="activity-grid">'+actionButton("study")+(!['none','retired'].includes(s.job)?actionButton('resign'):'')+'</div>'+
+   '<section class="academic-track"><h3>'+safe(language==='pt-BR'?'Escolha sua formação':'Choose your academic track')+'</h3>'+
+   '<p>'+safe(language==='pt-BR'?'Depois de concluir o ensino superior, escolha uma especialização estudando. Medicina, direito e ciências exigem a área correspondente. Uma escolha por ano.':'After completing college, study a specialization. Medical, legal and science careers require the matching focus. One selection per year.')+'</p>'+
+   '<div><select data-study-track aria-label="'+safe(language==='pt-BR'?'Área acadêmica':'Academic track')+'">'+
+   STUDY_TRACKS.map(t=>option(t,studyTrackLabel(t),t===(s.studyTrack??'general'))).join('')+'</select>'+
+   '<button type="button" data-do="track-apply"'+
+   (s.education==='college'&&life.age>=18&&life.age<=65&&!life.pendingEvent&&canTakeAction(s,life.age,'study')?'':' disabled')+
+   '>'+safe(language==='pt-BR'?'Estudar especialização':'Study specialization')+'</button></div></section>'+
+   '<label class="career-search"><span>'+safe(language==='pt-BR'?'Buscar profissão':'Search careers')+'</span>'+
+   '<input type="search" data-career-search autocomplete="off" placeholder="'+safe(language==='pt-BR'?'Ex.: médico, futebol, advogado':'E.g. doctor, football, lawyer')+'"/></label>'+
+   '<h3 class="career-heading">'+safe(language==='pt-BR'?'Vagas disponíveis e futuras':'Current and future careers')+'</h3>'+
+   '<div class="career-list">'+vacancies+'</div></section>';
 }
 function renderFinances(): string {
   if(!life)return '';
   const s=life.simulation;
-  return '<section class="content-panel"><div class="panel-heading"><h2>'+safe(u("finances"))+'</h2></div>'+
+  if(life.age<16){
+    return '<section class="content-panel youth-finances" data-finances-mode="youth">'+
+     '<div class="panel-heading"><h2>'+safe(language==='pt-BR'?'Dinheiro e patrimônio':'Money & assets')+'</h2>'+
+     '<p>'+safe(language==='pt-BR'?'Seu patrimônio já existe, mas as decisões financeiras complexas só serão liberadas quando você crescer.':'Your assets already exist, but advanced financial decisions unlock when you are older.')+'</p></div>'+
+     '<div class="data-list">'+pair(u("balance"),cash(s.balance))+
+     pair(u("investments"),cash(s.investments))+
+     pair(u("netWorth"),cash(s.balance+s.investments+s.homeValue-s.debt))+'</div>'+
+     '<p class="school-reminder">'+safe(language==='pt-BR'?'Continue sua história e cuide dos seus relacionamentos.':'Continue your life and build your relationships.')+'</p></section>';
+  }
+  return '<section class="content-panel" data-finances-mode="adult"><div class="panel-heading"><h2>'+safe(u("finances"))+'</h2></div>'+
     '<div class="money-headline"><div><span>'+safe(u("balance"))+'</span><strong>'+safe(cash(s.balance))+'</strong></div>'+
     '<div><span>'+safe(u("debt"))+'</span><strong>'+safe(cash(s.debt))+'</strong></div></div>'+
     '<div class="data-list">'+pair(u("income"),cash(annualSalary(s)))+
     pair(u("investments"),cash(s.investments))+pair(u("homeValue"),cash(s.homeValue))+
     pair(u("netWorth"),cash(s.balance+s.investments+s.homeValue-s.debt))+
-    pair(u("expenses"),cash((life.age>=65?8500:10500)+(s.homeOwned?1800:0)+2000*s.children))+'</div>'+
+    pair(u("expenses"),cash(life.age<18?0:(life.age>=65?8500:10500)+(s.homeOwned?1800:0)+2000*s.children))+'</div>'+
     (s.debt>=30000?'<p class="debt-warning">'+safe(u("warningDebt"))+'</p>':'')+
-    '<div class="activity-grid">'+actionButton("budget")+actionButton("invest")+actionButton("home")+'</div></section>';
+    '<div class="activity-grid">'+actionButton("budget")+(life.age>=18?actionButton("invest")+actionButton("withdraw")+actionButton("home"):'')+'</div></section>';
 }
 function quietEvent(): LifeEvent {
   const pt=language==="pt-BR";
@@ -602,15 +1313,26 @@ function activeEventForLanguage(): void {
   if(!life?.pendingEvent)return;
   const id=life.pendingEvent.id;
   if(id==="quiet-year"){life.pendingEvent=quietEvent();return;}
-  const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language),...extendedEvents(language)] as LifeEvent[]).find(e=>e.id===id);
+  if(id.startsWith('arc-')){
+   const followup=storyArcEvent(life.storyArc,language);
+   if(followup?.id===id)life.pendingEvent=followup;
+   return;
+  }
+  const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language),...extendedEvents(language),...advancedEvents(language),...hobbyEvents(language,life!.simulation),...petStoryEvents(language,life!.simulation,life!.age),...mysticEvents(language,life?.profile),...(life?careerEvents(language,life.simulation):[])] as LifeEvent[]).find(e=>e.id===id);
   if(localized)life.pendingEvent=localized;
 }
 function syncLifePeople():void {
  if(!life)return;
- const result=syncSocial(life.social,life.profile,life.age,life.simulation.relationship,life.simulation.children,life.simulation.partner);
+ const result=syncSocial(life.social,life.profile,life.age,life.simulation.relationship,life.simulation.children,life.simulation.partner,life.simulation.friends);
  life.social=result.social;
  for(const note of result.notes){
-   const words=note==='partner-introduced'?
+   const words=note==='classmate-introduced'?
+     (language==='pt-BR'?'Você conheceu um colega da escola.':'You met a schoolmate.'):
+     note==='classmate-graduated'?
+     (language==='pt-BR'?'Uma amizade da escola continuou na vida adulta.':'A school friendship continued into adulthood.'):
+     note==='friend-introduced'?
+     (language==='pt-BR'?'Você fez uma nova amizade.':'You made a new friend.'):
+     note==='partner-introduced'?
      (language==='pt-BR'?'Você conheceu uma pessoa especial.':'You met someone special.'):
      note==='child-added'?
      (language==='pt-BR'?'Um novo membro entrou para a família.':'A new member joined the family.'):
@@ -618,15 +1340,65 @@ function syncLifePeople():void {
    life.history.push(life.age+': '+words);
  }
 }
-function visitPerson(id:string):void {
+/** Every player-triggered decision is recorded only after the simulation accepts it. */
+function recordStoryChoice(id:string,title:string,description:string,choice:string,result:string,category:string):void{
+ if(!life)return;
+ const historyIndex=life.history.length;
+ life.history.push(life.age+': '+result);
+ life.chronicle.push({historyIndex,age:life.age,eventId:id,title,description,choice,result,category});
+}
+function describeActualChanges(before:Simulation,after:Simulation,prior:Stats,next:Stats):string{
+ const pt=language==='pt-BR',changes:string[]=[];
+ const metrics:[string,number,number][]=[
+  [pt?'Felicidade':'Happiness',prior.happiness,next.happiness],
+  [pt?'Saúde':'Health',prior.health,next.health],
+  [pt?'Inteligência':'Smarts',prior.smarts,next.smarts],
+  [pt?'Aparência':'Looks',prior.looks,next.looks],
+  [pt?'Saldo':'Balance',before.balance,after.balance],
+  [pt?'Dívida':'Debt',before.debt,after.debt],
+  [pt?'Créditos acadêmicos':'Study credits',before.credits,after.credits],
+  [pt?'Experiência':'Experience',before.experience,after.experience],
+  [pt?'Família':'Family bond',before.family,after.family],
+  [pt?'Amizades':'Friends',before.friends,after.friends],
+  [pt?'Parceria':'Partner bond',before.partner,after.partner],
+  [pt?'Filhos':'Children',before.children,after.children],
+  [pt?'Investimentos':'Investments',before.investments,after.investments],
+  [pt?'Treino':'Training',before.training,after.training],
+  [pt?'Carreira':'Career momentum',before.careerMomentum,after.careerMomentum]
+ ];
+ for(const [label,start,end] of metrics){
+  if(Number.isFinite(start)&&Number.isFinite(end)&&start!==end){
+   const change=Math.round(end-start);
+   changes.push(label+' '+(change>0?'+':'')+change);
+  }
+ }
+ if(before.education!==after.education)changes.push((pt?'Formação: ':'Education: ')+u(after.education));
+ if(before.relationship!==after.relationship)changes.push((pt?'Relação: ':'Relationship: ')+u(after.relationship));
+ if(before.job!==after.job)changes.push((pt?'Trabalho: ':'Job: ')+u(after.job));
+ if(before.homeOwned!==after.homeOwned)changes.push(pt?'Imóvel adquirido':'Property acquired');
+ if(before.studyTrack!==after.studyTrack)changes.push((pt?'Área de estudo: ':'Study track: ')+after.studyTrack);
+ return changes.join(' · ')||(pt?'Sem mudança imediata nos indicadores.':'No immediate change to indicators.');
+}
+const activityCategory:Record<Action,string>={
+ study:'school',job:'work',resign:'work',socialize:'friend',care:'health',budget:'money',retire:'retirement',
+ invest:'money',withdraw:'money',home:'money',child:'family',crime:'city',train:'leisure',mystic:'leisure',work:'work',style:'leisure',travel:'leisure'
+};
+
+function visitPerson(id:string,kind='talk'):void {
  if(!life||life.pendingEvent||life.simulation.ended)return;
- const person=life.social.people.find(p=>p.id===id&&p.alive);
- if(!person)return;
- const result=takeAction(life.simulation,life.stats,life.age,'socialize');
- if(!result.ok)return;
- life.simulation=result.state;life.stats=result.stats;
- life.social=spendSocialTime(life.social,id,life.age);
- life.history.push(life.age+': '+(language==='pt-BR'?'Você passou um tempo com ':'You spent time with ')+person.profile.name+'.');
+ if(!SOCIAL_KINDS.includes(kind as typeof SOCIAL_KINDS[number]))return;
+ const person=life.social.people.find(p=>p.id===id);
+ const before=life.simulation,prior=life.stats;
+ const outcome=resolveSocialEncounter(life.social,life.simulation,life.stats,life.age,id,
+   kind as typeof SOCIAL_KINDS[number],language as Lang);
+ if(!outcome.ok||!person)return;
+ sound.play('social');
+ life.social=outcome.social;life.simulation=outcome.simulation;life.stats=outcome.stats;
+ const label=interactionLabel(kind as typeof SOCIAL_KINDS[number],language);
+ const outcomeText=(outcome.notes?.[0]??label)+ ' '+describeActualChanges(before,outcome.simulation,prior,outcome.stats);
+ recordStoryChoice('social-'+kind,label,person.profile.name+' · '+personLabel(person.role,language),
+  label,outcomeText,['mother','father','parent','child','partner'].includes(person.role)?'family':'friend');
+ for(const note of (outcome.notes??[]).slice(1))life.history.push(life.age+': '+note);
  syncLifePeople();saveLife();render();
 }
 
@@ -635,38 +1407,99 @@ function ageUp(): void {
   const age=life.age+1;
   const transition=passYear(life.simulation,life.stats,age);
   if(!transition.ok)return;
+  sound.play(transition.state.ended?'ending':'year');
   life.age=age;life.simulation=transition.state;life.stats=transition.stats;
+  life.history.push(age+': '+(language==='pt-BR'?'Você completou mais um ano de vida.':'You reached another year of life.'));
   syncLifePeople();
   transition.notes.forEach(n=>life!.history.push(age+": "+caption(n)));
   if (!transition.state.ended) {
-    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language),...extendedEvents(language).filter(e=>extendedAllowed(e,life!.simulation))] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
-    life.pendingEvent=selectEvent(eligible,age,life.eventLedger,life.lastEventId)??quietEvent();
+    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language),...extendedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...advancedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...hobbyEvents(language,life!.simulation),...petStoryEvents(language,life!.simulation,age),...mysticEvents(language,life!.profile),...careerEvents(language,life!.simulation)] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
+    if(life.storyArc&&!storyArcAllowed(life.storyArc,life.simulation,age))life.storyArc=null;
+    const continuing=storyArcEvent(life.storyArc,language);
+    life.pendingEvent=continuing&&age>=continuing.minAge?
+      continuing:selectEvent(eligible,age,life.eventLedger,life.lastEventId)??quietEvent();
+  }else{
+    life.storyArc=null;
   }
   saveLife();tab="story";render();
 }
 function choose(index:number): void {
   if (!life?.pendingEvent)return;
   const event=life.pendingEvent;const choice=event.choices[index];if(!choice)return;
+  const before=life.simulation,prior=life.stats;
+  // A companion decision requires its own living pet, not just a copied event ID.
+  if(event.id.startsWith('pet-story-')&&
+    !petStoryEvents(language,life.simulation,life.age).some(e=>e.id===event.id)){
+    life.pendingEvent=quietEvent();saveLife();render();return;
+  }
   const result=applyNarrativeChoice(life.simulation,life.stats,life.age,event.id,index,choice.effects,choice.world);
   if(!result.ok)return;
-  life.simulation=result.state;life.stats=result.stats;
+  const petResult=event.id.startsWith('pet-story-')?
+    applyPetStoryChoice(result.state,life.age,event.id,index):null;
+  if(petResult&&!petResult.ok)return;
+  sound.play(index===2?'warning':event.id.startsWith('arc-')?'success':'choice');
+  life.simulation=petResult?.state??result.state;life.stats=result.stats;
   syncLifePeople();
-  life.history.push(life.age+": "+choice.result);
+  const historyIndex=life.history.length;
+  const realResult=choice.result+' · '+describeActualChanges(before,life.simulation,prior,life.stats);
+  life.history.push(life.age+": "+realResult);
+  life.chronicle.push({historyIndex,age:life.age,eventId:event.id,title:event.title,
+    description:event.description,choice:choice.label,result:realResult,
+    ...(event.category?{category:event.category}:{})});
   for(const n of result.notes)life.history.push(life.age+": "+caption(n));
+  if(petResult?.ok){
+    const namedPet=life.simulation.pets.pets.find(p=>petResult.note.startsWith('pet-story:'+p.id+':'));
+    if(namedPet)life.history.push(life.age+': '+(language==='pt-BR'?
+      'Vínculo com '+namedPet.name+': '+namedPet.affection+'/100.':
+      'Bond with '+namedPet.name+': '+namedPet.affection+'/100.'));
+  }
   if(event.id!=="quiet-year"){
     if(!life.seenEventIds.includes(event.id))life.seenEventIds.push(event.id);
     life.eventLedger=recordEvent(life.eventLedger,event.id,life.age);
   }
   life.lastEventId=event.id;
+  life.storyArc=afterStoryArcChoice(life.storyArc,event.id,index,life.age);
+  life.storyArc=startStoryArc(event.id,index,life.age,life.storyArc);
   life.pendingEvent=null;saveLife();render();
+}
+function applyToCareer(id:string):void {
+ if(!life||life.pendingEvent||life.simulation.ended||!canAction('job'))return;
+ const role=careerById(id);
+ if(!role||!careerAvailable(life.simulation,life.age,role,life.profile))return;
+ const result=applyCareer(life.simulation,life.stats,life.age,role.id as OccupationId,life.profile);
+ if(!result.ok)return;
+ sound.play('career');
+ life.simulation=result.state;life.stats=result.stats;
+ const profession=careerLabel(role,language);
+ recordStoryChoice('career-start',language==='pt-BR'?'Novo emprego':'New job',
+   profession,language==='pt-BR'?'Candidatar-se à vaga':'Apply for vacancy',
+   (language==='pt-BR'?'Começou a trabalhar como ':'Started working as ')+profession+'.',
+   'work');
+ for(const note of result.notes)life.history.push(life.age+': '+caption(note));
+ saveLife();tab='career';render();
 }
 function act(action:Action): void {
   if(!life || !canAction(action))return;
+  if(action==='job'){tab='career';render();return;}
+  if(action==='mystic'){
+    const before=life.simulation,prior=life.stats;
+    const result=practiceMystic(life.simulation,life.stats,life.age,life.profile);
+    if(!result.ok)return;
+    life.simulation=result.state;life.stats=result.stats;
+    recordStoryChoice('activity-mystic',u('mystic'),u('mysticInfo'),u('mystic'),
+      (language==='pt-BR'?'Praticou seus poderes místicos.':'Practiced mystical powers.')+
+      ' '+describeActualChanges(before,result.state,prior,result.stats),'leisure');
+    for(const note of result.notes)life.history.push(life.age+': '+caption(note));
+    saveLife();render();return;
+  }
+  const before=life.simulation,prior=life.stats;
   const result=takeAction(life.simulation,life.stats,life.age,action);
   if(!result.ok)return;
+  sound.play(['budget','invest','withdraw','home'].includes(action)?'finance':'open');
   life.simulation=result.state;life.stats=result.stats;
   syncLifePeople();
-  life.history.push(life.age+": "+u(action));
+  recordStoryChoice('activity-'+action,u(action),u(action+'Info'),u(action),
+    u(action)+' · '+describeActualChanges(before,life.simulation,prior,life.stats),activityCategory[action]);
   for(const n of result.notes)life.history.push(life.age+": "+caption(n));
   saveLife();render();
 }
@@ -679,10 +1512,17 @@ function renderGameMenu():string {
  return '<div class="game-menu-backdrop"><section class="game-menu-panel" role="dialog" aria-modal="true" aria-label="'+
   safe(language==='pt-BR'?'Menu da vida':'Life menu')+'">'+
   '<div class="menu-title"><div><span class="subtle-label">ZOID LIFE</span><h2>'+
-  safe(language==='pt-BR'?'Sua vida está salva':'Your life is saved')+'</h2></div>'+
+  safe(saveError?(language==='pt-BR'?'Salvamento indisponível':'Saving unavailable'):
+   (language==='pt-BR'?'Sua vida está salva':'Your life is saved'))+'</h2></div>'+
   '<button type="button" data-do="close-menu" class="menu-close" aria-label="'+safe(u("back"))+'">×</button></div>'+
   '<p>'+safe(language==='pt-BR'?'Sem cadastro: o jogo salva neste navegador. Faça uma cópia para jogar em outro dispositivo.':
   'No account needed: this browser saves your progress. Export a copy for another device.')+'</p>'+
+  '<div class="audio-preferences" data-audio-preferences><h3>'+safe(language==='pt-BR'?'Áudio do jogo':'Game audio')+'</h3>'+
+     '<label class="sound-switch"><input type="checkbox" data-sound-enabled '+(sound.settings.enabled?'checked':'')+' />'+safe(language==='pt-BR'?'Efeitos sonoros originais':'Original sound effects')+'</label>'+
+     '<label class="sound-volume"><span>'+safe(language==='pt-BR'?'Volume':'Volume')+' <output data-sound-output>'+Math.round(sound.settings.volume*100)+'%</output></span>'+
+     '<input type="range" min="0" max="100" step="5" data-sound-volume value="'+Math.round(sound.settings.volume*100)+'" aria-label="'+safe(language==='pt-BR'?'Volume dos sons':'Sound volume')+'"/></label>'+
+     '<label class="sound-switch"><input type="checkbox" data-sound-music '+(sound.settings.music?'checked':'')+' />'+safe(language==='pt-BR'?'Ambiente musical leve':'Soft ambient music')+'</label>'+
+     '<p>'+safe(language==='pt-BR'?'Sem arquivos externos. O áudio só começa depois que você permite.':'No external files. Playback starts only after your interaction.')+'</p></div>'+
   '<div class="menu-buttons">'+
    button(language==='pt-BR'?'Baixar meu save (.json)':'Download my save (.json)','export-save','secondary fill')+
    button(language==='pt-BR'?'Importar um save':'Import a save','import-save','outline fill')+
@@ -703,12 +1543,25 @@ function downloadLife():void {
  document.body.appendChild(a);a.click();a.remove();
  window.setTimeout(()=>URL.revokeObjectURL(url),1200);
 }
+function downloadUnrestoredSave():void {
+ if(!recoveryAvailable)return;
+ try{
+  const raw=localStorage.getItem(STORAGE_KEY);
+  if(!raw)return;
+  const url=URL.createObjectURL(new Blob([raw],{type:'text/plain;charset=utf-8'}));
+  const anchor=document.createElement('a');
+  anchor.href=url;anchor.download='zoid-life-recovery.txt';
+  document.body.appendChild(anchor);anchor.click();anchor.remove();
+  window.setTimeout(()=>URL.revokeObjectURL(url),1200);
+ }catch { /* This browser may deny storage access; do not destroy the data. */ }
+}
 async function importLife(file:File):Promise<void> {
  try {
-  if(file.size>1_000_000)throw Error('too-large');
+  if(file.size>MAX_SAVE_BYTES)throw Error('too-large');
   const parsed=validateLifeSave(await file.text());
   if(!parsed.ok)throw Error(parsed.error);
   const original=localStorage.getItem(STORAGE_KEY);
+  const previousLoadError=loadError,previousRecoveryAvailable=recoveryAvailable;
   try {
    localStorage.setItem(STORAGE_KEY,JSON.stringify(parsed.value));
    const restored=loadLife();
@@ -717,6 +1570,7 @@ async function importLife(file:File):Promise<void> {
   }catch(error){
    if(original===null)localStorage.removeItem(STORAGE_KEY);
    else localStorage.setItem(STORAGE_KEY,original);
+   loadError=previousLoadError;recoveryAvailable=previousRecoveryAvailable;
    throw error;
   }
  }catch{
@@ -727,23 +1581,29 @@ async function importLife(file:File):Promise<void> {
 }
 
 function newLife(): void {
-  if(life && !window.confirm(u("resetTitle")))return;
-  life=null;try{localStorage.removeItem(STORAGE_KEY);}catch{}
+  if((life||loadError) && !window.confirm(u("resetTitle")))return;
+  life=null;loadError=false;recoveryAvailable=false;try{localStorage.removeItem(STORAGE_KEY);}catch{}
   candidates=randomCandidates(3);scene="welcome";menuOpen=false;render();
 }
 function handleAction(value:string):void {
   if(value==="language"){changeLanguage();return;}
-  if(value==="toggle-menu"){menuOpen=!menuOpen;menuError="";render();return;}
+  if(value==="toggle-sound"){sound.configure({enabled:!sound.settings.enabled});render();return;}
+  if(value==="more-history"){journalVisibleCount=Math.min(6000,journalVisibleCount+60);render();return;}
+  if(value==="toggle-menu"){menuOpen=!menuOpen;menuError="";sound.play('open');render();return;}
   if(value==="close-menu"){menuOpen=false;menuError="";render();return;}
   if(value==="export-save"){downloadLife();return;}
+  if(value==="export-recovery"){downloadUnrestoredSave();return;}
+  if(value==="download-recap"){downloadLifeRecap();return;}
   if(value==="import-save"){appEl?.querySelector<HTMLInputElement>("#life-save-file")?.click();return;}
   if(value==="home"){scene="welcome";menuOpen=false;render();return;}
   if(value==="new-life"){newLife();return;}
   if(value==="selection"){scene="welcome";render();return;}
   if(value==="reroll"){candidates=randomCandidates(3);scene="welcome";render();return;}
-  if(value==="custom"){custom={...randomCharacter(),name:""};customStats={happiness:70,health:80,smarts:55,looks:60};scene="custom";render();return;}
+  if(value==="custom"){custom={...randomCharacter(),name:"",origin:"custom",nature:"human"};customStats={happiness:70,health:80,smarts:55,looks:60};scene="custom";render();return;}
   if(value==="continue"){scene="playing";tab="story";render();return;}
   if(value==="age-up"){ageUp();return;}
+  if(value==="style-apply"){applyStyleFromUI();return;}
+  if(value==="track-apply"){chooseStudyTrackFromUI();return;}
   if(value.startsWith("preset-")){
     const i=Number(value.slice(7));const profile=candidates[i];
     if(profile)createLife(profile,{happiness:45+Math.floor(Math.random()*40),health:60+Math.floor(Math.random()*35),
@@ -753,10 +1613,30 @@ function handleAction(value:string):void {
 const appEl=document.querySelector<HTMLDivElement>("#app");
 appEl?.addEventListener("click",e=>{
   const target=e.target as HTMLElement;
+  const chapters=target.closest<HTMLElement>('.story-chapters-toggle');
+  if(chapters){
+    chaptersOpen=!Boolean(chapters.closest<HTMLDetailsElement>('.story-chapters')?.open);
+    return;
+  }
+  const descendant=target.closest<HTMLButtonElement>("[data-descendant]");
+  if(descendant){continueAsDescendant(descendant.dataset.descendant||'');return;}
+  const adopt=target.closest<HTMLButtonElement>("[data-pet-adopt]");
+  if(adopt){adoptPetFromUI(adopt.dataset.petAdopt||'');return;}
+  const care=target.closest<HTMLButtonElement>("[data-pet-care]");
+  if(care){carePetFromUI(care.dataset.petCare||'');return;}
+  const journey=target.closest<HTMLButtonElement>("[data-journey]");
+  if(journey){travelFromUI(journey.dataset.journey||'');return;}
+  const hobby=target.closest<HTMLButtonElement>("[data-hobby]");
+  if(hobby){practiceHobbyFromUI(hobby.dataset.hobby||'');return;}
   const person=target.closest<HTMLButtonElement>("[data-person]");
-  if(person){visitPerson(person.dataset.person||'');return;}
+  if(person){visitPerson(person.dataset.person||'',person.dataset.kind||'talk');return;}
+  const offense=target.closest<HTMLButtonElement>("[data-offense]");
+  if(offense){chooseOffense(offense.dataset.offense||'');return;}
+  const career=target.closest<HTMLButtonElement>("[data-career]");
+  if(career){applyToCareer(career.dataset.career||'');return;}
   const nav=target.closest<HTMLButtonElement>("[data-tab]");
-  if(nav){tab=nav.dataset.tab as Tab;render();return;}
+  if(nav){if(life?.pendingEvent){tab='story';render();return;}
+    tab=nav.dataset.tab as Tab;render();return;}
   const choice=target.closest<HTMLButtonElement>("[data-choice]");
   if(choice){choose(Number(choice.dataset.choice));return;}
   const action=target.closest<HTMLButtonElement>("[data-action]");
@@ -766,6 +1646,19 @@ appEl?.addEventListener("click",e=>{
 });
 appEl?.addEventListener("input",e=>{
   const target=e.target as HTMLInputElement;
+  if(target.hasAttribute('data-sound-volume')){
+    const settings=sound.configure({volume:Number(target.value)/100});
+    const out=appEl?.querySelector<HTMLOutputElement>('[data-sound-output]');
+    if(out)out.textContent=Math.round(settings.volume*100)+'%';
+    return;
+  }
+  if(target.hasAttribute('data-career-search')){
+    const query=target.value.trim().toLocaleLowerCase();
+    appEl.querySelectorAll<HTMLElement>('.career-vacancy').forEach(card=>{
+      card.hidden=Boolean(query)&&!card.textContent?.toLocaleLowerCase().includes(query);
+    });
+    return;
+  }
   if(target.dataset.stat){
     const k=target.dataset.stat as StatKey;customStats[k]=clamp(Number(target.value));
     const output=appEl.querySelector<HTMLOutputElement>('[data-value="'+k+'"]');
@@ -779,6 +1672,23 @@ appEl?.addEventListener("input",e=>{
 });
 appEl?.addEventListener("change",e=>{
   const fileInput=e.target as HTMLInputElement;
+  if(fileInput.hasAttribute('data-sound-enabled')){
+    sound.configure({enabled:fileInput.checked});render();return;
+  }
+  if(fileInput.hasAttribute('data-sound-music')){
+    sound.configure({music:fileInput.checked});render();return;
+  }
+  if(fileInput.hasAttribute('data-style-field')&&life&&scene==='playing'){
+    const val=(field:string,fallback:string)=>
+      appEl?.querySelector<HTMLSelectElement>('[data-style-field="'+field+'"]')?.value??fallback;
+    const profile=normalizeProfile({...life.profile,
+      hair:val('hair',life.profile.hair),hairColor:val('hairColor',life.profile.hairColor),
+      outfit:val('outfit',life.profile.outfit??'blue'),outfitStyle:val('outfitStyle',life.profile.outfitStyle??'casual')},
+      life.name);
+    const preview=appEl?.querySelector<HTMLElement>('[data-style-preview]');
+    if(preview)preview.innerHTML=portraitLife(profile,life.age,'card',moodFromStats(life.stats));
+    return;
+  }
   if(fileInput.id==="life-save-file"){
     const chosen=fileInput.files?.[0];
     if(chosen)void importLife(chosen);
@@ -809,9 +1719,27 @@ appEl?.addEventListener("submit",e=>{
   const result=normalizeProfile({...custom,name,birthday:Number(data.get("birthday")),birthMonth:Number(data.get("birthMonth"))},name);
   createLife(result,customStats);
 });
+document.addEventListener('visibilitychange',()=>sound.visibilityChanged());
+window.addEventListener('pagehide',()=>sound.destroy());
 document.addEventListener("keydown",e=>{
+  if(life?.pendingEvent&&scene==='playing'){
+    if(e.key==='Escape'){e.preventDefault();return;}
+    if(e.key==='Tab'){
+      const dialog=appEl?.querySelector<HTMLElement>('.story-event[role="dialog"]');
+      const buttons=Array.from(dialog?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')??[]);
+      if(buttons.length){
+        const first=buttons[0],last=buttons[buttons.length-1];
+        if(e.shiftKey&&(document.activeElement===first||!dialog?.contains(document.activeElement))){
+          e.preventDefault();last.focus();
+        }else if(!e.shiftKey&&(document.activeElement===last||!dialog?.contains(document.activeElement))){
+          e.preventDefault();first.focus();
+        }
+      }
+    }
+    return;
+  }
   if(e.key==="Escape"&&menuOpen){menuOpen=false;menuError="";render();}
 });
 /** Visible app boot state, removed once the game model is ready. */
-appEl!.innerHTML='<div class="boot-screen"><span class="boot-mark">Z</span><strong>ZOID LIFE</strong><div class="boot-progress"></div></div>';
+appEl!.innerHTML='<div class="boot-screen"><span class="boot-mark">Z</span><strong class="boot-wordmark"><span>Zoid</span><span>Life</span></strong><div class="boot-progress"></div></div>';
 window.setTimeout(render,380);

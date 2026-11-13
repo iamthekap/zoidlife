@@ -48,3 +48,42 @@ test('legacy name can migrate to a generated visual profile',()=>{
   assert.equal(p.name,'Carolina Marques');
   assert.ok(CITIES[p.country].includes(p.city));
 });
+
+test('three default newborns receive distinct outfits and user appearance survives profile normalization',()=>{
+ for(let i=0;i<24;i++){
+  const triple=randomCandidates(3);
+  assert.equal(new Set(triple.map(p=>p.outfit)).size,3);
+ }
+ const original=randomCharacter();
+ const normalized=normalizeProfile({...original,outfit:'red'},original.name);
+ assert.equal(normalized.outfit,'red');
+ assert.equal(normalizeProfile({...original,outfit:'javascript:alert(1)'},original.name).outfit,undefined);
+ const legacy={...original};delete legacy.outfit;
+ assert.equal(normalizeProfile(legacy,legacy.name).outfit,undefined);
+});
+
+test('special destiny is exclusively available to custom-created characters',()=>{
+ for(let i=0;i<60;i++){
+  const trio=randomCandidates(3);
+  assert.ok(trio.every(p=>p.origin==='generated'&&p.nature==='human'));
+ }
+ const human=normalizeProfile({...randomCharacter(),origin:'generated',nature:'vampire'});
+ assert.equal(human.nature,'human');
+ const special=normalizeProfile({...randomCharacter(),origin:'custom',nature:'vampire'});
+ assert.equal(special.nature,'vampire');
+ assert.equal(special.origin,'custom');
+ assert.equal(normalizeProfile({...special,nature:'scripting'}).nature,'human');
+});
+
+test('real clothing silhouette choices are validated and legacy character cuts remain unchanged',()=>{
+ const profile=normalizeProfile({name:'Ana Luz',country:'BR',city:'Recife',
+  skin:'tan',hair:'waves',hairColor:'black',eyes:'brown',gender:'woman',
+  outfit:'blue',outfitStyle:'sporty',birthday:6,birthMonth:9});
+ assert.equal(profile.outfitStyle,'sporty');
+ assert.equal(normalizeProfile({...profile,outfitStyle:'<script>'}).outfitStyle,undefined);
+ assert.equal(normalizeProfile({...profile,outfitStyle:'classic'}).outfitStyle,'classic');
+ const legacy={...profile};delete legacy.outfitStyle;
+ assert.equal(normalizeProfile(legacy).outfitStyle,undefined);
+ const candidates=randomCandidates(3);
+ assert.deepEqual(candidates.map(c=>c.outfitStyle),['classic','casual','sporty']);
+});

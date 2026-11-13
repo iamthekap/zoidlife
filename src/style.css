@@ -420,3 +420,665 @@ body{background:#f2f6fc;}
 .game-menu-panel>small{font-size:10px;color:#8394a8;line-height:1.6;}
 .game-menu-panel .menu-error{border:1px solid #ecc7c3;border-radius:9px;padding:9px;background:#fff4f3;color:#a3312b;font-size:12px;}
 @media(max-width:440px){.game-menu-panel{padding:17px;}}
+
+
+/* ZOID LIFE | Clean Pixel Simulation storyboard 0.6.
+   Brand constants fixed by the art direction: Zoid blue, Life red.
+   Age button is red (the green in a concept sketch was not the approved palette). */
+:root {
+ --blue:#3A86FF;--red:#FF0044;--ink:#222222;--muted:#64748b;
+ --bg:#f0f0f0;--brand-blue:#3A86FF;--brand-red:#FF0044;
+ --soft:#e9f1ff;--line:#d9dfe8;
+}
+body{background:var(--bg);color:var(--ink);}
+.brand{color:var(--brand-blue);}
+.brand b,.welcome-logo span,.cover-mark span{color:var(--brand-red)!important;}
+.brand-glyph{background:var(--brand-blue);}
+.welcome-logo{color:var(--brand-blue);}
+.eyebrow .dot,.dot{background:var(--brand-red);}
+.newborn-card{border-color:#dbe4f2;}
+.newborn-card:hover{border-color:var(--brand-blue);}
+.newborn-number{color:var(--brand-red);}
+.newborn-select,.primary{background:var(--brand-blue);color:#fff;}
+.newborn-select{box-shadow:inset 0 -3px 0 #2468cd;}
+.primary:hover:not(:disabled){background:#246cd9;}
+.newborn-tools .button.secondary{color:#245cb7;border-color:#b9d4ff;}
+.dock-age,.dock-age:hover:not(:disabled){
+ background:linear-gradient(155deg,#ff5471,var(--brand-red));
+ box-shadow:0 4px 0 #a41d43,0 12px 25px #991a4333;
+}
+.dock-tab.active{color:#1d61bd;background:#deedff;box-shadow:inset 0 -3px 0 #8cb6f5;}
+.dock-tab.active .pixel-icon{filter:saturate(1.2);}
+.game-dock{background:#eaf0fa;border-color:#cbdaf0;}
+.game-status{border-bottom-color:#ff00442c;}
+.game-status-money strong{color:#1c63b7;}
+.game-language:hover,.game-menu:hover{border-color:var(--brand-blue);}
+.game-feed>.story-intro{border-bottom:2px solid #ff004425;}
+.story-label,.storyboard-age{color:var(--brand-red);}
+.vital .bar>span{background:linear-gradient(90deg,#75b0ff,var(--brand-blue));}
+.vital:nth-of-type(even) .bar>span{background:linear-gradient(90deg,#ff7e9c,var(--brand-red));}
+.storyboard-timeline{
+ border:1px solid #cdd8e6;border-radius:15px;background:#fff;padding:clamp(12px,2vw,25px);
+ box-shadow:0 7px 24px #1433550b;overflow:hidden;min-width:0;
+}
+.storyboard-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:19px;}
+.storyboard-heading>div{display:grid;gap:5px;}
+.storyboard-eyebrow{letter-spacing:1.3px;font-weight:950;font-size:10px;color:var(--brand-red);}
+.storyboard-heading h2{font-size:clamp(17px,3vw,24px);letter-spacing:-.7px;font-weight:900;color:#234a80;}
+.storyboard-heading p{font-size:11px;line-height:1.5;color:#69809d;}
+.storyboard-count{display:inline-grid;place-items:center;border:1px solid #ffbfce;color:#c0274e;
+ border-radius:10px;font-size:11px;font-weight:900;flex:0 0 auto;background:#fff3f6;padding:8px 9px;}
+.storyboard-track{position:relative;list-style:none;margin:0;padding:0 0 0 0;display:grid;gap:26px;}
+.storyboard-track::before{
+ content:"";position:absolute;z-index:0;top:22px;bottom:22px;width:5px;
+ background:repeating-linear-gradient(to bottom,#3A86FF 0,#3A86FF 33px,#ff0044 33px,#ff0044 55px);
+ left:calc(50% - 2.5px);border-radius:3px;
+}
+.storyboard-milestone{
+ display:grid;grid-template-columns:minmax(0,1fr) 30px minmax(0,1fr);
+ align-items:center;gap:11px;position:relative;min-width:0;isolation:isolate;
+}
+.storyboard-node{
+ grid-column:2;grid-row:1;justify-self:center;width:19px;height:19px;border:4px solid #fff;
+ border-radius:50%;background:var(--brand-red);z-index:2;
+ box-shadow:0 0 0 2px #e2426c,0 2px 7px #193a6926;
+}
+.storyboard-milestone.even .storyboard-node{background:var(--brand-blue);box-shadow:0 0 0 2px #397ce5;}
+.storyboard-copy{grid-column:1;grid-row:1;min-width:0;display:flex;flex-direction:column;gap:5px;}
+.storyboard-copy h3{font-weight:900;font-size:clamp(14px,2.3vw,20px);color:#1d3e6b;}
+.storyboard-age{font-weight:950;font-size:10px;letter-spacing:.45px;text-transform:uppercase;}
+.storyboard-location{font-size:10px;font-weight:800;color:#5682b9;}
+.storyboard-copy p{line-height:1.5;color:#5d708a;font-size:clamp(10px,1.5vw,12px);overflow-wrap:anywhere;}
+.storyboard-scene{
+ grid-column:3;grid-row:1;position:relative;width:100%;aspect-ratio:3/2;
+ min-width:0;overflow:hidden;border:3px solid #c9d6e5;border-radius:9px;
+ background:#e9eef6;box-shadow:0 6px 0 #19385d0b;
+ image-rendering:pixelated;
+}
+.storyboard-milestone.odd .storyboard-copy{grid-column:3;}
+.storyboard-milestone.odd .storyboard-scene{grid-column:1;}
+.storyboard-scenery,.storyboard-foreground{
+ position:absolute;inset:0;width:100%;height:100%;display:block;image-rendering:pixelated;
+}
+.storyboard-scenery{z-index:1;}
+.storyboard-actor{
+ position:absolute;z-index:2;left:30%;bottom:0;width:39%;height:96%;
+ display:grid;place-items:end center;pointer-events:none;image-rendering:pixelated;
+}
+.storyboard-actor svg{display:block;width:100%;height:100%;image-rendering:pixelated;}
+.storyboard-foreground{z-index:3;pointer-events:none;}
+.storyboard-scene-baby .storyboard-actor{left:27%;bottom:0;width:45%;height:84%;}
+.storyboard-scene-child .storyboard-actor{left:33%;height:91%;}
+.storyboard-scene-teen .storyboard-actor{left:34%;height:93%;}
+.storyboard-scene-adult .storyboard-actor{left:28%;height:98%;}
+.storyboard-scene-senior .storyboard-actor{left:32%;height:95%;}
+/* The scenes remain legible on phones: vertical rail on the left, copy above artwork. */
+@media(max-width:700px){
+ .storyboard-timeline{padding:13px 11px;}
+ .storyboard-track{gap:20px;}
+ .storyboard-track::before{left:12px;top:15px;bottom:20px;width:4px;}
+ .storyboard-milestone,.storyboard-milestone.odd,.storyboard-milestone.even{
+  grid-template-columns:28px minmax(0,1fr);
+  grid-template-rows:auto auto;gap:8px 9px;align-items:start;
+ }
+ .storyboard-node,.storyboard-milestone.even .storyboard-node{
+  grid-column:1;grid-row:1/span 2;align-self:start;margin-top:13px;width:15px;height:15px;border-width:3px;z-index:2;
+ }
+ .storyboard-copy,.storyboard-milestone.odd .storyboard-copy{
+  grid-column:2;grid-row:1;min-width:0;gap:3px;padding:3px 1px 0;
+ }
+ .storyboard-scene,.storyboard-milestone.odd .storyboard-scene{
+  grid-column:2;grid-row:2;width:100%;max-width:420px;
+ }
+ .storyboard-copy p{font-size:11px;line-height:1.48;}
+}
+@media(max-width:380px){
+ .storyboard-track{gap:15px;}
+ .storyboard-heading h2{font-size:18px;}
+ .storyboard-scene{border-width:2px;}
+}
+@media(prefers-reduced-motion:reduce){.storyboard-scene *{animation:none!important;transition:none!important;}}
+
+
+/* Zoid Life 0.6 career board */
+.career-page{display:grid;gap:13px;}
+.career-heading{font-size:14px;color:#244d86;font-weight:850;margin-top:7px;}
+.career-list{display:grid;grid-template-columns:minmax(0,1fr);gap:9px;}
+.career-vacancy{display:flex;align-items:center;justify-content:space-between;gap:10px;
+ min-width:0;padding:13px;background:white;border:1px solid #d6e2f2;border-radius:12px;}
+.career-vacancy.current{border-color:#ff0044;background:#fff6f8;}
+.career-vacancy-info{min-width:0;display:flex;flex-direction:column;gap:4px;line-height:1.45;}
+.career-vacancy-info strong{font-size:12px;color:#173d70;}
+.career-vacancy-info span{font-size:10px;color:#637e9b;overflow-wrap:anywhere;}
+.career-vacancy-info small{font-size:11px;color:#c03258;font-weight:800;}
+.career-apply{flex:0 0 auto;background:#3A86FF;color:#fff;border:1px solid #2b6abe;
+ border-radius:9px;padding:9px 10px;min-width:80px;font-size:10px;font-weight:850;}
+.career-apply:disabled{background:#e9eff6;color:#7486a0;border-color:#ccd8e7;opacity:.8;}
+@media(min-width:850px){.career-list{grid-template-columns:repeat(2,minmax(0,1fr));}
+ .career-vacancy{min-height:91px;}}
+
+/* Named relationships: player chooses one social interaction per year. */
+.person-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px;max-width:180px;}
+.person-actions .person-visit{font-size:10px;padding:7px 8px;min-width:0;}
+.person-actions .person-visit:first-child{background:#3A86FF;color:#fff;border-color:#3277e4;}
+.person-actions .person-visit:nth-child(2){background:#fff0f4;color:#b22b53;border-color:#edb5c3;}
+.person-actions .person-visit:disabled{opacity:.38;}
+@media(max-width:600px){.person-actions{grid-column:2;justify-content:flex-start;max-width:100%;}}
+
+
+/* True ending screen, state-derived summary and export */
+.life-recap{display:grid;gap:14px;background:#fff;border:1px solid #d4e1f0;border-radius:14px;padding:clamp(15px,2.8vw,25px);}
+.recap-header{border-bottom:3px solid #ff0044;padding-bottom:13px;display:grid;gap:6px;}
+.recap-overline{font-size:10px;letter-spacing:1.5px;font-weight:900;color:#e43664;}
+.recap-header h2{font-size:clamp(21px,4vw,32px);color:#245bb0;letter-spacing:-.6px;}
+.recap-header p{font-size:12px;color:#6985a1;overflow-wrap:anywhere;}
+.recap-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}
+.recap-metric{border:1px solid #e1e8f1;border-radius:9px;padding:11px 10px;background:#f8fbfe;display:grid;gap:5px;min-width:0;}
+.recap-metric span{font-size:10px;color:#697d96;}
+.recap-metric strong{font-size:12px;color:#183e79;overflow-wrap:anywhere;}
+.life-recap h3{font-size:14px;color:#234b81;margin-top:4px;}
+.recap-events,.recap-achievements{margin:0;padding-left:18px;display:grid;gap:7px;font-size:12px;color:#546b86;line-height:1.5;}
+.recap-achievements li::marker{color:#ff0044;}
+.recap-events li::marker{color:#3A86FF;}
+.recap-actions{display:flex;gap:9px;flex-wrap:wrap;padding-top:5px;}
+.recap-actions .button{flex:1 1 160px;}
+@media(min-width:850px){.recap-metrics{grid-template-columns:repeat(4,minmax(0,1fr));}}
+
+/* Health track, same blue/red vocabulary as the Zoid Life brand. */
+.health-conditions{display:grid;gap:7px;border-top:1px solid #d7e2f3;margin-top:13px;padding-top:12px;}
+.health-conditions h3{font-size:12px;color:#245aa5;font-weight:900;}
+.health-condition{display:flex;justify-content:space-between;gap:7px;align-items:center;background:#fff6f8;
+ border:1px solid #ffceda;padding:7px 9px;border-radius:8px;}
+.health-condition strong{color:#a52c52;font-weight:800;font-size:11px;}
+.health-condition small{color:#a45c70;font-weight:700;font-size:10px;white-space:nowrap;}
+.health-conditions p{color:#64748b;font-size:10px;line-height:1.45;}
+
+/* Original crime and justice simulation board, restrained blue/red UI. */
+.justice-board{margin-top:17px;border:1px solid #d9e3f1;border-radius:12px;padding:14px;background:#f8fbff;display:grid;gap:10px;}
+.justice-board h3{font-size:14px;font-weight:900;color:#245aa4;}
+.justice-board p{font-size:11px;color:#65788f;line-height:1.45;}
+.justice-status{padding:9px 11px;border-left:3px solid #ff0044;background:#fff2f6;color:#a72b51;font-size:11px;font-weight:850;}
+.justice-options{display:grid;gap:8px;}
+.justice-option{display:flex;align-items:center;justify-content:space-between;gap:9px;background:#fff;border:1px solid #dae5f1;padding:11px;border-radius:9px;}
+.justice-option div{display:grid;gap:4px;min-width:0;}
+.justice-option strong{color:#254c82;font-size:12px;}
+.justice-option small{color:#7d8fa5;font-size:10px;}
+.justice-option button{border:0;background:#3A86FF;color:white;border-radius:8px;padding:8px 10px;font-size:10px;font-weight:800;flex:0 0 auto;}
+.justice-option button:disabled{background:#d9e3ef;color:#7f92a8;}
+.justice-history{margin:0;padding-left:19px;color:#5d7189;font-size:11px;display:grid;gap:5px;}
+
+/* Inter-generational continuation: accessible, original family choices. */
+.recap-descendants,.recap-ancestors{display:grid;gap:9px;padding-top:13px;border-top:1px solid #d9e3f2;}
+.recap-descendants button{display:flex;align-items:center;gap:11px;text-align:left;
+ border:1px solid #b9d3f6;background:#f6faff;color:#245ca8;border-radius:10px;padding:8px 11px;
+ min-height:60px;min-width:0;cursor:pointer;}
+.recap-descendants button:hover{border-color:#3A86FF;background:#e8f1ff;}
+.recap-descendants button span{display:block;width:44px;height:46px;border-radius:7px;overflow:hidden;flex:0 0 44px;}
+.recap-descendants button span svg{width:100%;height:100%;}
+.recap-descendants button strong{font-size:12px;overflow-wrap:anywhere;}
+.recap-descendants button small{margin-left:auto;font-size:10px;color:#607d9b;white-space:nowrap;}
+.recap-ancestors p{font-size:11px;padding:5px 0;color:#4f6480;}
+
+/* Original expressive newborn pixel motion, respectful of reduced motion. */
+.newborn-v3 [data-part="eyes-open"]{animation:zoid-newborn-open 5.2s infinite;}
+.newborn-v3 [data-part="eyes-closed"]{opacity:0;animation:zoid-newborn-closed 5.2s infinite;}
+.newborn-v3 [data-part="pacifier"]{transform-box:fill-box;transform-origin:center;
+ animation:zoid-pacifier 1.9s ease-in-out infinite;}
+@keyframes zoid-newborn-open{0%,89%,95%,100%{opacity:1}90%,94%{opacity:0}}
+@keyframes zoid-newborn-closed{0%,89%,95%,100%{opacity:0}90%,94%{opacity:1}}
+@keyframes zoid-pacifier{0%,100%{transform:scale(1)}48%{transform:scale(.96)}}
+.origin-explanation{padding:12px 14px;border:1px solid #bbcffa;border-left:3px solid #ff0044;
+ background:#f5f9ff;border-radius:10px;display:grid;gap:5px;}
+.origin-explanation strong{font-size:12px;color:#2459a8;}
+.origin-explanation p{font-size:11px;color:#536b87;line-height:1.5;}
+@media(prefers-reduced-motion:reduce){
+ .newborn-v3 [data-part="eyes-open"],.newborn-v3 [data-part="eyes-closed"],
+ .newborn-v3 [data-part="pacifier"]{animation:none!important}
+ .newborn-v3 [data-part="eyes-open"]{opacity:1}
+ .newborn-v3 [data-part="eyes-closed"]{opacity:0}
+}
+
+/* Career search and distinct special destiny presentation */
+.career-search{display:grid;gap:6px;font-weight:800;font-size:12px;color:#2659a5;}
+.career-search input{width:100%;padding:11px 13px;border:1px solid #bed1ef;border-radius:9px;
+ font:inherit;background:#fff;color:#1b3866;}
+.career-search input:focus-visible{outline:2px solid #3A86FF;outline-offset:2px;}
+.career-vacancy[hidden]{display:none!important;}
+.special-origin{display:flex;justify-content:space-between;gap:12px;align-items:center;
+ background:#f6f4fc;border:1px solid #a9b7f3;border-left:4px solid #ff0044;
+ padding:11px 12px;border-radius:10px;color:#2c416b;margin-top:12px;}
+.special-origin strong{font-size:12px;font-weight:900;}
+.special-origin span{font-size:11px;color:#61719e;}
+
+
+/* Art direction: let the actual full-body sprite fill each candidate card.
+   Previously a 144:176 SVG was letterboxed inside a very tall panel, wasting
+   almost half the mobile viewport and reducing babies to tiny thumbnails. */
+.newborn-art{height:auto;min-height:0;aspect-ratio:144 / 176;align-items:stretch;}
+.newborn-art .portrait{width:100%;height:100%;max-width:none;}
+.newborn-card{border-radius:14px;}
+.newborn-card:hover{border-color:#3A86FF;}
+.newborn-select{min-height:44px;display:grid;place-items:center;background:#3A86FF;}
+.welcome-logo{font-family:ui-monospace,"Cascadia Code",Consolas,monospace;
+ font-weight:950;letter-spacing:-2.5px;text-shadow:2px 2px 0 #213f6d33;}
+.welcome-logo span{font-weight:950;text-shadow:2px 2px 0 #61203c55;}
+@media(min-width:701px){
+ .newborn-art{aspect-ratio:144 / 170;}
+ .newborn-art .portrait{object-fit:contain;}
+}
+@media(max-width:700px){
+ .welcome-screen{justify-content:flex-start;padding-top:clamp(24px,5vh,42px);}
+ .newborn-choice{gap:12px;}
+ .newborn-art{aspect-ratio:144 / 176;}
+ .newborn-number{letter-spacing:.15px;}
+ .newborn-card strong{font-size:clamp(11px,3.1vw,15px);}
+ .newborn-select{font-size:clamp(10px,2.6vw,12px);padding:8px 3px;}
+}
+
+/* Optional appearance salon — never changes ancestry or premium origins. */
+.style-studio{margin-top:14px;padding:15px;border:1px solid #cbd9ed;border-radius:12px;
+ background:#f9fbff;display:grid;gap:10px;}
+.style-studio h3{color:#2459a8;font-size:14px;font-weight:900;}
+.style-studio p{color:#61758d;font-size:11px;line-height:1.5;}
+.style-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;}
+.style-fields label{display:grid;gap:6px;color:#355979;font-size:11px;font-weight:750;min-width:0;}
+.style-fields select{width:100%;min-width:0;border:1px solid #c0d0eb;border-radius:8px;
+ background:#fff;color:#1e447d;padding:8px;}
+.style-save{border:0;color:#fff;background:#3A86FF;font-weight:850;border-radius:9px;
+ min-height:42px;padding:9px 15px;justify-self:start;}
+.style-save:disabled{background:#b5c6dd;}
+@media(max-width:480px){.style-fields{grid-template-columns:1fr;}}
+
+/* Zoid social encounters: six accessible, context-gated relationship choices. */
+.person-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;min-width:0;}
+.person-actions .person-visit{min-height:34px;padding:6px 5px;white-space:normal;text-wrap:balance;
+ font-size:10px;line-height:1.3;text-align:center;}
+.person-actions .social-argue{border-color:#e6abb4;color:#982e47;background:#fff7f9;}
+.person-actions .social-argue:hover:not(:disabled){background:#ffe8ed;border-color:#ff0044;}
+.person-last-memory{display:block;color:#4a6b94;font-size:10px;line-height:1.3;margin-top:4px;}
+@media(max-width:520px){.person-actions{grid-template-columns:repeat(2,minmax(0,1fr));}}
+
+/* Optional course specialization; preserves prior generic-career saves. */
+.academic-track{display:grid;gap:10px;padding:14px;border:1px solid #c2d4ef;
+ background:#f7faff;border-radius:12px;}
+.academic-track h3{color:#255aa7;font-size:14px;font-weight:850;}
+.academic-track p{font-size:11px;line-height:1.45;color:#61738a;}
+.academic-track>div{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;}
+.academic-track select{min-height:42px;flex:1 1 170px;min-width:0;background:#fff;
+ border:1px solid #bbcce4;padding:8px 10px;color:#1a396a;border-radius:8px;}
+.academic-track button{min-height:42px;border:0;background:#3A86FF;color:#fff;
+ font-weight:800;border-radius:8px;padding:8px 14px;flex:1 1 150px;}
+.academic-track button:disabled{background:#b5c4d7;}
+
+/* Life journal must begin with the actual interactive chronology, not an ad-like banner.
+   Child/teen navigation never exposes a wall of adult job offers. */
+.storyboard-timeline{order:0;}
+.life-journal{order:1;}
+.storyboard-current{margin:0 0 20px;padding:0 0 19px;border-bottom:1px solid #dce5f2;}
+.storyboard-current .decision-card{border:1px solid #d4e0ee;box-shadow:none;}
+.storyboard-current .scene-visual{max-height:clamp(148px,25vw,230px);}
+.storyboard-current .age-ready{background:#f0f5fd;border-color:#d7e4f6;}
+.game-feed>.storyboard-timeline:first-child{margin-top:0;}
+.school-panel{display:grid;gap:13px;background:#fff;border:1px solid #d8e3f2;
+ border-radius:14px;padding:clamp(16px,3vw,25px);}
+.school-panel .school-lead{display:flex;align-items:center;gap:12px;background:#f1f6ff;
+ border:1px solid #d6e5fb;border-radius:12px;padding:12px;}
+.school-lead .school-icon{display:grid;place-items:center;background:#dfedff;border-radius:11px;
+ flex:0 0 54px;height:54px;color:#3A86FF;}
+.school-lead>div{display:grid;gap:4px;}
+.school-lead strong{font-size:14px;color:#1b467b;}
+.school-lead span{font-size:12px;color:#667b92;}
+.school-reminder{border-left:3px solid #FF0044;padding-left:10px;color:#64758e;
+ line-height:1.5;font-size:12px;margin:2px 0;}
+.school-panel .activity-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}
+@media(max-width:430px){.school-panel .activity-grid{grid-template-columns:1fr;}
+ .storyboard-current{margin-bottom:14px;padding-bottom:14px;}}
+
+/* The crib vignette is a quiet early-life scene: infant reclines behind the rail.
+   Mature stages use a finer 96×118 grid than newborns; never blur the 1px art. */
+.storyboard-scene-baby .storyboard-actor{
+ left:30%;bottom:12%;width:37%;height:63%;
+ transform:rotate(-16deg);transform-origin:50% 75%;
+}
+.mature-v3{shape-rendering:crispEdges;image-rendering:pixelated;}
+.identity-portrait .mature-v3,.person-art .mature-v3{max-width:100%;}
+
+/* Desktop-first: use actual screen width while preserving a readable two-column
+ * game sheet and a small anchored inspector; on phones keep edge-to-edge UI. */
+@media(min-width:1024px){
+ .game-content-layout{width:min(100%,1370px);grid-template-columns:minmax(0,1fr) 280px;
+  gap:22px;padding:16px clamp(18px,2vw,32px) 40px;}
+ .game-main{padding:0 0 36px;}
+ .game-side{top:88px;}
+ .storyboard-scene{min-height:202px;}
+ .game-feed .storyboard-heading h2{font-size:clamp(21px,2.2vw,28px);}
+}
+@media(max-width:799px){
+ .game-content-layout{width:100%;}
+ .game-main{padding-left:clamp(9px,2.8vw,16px);padding-right:clamp(9px,2.8vw,16px);}
+ .game-feed .storyboard-timeline{width:100%;}
+}
+
+/* Enforce the approved two-tone logotype wherever the title appears. */
+.storyboard-eyebrow{display:inline-flex;gap:4px;align-items:baseline;letter-spacing:0;text-transform:none;}
+.storyboard-eyebrow .brand-zoid,.boot-wordmark span:first-child{color:#3A86FF;}
+.storyboard-eyebrow .brand-life,.boot-wordmark span:last-child{color:#FF0044;}
+.boot-wordmark{display:flex;gap:6px;align-items:baseline;font-weight:950;}
+
+/* The actual life narrative is the primary game surface.
+   Illustrated age milestones are secondary, optionally collapsible; no banner
+   or vignette pushes the next playable choice below the viewport. */
+.story-primary{display:grid;gap:12px;min-width:0;}
+.story-primary>.story-event{margin-top:0;}
+.story-primary>.life-journal{margin-top:0;}
+.story-chapters{margin-top:12px;min-width:0;border-radius:14px;background:#fff;
+ border:1px solid #dce4f1;overflow:hidden;}
+.story-chapters-toggle{display:flex;align-items:center;justify-content:space-between;
+ cursor:pointer;gap:12px;min-height:47px;padding:12px 16px;
+ color:#255aa7;font-size:13px;font-weight:850;background:#f4f8ff;}
+.story-chapters-toggle::marker{content:'';}
+.story-chapters-toggle::-webkit-details-marker{display:none;}
+.story-chapters-toggle>span:last-child{transition:transform .18s ease-out;}
+.story-chapters:not([open]) .story-chapters-toggle>span:last-child{transform:rotate(-90deg);}
+.story-chapters .storyboard-timeline{margin-top:0;border:0;box-shadow:none;}
+.story-chapters .storyboard-heading{padding-top:7px;}
+@media(max-width:720px){
+ .story-primary>.story-event{border-radius:11px;}
+ .story-chapters-toggle{min-height:44px;}
+}
+@media(prefers-reduced-motion:reduce){
+ .story-chapters-toggle>span:last-child{transition:none;}
+}
+
+/* More readable characters in every pixel storyboard panel.
+ * The stage actor should be foreground-scale, not a tiny figure stranded
+ * in the center of a large room. */
+.storyboard-scene-child .storyboard-actor{left:26%;bottom:0;width:54%;height:100%;}
+.storyboard-scene-teen .storyboard-actor{left:25%;bottom:0;width:52%;height:100%;}
+.storyboard-scene-adult .storyboard-actor{left:24%;bottom:0;width:52%;height:100%;}
+.storyboard-scene-senior .storyboard-actor{left:25%;bottom:0;width:52%;height:100%;}
+@media(max-width:430px){
+ .storyboard-scene-child .storyboard-actor,
+ .storyboard-scene-teen .storyboard-actor,
+ .storyboard-scene-adult .storyboard-actor,
+ .storyboard-scene-senior .storyboard-actor{height:96%;}
+}
+
+
+/* Chronological story v1: annual decisions are mandatory, focused dialog cards.
+   The underlying journal remains a truthful record, not an intro banner. */
+.event-modal-overlay{
+ position:fixed;inset:0;z-index:120;background:rgba(10,25,52,.84);
+ display:flex;align-items:center;justify-content:center;overflow-y:auto;
+ padding:clamp(10px,3vw,24px);overscroll-behavior:contain;
+ backdrop-filter:blur(5px);
+}
+.event-modal-overlay .story-event{
+ width:min(100%,560px);max-height:calc(100dvh - 22px);
+ overflow-y:auto;overscroll-behavior:contain;
+ border:2px solid #afcdf6;border-radius:17px;
+ box-shadow:0 24px 90px rgba(6,19,42,.55);
+}
+.event-modal-overlay .scene-visual{height:clamp(100px,23dvh,195px);}
+.event-modal-overlay .decision-body{padding:clamp(14px,3vw,24px);}
+.event-modal-overlay .story-event h2{margin:6px 0 10px;font-size:clamp(19px,3vw,26px);}
+.event-modal-overlay .story-event p{line-height:1.55;margin-bottom:12px;}
+.event-modal-overlay .choice{border:1px solid #bdd4f2;background:#f5f9ff;}
+.event-modal-overlay .choice:focus-visible{outline:3px solid #ff0044;outline-offset:2px;}
+body:has(.event-modal-overlay){overflow:hidden;}
+
+.life-entry.story-decision{border-left:3px solid #3A86FF;padding-left:9px;margin:7px 0 8px;}
+.life-entry.story-decision .entry-content{width:100%;min-width:0;}
+.chronicle-panel{margin-top:9px;background:#f9fbff;border:1px solid #dae5f4;border-radius:12px;overflow:hidden;min-width:0;}
+.chronicle-illustration{background:#eaf2fc;border-bottom:1px solid #dae5f4;min-width:0;}
+.chronicle-illustration .scene-visual{height:clamp(125px,20vw,192px);border:0;border-radius:0;margin:0;}
+.chronicle-story{display:grid;gap:8px;padding:12px;min-width:0;}
+.chronicle-story h3{font-size:clamp(14px,2vw,18px);color:#244b85;line-height:1.3;}
+.chronicle-story p{font-size:12px;color:#556b87;line-height:1.55;overflow-wrap:anywhere;}
+.chronicle-story .chronicle-choice{border-left:3px solid #3A86FF;background:#eaf3ff;padding:9px 11px;border-radius:0 6px 6px 0;}
+.chronicle-story .chronicle-result{border-left:3px solid #FF0044;background:#fff1f5;padding:9px 11px;border-radius:0 6px 6px 0;color:#7a2a46;}
+.journal-more{width:100%;margin-top:12px;min-height:44px;padding:11px;border:1px solid #b4ccf0;border-radius:9px;color:#245aa7;background:#f2f7ff;font-weight:800;}
+.journal-more:focus-visible{outline:3px solid #FF0044;outline-offset:2px;}
+@media(max-width:480px){
+ .event-modal-overlay{padding:8px 8px calc(8px + env(safe-area-inset-bottom));}
+ .event-modal-overlay .story-event{max-height:calc(100dvh - 16px);}
+ .chronicle-story{padding:10px;}
+ .life-entry.story-decision{padding-left:6px;}
+}
+@media(prefers-reduced-motion:reduce){
+ .event-modal-overlay{backdrop-filter:none;}
+}
+
+.save-warning{margin:8px 14px 0;padding:12px 15px;border:1px solid #c5485e;border-radius:9px;
+ background:#fff1f4;color:#8b2140;font-weight:750;font-size:12px;line-height:1.5;}
+
+.decision-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.event-language{min-height:38px;min-width:46px;border:1px solid #a6c7f4;color:#1f5fac;
+ background:#eff6ff;border-radius:8px;font-weight:900;font-size:12px;}
+.event-language:focus-visible{outline:3px solid #FF0044;outline-offset:2px;}
+
+.save-recovery{margin:16px auto 5px;max-width:550px;padding:14px;border:1px solid #d98798;
+ background:#fff5f7;border-radius:11px;display:grid;justify-items:start;gap:10px;}
+.save-recovery strong{color:#8f2443;font-size:13px;}
+.save-recovery p{color:#734557;font-size:12px;line-height:1.55;margin:0;}
+.save-recovery .button{min-height:43px;}
+
+/* Linked, life-spanning consequences stand out from one-off generic events. */
+.story-arc-badge{display:inline-flex;max-width:100%;margin:0 0 12px;padding:5px 10px;
+ border:1px solid #a9c8ff;border-left:3px solid #ff0044;background:#eaf3ff;
+ color:#19559e;border-radius:6px;font-size:10px;font-weight:900;letter-spacing:.055em;}
+.chronicle-linked{display:inline-flex;align-self:start;width:max-content;max-width:100%;
+ padding:4px 8px;background:#e8f0ff;border-radius:5px;color:#295d9b;font-size:10px;font-weight:800;}
+
+/* Illustrated in-world scenarios: classroom, workplace, family home, clinic, street, etc. */
+.scene-world{position:absolute;inset:0;width:100%;height:100%;z-index:0;display:block;
+ image-rendering:pixelated;pointer-events:none;}
+.scene-visual{background:#e3ecf3;}
+.scene-avatar{z-index:2;filter:drop-shadow(0 2px 0 #263c5733);}
+.scene-props>div{background:#fffdf1db;border:1px solid #fff9;backdrop-filter:blur(2px);}
+@media(max-width:430px){.scene-world{transform:scale(1.02);transform-origin:center bottom;}}
+
+/* The chronological game journal remains the ONE main vertical timeline.
+   Previously the optional age gallery repeated the same history in an enormous
+   second vertical timeline. Keep it a compact, horizontally-scrollable collection. */
+.story-chapters .storyboard-track{display:flex;flex-flow:row nowrap;align-items:stretch;
+ gap:14px;max-width:100%;width:100%;overflow-x:auto;overflow-y:hidden;
+ scroll-snap-type:x proximity;overscroll-behavior-inline:contain;
+ padding:12px 10px 18px;scrollbar-width:thin;scrollbar-color:#93b3d7 transparent;}
+.story-chapters .storyboard-track::before{display:none;}
+.story-chapters .storyboard-milestone{flex:0 0 clamp(220px,34vw,300px);display:flex;
+ flex-direction:column;align-items:stretch;justify-content:flex-start;gap:9px;
+ scroll-snap-align:start;padding:10px;border:1px solid #d7e4f4;
+ border-radius:11px;background:#f9fbff;min-width:0;}
+.story-chapters .storyboard-node{display:none;}
+.story-chapters .storyboard-copy,
+.story-chapters .storyboard-milestone.odd .storyboard-copy,
+.story-chapters .storyboard-milestone.even .storyboard-copy{
+ grid-column:auto;grid-row:auto;width:100%;order:1;min-width:0;gap:3px;}
+.story-chapters .storyboard-scene,
+.story-chapters .storyboard-milestone.odd .storyboard-scene,
+.story-chapters .storyboard-milestone.even .storyboard-scene{
+ grid-column:auto;grid-row:auto;order:0;width:100%;aspect-ratio:3/2;border-width:2px;}
+.story-chapters .storyboard-copy h3{font-size:15px;}
+.story-chapters .storyboard-copy p{font-size:11px;line-height:1.5;}
+.story-chapters .storyboard-heading{padding-bottom:5px;}
+@media(max-width:640px){
+ .story-chapters .storyboard-milestone{flex-basis:min(77vw,280px);}
+ .story-chapters .storyboard-track{gap:10px;padding:8px 9px 15px;}
+}
+
+/* Offline original audio: compact and accessible. Never obscures the age button. */
+.sound-toggle{min-height:36px;padding:6px 9px;border:1px solid #9ebde6;border-radius:9px;background:#eff6ff;
+ color:#225d9b;font-weight:850;font-size:11px;display:inline-flex;align-items:center;gap:6px;
+ justify-content:center;white-space:nowrap;cursor:pointer;}
+.sound-toggle[aria-pressed="true"]{background:#e4f3ee;border-color:#77b8a0;color:#17654d;}
+.sound-toggle:focus-visible,.audio-preferences input:focus-visible{outline:3px solid #ff0044;outline-offset:2px;}
+.welcome-audio-toolbar{position:absolute;top:-10px;left:0;display:flex;}
+.sound-toggle-mini{min-width:35px;min-height:36px;padding:6px;font-size:17px;flex:0 0 35px;}
+.audio-preferences{display:grid;gap:11px;padding:12px;border-radius:12px;border:1px solid #d5e2f4;background:#f6f9ff;}
+.audio-preferences h3{font-size:13px;font-weight:900;color:#1e4f88;}
+.audio-preferences p{font-size:10px;line-height:1.5;color:#58718e;margin:0;}
+.sound-switch{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;color:#274a70;cursor:pointer;}
+.sound-switch input{accent-color:#3a86ff;min-height:18px;min-width:18px;}
+.sound-volume{display:grid;gap:6px;font-size:11px;font-weight:800;color:#294d75;}
+.sound-volume>span{display:flex;justify-content:space-between;}
+.sound-volume input{width:100%;accent-color:#3a86ff;min-height:24px;}
+@media(max-width:460px){
+ .welcome-audio-toolbar{position:static;justify-content:center;margin-bottom:12px;}
+ .sound-toggle-mini{font-size:15px;min-width:31px;flex-basis:31px;}
+ .game-status{gap:5px;}
+}
+
+/* Earned creative, athletic and community talents: real progress, not a decorative stat sheet. */
+.talent-studio{margin:22px 0 12px;border-top:2px solid #d6e5f8;padding-top:18px;display:grid;gap:15px;}
+.talent-intro{display:grid;gap:6px;}
+.talent-intro h3{font-size:clamp(15px,3vw,20px);color:#1d4379;font-weight:900;line-height:1.2;}
+.talent-intro p{font-size:12px;line-height:1.6;color:#526c8b;}
+.talent-intro>span{width:max-content;padding:5px 9px;background:#e9f2ff;border-radius:8px;
+ color:#245caa;font-size:11px;font-weight:800;}
+.talent-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;}
+.talent-card{min-width:0;display:grid;gap:9px;padding:14px 12px;border:1px solid #d4e2f3;
+ border-radius:13px;background:linear-gradient(155deg,#ffffff,#f4f8ff);}
+.talent-head,.talent-details{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0;}
+.talent-head strong{font-size:13px;line-height:1.3;color:#183c70;overflow-wrap:anywhere;}
+.talent-head>span{font-size:12px;color:#2467b9;font-weight:900;font-variant-numeric:tabular-nums;}
+.talent-details{flex-wrap:wrap;}
+.talent-details small{font-size:10px;color:#6682a3;}
+.talent-track{background:#d9e6f6;border-radius:20px;height:10px;overflow:hidden;position:relative;}
+.talent-track>span{display:block;height:100%;border-radius:20px;background:linear-gradient(90deg,#3a86ff,#ff0044);}
+.talent-card button{border:1px solid #94b7eb;border-radius:8px;min-height:39px;padding:8px 9px;
+ color:white;background:#3a86ff;font-weight:850;font-size:11px;cursor:pointer;}
+.talent-card button:disabled{background:#e9eff8;color:#7e92ad;border-color:#d0deed;cursor:not-allowed;}
+.talent-card button:focus-visible{outline:3px solid #ff0044;outline-offset:2px;}
+@media(max-width:540px){.talent-grid{grid-template-columns:1fr 1fr;gap:7px;}
+ .talent-card{padding:11px 8px;gap:8px;}
+ .talent-head{flex-wrap:wrap;gap:2px;}
+ .talent-head strong{font-size:11px;}
+ .talent-details{gap:3px;}
+ .talent-details small{font-size:9px;}
+}
+@media(max-width:350px){.talent-grid{grid-template-columns:1fr;}}
+
+/* Zoid Life original journeys: tactile illustrated postcards, never remote images. */
+.travel-studio{display:grid;gap:15px;margin:22px 0 12px;padding-top:19px;border-top:2px solid #d6e5f8;}
+.travel-intro{display:grid;gap:6px;}
+.travel-intro h3{color:#19477e;font-size:clamp(16px,2.8vw,21px);font-weight:900;}
+.travel-intro p{font-size:12px;color:#56708c;line-height:1.6;}
+.journey-memory{padding:8px 10px;background:#f1f6fe;border-radius:9px;color:#265d9b!important;font-weight:750;}
+.journey-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+.journey-card{min-width:0;overflow:hidden;display:flex;flex-direction:column;border:1px solid #bfd4ed;
+ border-radius:13px;background:#fff;box-shadow:0 3px 10px #0a345c0d;}
+.journey-picture{height:96px;position:relative;overflow:hidden;background:linear-gradient(180deg,#bfe7f9 0 57%,#78b5c9 57%);}
+.journey-sky,.journey-landscape,.journey-route{position:absolute;display:block;pointer-events:none;}
+.journey-sky{width:30px;height:30px;top:13px;right:25px;background:#fff4ba;box-shadow:0 0 0 7px #fff4ba4b;}
+.journey-landscape{left:0;bottom:0;width:100%;height:46px;background:#3d9e92;
+ clip-path:polygon(0 65%,10% 35%,19% 62%,30% 23%,40% 61%,54% 18%,65% 59%,77% 23%,89% 62%,100% 37%,100% 100%,0 100%);}
+.journey-route{left:0;right:0;bottom:0;height:16px;background:#3a7a80;opacity:.5;}
+.journey-mountains .journey-picture{background:linear-gradient(180deg,#94c5e8,#e7f2ff);}
+.journey-mountains .journey-landscape{height:83px;background:#577b9a;clip-path:polygon(0 90%,20% 27%,35% 75%,54% 5%,77% 86%,89% 30%,100% 71%,100% 100%,0 100%);}
+.journey-history .journey-picture{background:linear-gradient(180deg,#f1d9b3,#dfc29a);}
+.journey-history .journey-landscape{height:72px;background:#b47e5c;clip-path:polygon(0 100%,0 40%,10% 40%,10% 15%,75% 15%,75% 40%,85% 40%,85% 100%,0 100%);}
+.journey-history .journey-route{height:10px;background:#785441;}
+.journey-metropolis .journey-picture{background:linear-gradient(180deg,#b7d9ff,#fbcdcb);}
+.journey-metropolis .journey-landscape{height:82px;background:#5474a0;clip-path:polygon(0 100%,0 43%,12% 43%,12% 13%,26% 13%,26% 54%,39% 54%,39% 23%,54% 23%,54% 8%,68% 8%,68% 45%,82% 45%,82% 19%,100% 19%,100% 100%);}
+.journey-family .journey-picture{background:linear-gradient(180deg,#c4eaf8,#e7e9bd);}
+.journey-family .journey-landscape{height:62px;background:#69ac86;clip-path:polygon(0 95%,0 70%,24% 70%,24% 42%,36% 17%,48% 42%,48% 70%,73% 70%,73% 50%,100% 50%,100% 100%);}
+.journey-expedition .journey-picture{background:linear-gradient(180deg,#9bdbce,#f7e5b0);}
+.journey-expedition .journey-landscape{height:77px;background:#347e75;clip-path:polygon(0 100%,0 59%,12% 10%,25% 64%,36% 12%,48% 70%,60% 6%,73% 67%,89% 18%,100% 58%,100% 100%);}
+.journey-description{padding:13px;display:grid;align-content:start;gap:8px;flex:1;}
+.journey-counter{font-size:9px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:#4f77a8;}
+.journey-description strong{font-size:13px;color:#1d4778;line-height:1.35;}
+.journey-description p{font-size:11px;line-height:1.55;color:#5f7289;min-height:35px;}
+.journey-cost{font-weight:900;color:#1d5594;font-size:12px;}
+.journey-description button{margin-top:auto;border:1px solid #1e6bc6;border-radius:9px;
+ min-height:40px;background:#3a86ff;color:#fff;font-weight:850;padding:8px;font-size:11px;cursor:pointer;}
+.journey-description button:disabled{cursor:not-allowed;border-color:#c6d7ec;background:#edf2f8;color:#7890af;}
+.journey-description button:focus-visible{outline:3px solid #ff0044;outline-offset:3px;}
+@media(max-width:370px){.journey-grid{grid-template-columns:1fr;}}
+@media(prefers-reduced-motion:reduce){.journey-card,.journey-description button{transition:none!important;animation:none!important;}}
+
+.journey-travelogue{padding:12px 14px;border:1px solid #d0dfef;background:#f8fbff;border-radius:11px;display:grid;gap:9px;}
+.journey-travelogue h4{font-size:12px;color:#1b508a;text-transform:uppercase;letter-spacing:.035em;font-weight:900;}
+.journey-travelogue ol{list-style:none;padding:0;margin:0;display:grid;gap:6px;}
+.journey-travelogue li{border-bottom:1px dashed #cadbed;padding:6px 0;display:flex;justify-content:space-between;gap:9px;font-size:11px;color:#3e628e;}
+.journey-travelogue li:last-child{border-bottom:0;}
+.journey-travelogue li strong{flex-shrink:0;color:#195598;}
+@media(max-width:420px){.journey-travelogue{padding:11px 9px;}.journey-travelogue li{font-size:10px;}}
+
+/* Four original companion portraits, with real health, affection and lifecycle states. */
+.pet-studio{display:grid;gap:16px;margin:22px 0 12px;padding-top:19px;border-top:2px solid #dce9fa;}
+.pet-intro{display:grid;gap:6px;}
+.pet-intro h3{color:#205184;font-size:clamp(16px,2.9vw,21px);font-weight:900;}
+.pet-intro p{color:#59718b;font-size:12px;line-height:1.6;}
+.pet-intro>span{width:max-content;padding:6px 10px;background:#f2eafa;border:1px solid #dac8ef;
+ border-radius:8px;color:#6d4799;font-size:10px;font-weight:900;}
+.pet-adoption-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;}
+.pet-adopt-card{display:grid;align-content:start;gap:7px;min-width:0;border:1px solid #d8d8ec;
+ background:linear-gradient(155deg,#fff,#f7f7ff);padding:12px 9px;border-radius:12px;}
+.pet-card-art{min-height:72px;display:flex;align-items:center;justify-content:center;background:#edf2f9;border-radius:9px;}
+.pet-pixel-art{width:72px;height:72px;max-width:100%;display:block;image-rendering:pixelated;}
+.pet-adopt-card strong{font-size:12px;color:#2f4a74;}
+.pet-adopt-card small{font-size:10px;color:#59728e;font-weight:850;min-height:18px;}
+.pet-adopt-card label{font-size:10px;color:#445b82;font-weight:800;display:grid;gap:4px;}
+.pet-adopt-card input{width:100%;min-width:0;border:1px solid #c6d6e8;border-radius:7px;
+ font:inherit;font-size:11px;padding:8px 6px;background:white;color:#23466c;}
+.pet-adopt-card button,.pet-family-card button{border:1px solid #a58abf;border-radius:8px;
+ background:#765bb5;color:white;min-height:36px;font-size:11px;font-weight:850;padding:7px 9px;cursor:pointer;}
+.pet-adopt-card button:disabled,.pet-family-card button:disabled{border-color:#d4d8e8;background:#ecedf5;color:#8591a5;cursor:not-allowed;}
+.pet-adopt-card input:focus-visible,.pet-adopt-card button:focus-visible,
+.pet-family-card button:focus-visible{outline:3px solid #ff0044;outline-offset:2px;}
+.pet-household{display:grid;gap:9px;}
+.pet-household h4{font-size:12px;color:#30538d;font-weight:900;text-transform:uppercase;}
+.pet-list{display:grid;gap:9px;}
+.pet-family-card{border:1px solid #cbdcf0;border-radius:12px;background:#fff;padding:9px;
+ display:flex;align-items:center;gap:12px;}
+.pet-family-image{width:67px;min-width:67px;height:67px;border-radius:8px;background:#f0f5ff;
+ display:flex;align-items:center;justify-content:center;}
+.pet-family-image .pet-pixel-art{width:63px;height:63px;}
+.pet-family-info{display:grid;gap:4px;min-width:0;flex:1;}
+.pet-family-info strong{font-size:13px;color:#244875;overflow-wrap:anywhere;}
+.pet-family-info>span{font-size:11px;color:#607891;}
+.pet-family-info small{font-size:10px;color:#6b7694;}
+.pet-bond-meter{height:7px;border-radius:8px;overflow:hidden;background:#e4eafa;}
+.pet-bond-meter>span{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,#7e6dca,#ff82b4);}
+.pet-family-card button{flex:0 0 auto;min-width:76px;}
+.pet-memorial{color:#7a7b89;font-size:10px;font-style:italic;font-weight:750;}
+@media(max-width:760px){.pet-adoption-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.pet-card-art{min-height:66px;}}
+@media(max-width:430px){.pet-adoption-grid{gap:7px;}
+ .pet-adopt-card{padding:8px 6px;}.pet-adopt-card label{font-size:9px;}
+ .pet-family-card{gap:6px;padding:7px;}.pet-family-image{width:55px;min-width:55px;height:55px;}
+ .pet-family-image .pet-pixel-art{width:55px;height:55px;}
+ .pet-family-card button{min-width:58px;padding:7px 5px;font-size:10px;}}
+
+/* Preview real wardrobe silhouettes before charging the in-game styling action. */
+.style-preview{display:grid;grid-template-columns:105px minmax(0,1fr);gap:13px;
+ align-items:center;margin:12px 0;padding:12px;border:1px solid #bcd6ef;border-radius:11px;
+ background:linear-gradient(150deg,#f2f8ff,#fff);}
+.style-preview>[data-style-preview]{width:105px;height:126px;overflow:hidden;
+ border-radius:9px;background:#e7f1fc;}
+.style-preview svg{width:100%;height:100%;image-rendering:pixelated;}
+.style-preview p{font-size:11px;line-height:1.55;color:#4d6686;margin:0;}
+@media(max-width:380px){.style-preview{grid-template-columns:85px minmax(0,1fr);padding:8px;gap:9px;}
+ .style-preview>[data-style-preview]{width:85px;height:105px;}
+}
+
+/* Companion now shares the real illustrated scene with the playable character. */
+.scene-pet-actor{position:absolute;z-index:3;width:clamp(56px,19%,86px);height:clamp(56px,19%,86px);
+ left:64%;bottom:7px;display:flex;align-items:flex-end;justify-content:center;pointer-events:none;
+ filter:drop-shadow(2px 4px 0 rgba(26,56,80,.2));}
+.scene-pet-actor svg{width:100%;height:100%;image-rendering:pixelated;}
+@media(max-width:470px){.scene-pet-actor{left:63%;bottom:2px;width:58px;height:58px;}}
+
+/* Single-swipe route between genuinely playable sub-systems on very long mobile pages. */
+.activity-quick-links{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;
+ scrollbar-width:thin;scroll-snap-type:x proximity;padding:10px 2px 11px;
+ border-bottom:1px solid #d4e2f4;max-width:100%;}
+.activity-quick-links a{color:#285b9a;background:#edf4ff;border:1px solid #b8d2f2;
+ font-weight:850;font-size:11px;text-decoration:none;border-radius:99px;padding:9px 13px;
+ min-height:38px;display:inline-flex;align-items:center;white-space:nowrap;flex:0 0 auto;
+ scroll-snap-align:start;}
+.activity-quick-links a:hover{background:#ddeafd;border-color:#8bb2e5;}
+.activity-quick-links a:focus-visible{outline:3px solid #ff0044;outline-offset:2px;}
+#life-talents,#life-travel,#life-pets,#life-appearance,#life-justice{scroll-margin-top:86px;}
+@media(max-width:430px){.activity-quick-links{margin-inline:-4px;}
+ .activity-quick-links a{font-size:10px;padding-inline:11px;}}

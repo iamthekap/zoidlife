@@ -89,10 +89,11 @@ test('scene illustrations and journal use original pixel visual language',async 
  await expect(scene.locator('.scene-avatar svg.stage-baby')).toBeVisible();
  await expect(scene.locator('.scene-props .pixel-icon')).toHaveCount(2);
  await page.locator('[data-choice="0"]').click();
- await expect(page.locator('.entry-glyph svg')).toHaveCount(2);
+ await expect(page.locator('.entry-glyph svg')).toHaveCount(3); // birth + lived year + resolved decision
  await page.locator('[data-tab="finances"]').click();
  await expect(page.getByText('Patrimônio líquido',{exact:true})).toBeVisible();
- await expect(page.locator('[data-action="home"]').first()).toBeDisabled();
+ // Childhood finance controls are intentionally absent, not merely disabled.
+ await expect(page.locator('[data-action="home"]')).toHaveCount(0);
  await page.locator('[data-tab="people"]').click();
  await expect(page.getByText('Filhos',{exact:true})).toBeVisible();
  expect(errors).toEqual([]);
@@ -161,14 +162,14 @@ test('family members have identity, portraits, age and persistent bonds',async (
  await expect(page.locator('.person-card')).toHaveCount(2);
  await expect(page.locator('.person-card .person-art .stage-adult')).toHaveCount(2);
  const before=await page.locator('.person-card').first().locator('.person-details small').textContent();
- await page.locator('.person-card').first().locator('[data-person]').click();
+ await page.locator('.person-card').first().locator('[data-kind="talk"]').click();
  const after=await page.locator('.person-card').first().locator('.person-details small').textContent();
  expect(before).not.toBe(after);
  await page.reload();
  await page.locator('[data-do="continue"]').click();
  await page.locator('.game-dock [data-tab="people"]').click();
  await expect(page.locator('.person-card').first().locator('.person-details small')).toHaveText(after||'');
- await expect(page.locator('.person-card').first().locator('[data-person]')).toBeDisabled();
+ await expect(page.locator('.person-card').first().locator('[data-kind="talk"]')).toBeDisabled();
 });
 
 test('game entry remains within common narrow-to-wide viewport widths',async ({page})=>{
@@ -190,7 +191,7 @@ test('a pending event changes language without losing its persistent choices',as
  await page.locator('.dock-age').click();
  const first=await page.locator('.decision-card h2').textContent();
  const before=await page.locator('[data-choice]').count();
- await page.locator('.game-language').click();
+ await page.locator('.event-modal-overlay .event-language').click();
  const after=await page.locator('.decision-card h2').textContent();
  expect(after).not.toBe(first);
  expect(before).toBe(3);
@@ -281,4 +282,1585 @@ test('newborn graphics have infant face, romper and no adult facial hair',async 
  await expect(page.locator('.identity-portrait svg[data-age-visual="infant"]')).toBeVisible();
  await page.locator('.dock-age').click();
  await expect(page.locator('.scene-avatar svg[data-age-visual="infant"]')).toBeVisible();
+});
+
+test('storyboard appears at birth, grows with age and never reveals future chapters',async ({page})=>{
+ await chooseBaby(page);
+ await expect(page.locator('.storyboard-timeline')).toBeVisible();
+ await expect(page.locator('.storyboard-milestone')).toHaveCount(1);
+ await expect(page.locator('.storyboard-baby .storyboard-scene')).toBeVisible();
+ await expect(page.locator('.storyboard-baby .storyboard-actor .stage-baby')).toBeVisible();
+ await expect(page.locator('.storyboard-baby .storyboard-actor [data-part="background"]')).toHaveCount(0);
+ await advance(page,3);
+ await expect(page.locator('.storyboard-milestone')).toHaveCount(2);
+ await expect(page.locator('.storyboard-child .storyboard-actor .stage-child')).toBeVisible();
+ await expect(page.locator('.storyboard-teen')).toHaveCount(0);
+ await page.reload();
+ await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.storyboard-child')).toBeVisible();
+ await expect(page.locator('.storyboard-baby')).toBeVisible();
+});
+test('storyboard has blue Zoid, red Life and a red age CTA on mobile',async ({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ const colors=await page.locator('.welcome-logo').evaluate(el=>{
+  const word=getComputedStyle(el).color;
+  const life=getComputedStyle(el.querySelector('span')).color;
+  const css=getComputedStyle(document.documentElement);
+  return {word,life,blue:css.getPropertyValue('--brand-blue').trim(),
+   red:css.getPropertyValue('--brand-red').trim()};
+ });
+ expect(colors.blue).toBe('#3A86FF');
+ expect(colors.red).toBe('#FF0044');
+ expect(colors.word).toBe('rgb(58, 134, 255)');
+ expect(colors.life).toBe('rgb(255, 0, 68)');
+ await page.locator('[data-do="preset-0"]').click();
+ await expect(page.locator('.storyboard-timeline')).toBeVisible();
+ const ageBackground=await page.locator('.dock-age').evaluate(el=>getComputedStyle(el).backgroundImage);
+ expect(ageBackground).toContain('rgb(255, 0, 68)');
+ await expect.poll(async()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
+});
+test('a legacy adult life shows phase scenes without changing saved genetic traits',async ({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await chooseBaby(page);
+ const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ await page.evaluate(()=>{
+  const stored=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  stored.age=18;
+  stored.history.push('18: Começou a trabalhar em um novo projeto.');
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(stored));
+ });
+ await page.reload();
+ await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.storyboard-milestone')).toHaveCount(4);
+ await expect(page.locator('.storyboard-adult .stage-adult')).toBeVisible();
+ await expect(page.locator('.storyboard-teen .stage-teen')).toBeVisible();
+ await expect(page.locator('.storyboard-child .stage-child')).toBeVisible();
+ await expect(page.locator('.storyboard-baby .stage-baby')).toBeVisible();
+ await expect(page.locator('.storyboard-senior')).toHaveCount(0);
+ await expect(page.locator('.storyboard-adult')).toContainText('Começou a trabalhar');
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(after.profile).toEqual(before.profile);
+ await expect.poll(async()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
+});
+
+test('new pixel art silhouettes preserve visible genetics and phase differences',async ({page})=>{
+ await page.goto('/');
+ await expect(page.locator('.newborn-art svg[data-style="clean-pixel-simulation-v2"]')).toHaveCount(3);
+ const styles=await page.locator('.newborn-card').evaluateAll(cards=>cards.map(c=>c.querySelector('svg')?.outerHTML||''));
+ expect(new Set(styles).size).toBe(3);
+ const hues=await page.locator('.newborn-card').evaluateAll(cards=>cards.map(c=>{
+   const svg=c.querySelector('svg')!;
+   const face=svg.querySelector('[data-part="infant-face"]');
+   return Array.from(face?.querySelectorAll('rect')||[]).map(x=>x.getAttribute('fill')).find(x=>['#f6d3b4','#e5b487','#ba8362','#916048'].includes(x||''));
+ }));
+ expect(new Set(hues).size).toBe(3);
+ await page.locator('[data-do="preset-0"]').click();
+ await expect(page.locator('.identity-portrait svg[data-style="clean-pixel-simulation-v2"]')).toBeVisible();
+ await advance(page,3);
+ await expect(page.locator('.identity-portrait .stage-child')).toBeVisible();
+ await expect(page.locator('.storyboard-baby svg[data-style="clean-pixel-simulation-v2"]')).toBeVisible();
+ await expect(page.locator('.storyboard-child .stage-child')).toBeVisible();
+});
+
+test('career board requires qualifications, changes salary and persists job selection',async ({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const data=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  data.age=21;data.simulation.education='college';data.simulation.credits=16;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(data));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('.career-vacancy')).toHaveCount(45);
+ await expect(page.locator('[data-career="developer"]')).toBeEnabled();
+ await page.locator('[data-career="developer"]').click();
+ await expect(page.locator('[data-career="developer"]')).toBeDisabled();
+ await expect(page.locator('.career-vacancy.current')).toContainText('Desenvolvedor');
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.occupation).toBe('developer');
+ expect(saved.simulation.job).toBe('professional');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('.career-vacancy.current')).toContainText('Desenvolvedor');
+ await expect(page.locator('[data-career="developer"]')).toBeDisabled();
+});
+
+test('family interactions persist chosen bond and gift cost while limiting yearly interaction',async ({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=20;s.simulation.balance=1200;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('.person-card')).toHaveCount(2);
+ const first=page.locator('.person-card').first();
+ await expect(first.locator('[data-kind="gift"]')).toBeEnabled();
+ await first.locator('[data-kind="gift"]').click();
+ const s=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(s.simulation.balance).toBe(1000);
+ expect(s.simulation.actionLedger.socialize).toBe(20);
+ await expect(page.locator('.person-card').first().locator('[data-kind="talk"]')).toBeDisabled();
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('.person-card').first().locator('[data-kind="gift"]')).toBeDisabled();
+});
+
+test('life ending generates accurate original recap and downloadable text summary',async ({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=88;
+  saved.simulation.ended=true;
+  saved.simulation.education='college';
+  saved.simulation.balance=9000;
+  saved.simulation.debt=1000;
+  saved.simulation.investments=3000;
+  saved.history.push('80: Comprou uma motocicleta.');
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.life-recap')).toBeVisible();
+ await expect(page.locator('.life-recap')).toContainText('Uma vida inteira');
+ await expect(page.locator('.life-recap')).toContainText('Concluiu faculdade');
+ await expect(page.locator('.life-recap')).toContainText('Comprou uma motocicleta.');
+ await expect(page.locator('.life-recap')).toContainText('Patrimônio líquido');
+ const download=page.waitForEvent('download');
+ await page.locator('[data-do="download-recap"]').click();
+ expect((await download).suggestedFilename()).toMatch(/\.txt$/);
+ await expect(page.locator('.dock-age')).toBeDisabled();
+});
+
+test('the three newborns have distinct outfits and custom clothing survives save and reload',async({page})=>{
+ await page.goto('/');
+ await expect(page.locator('.newborn-card')).toHaveCount(3);
+ const outfits=await page.locator('.newborn-card').evaluateAll(cards=>cards.map(card=>
+  [...(card.querySelector('[data-part="seated-onesie"]')?.querySelectorAll('rect')||[])]
+   .map(x=>x.getAttribute('fill')).find(fill=>['#3976c9','#dc536d','#539c9d','#b88963','#8675bd','#bf5a62'].includes(fill||''))
+ ));
+ expect(new Set(outfits).size).toBe(3);
+ await page.locator('[data-do="custom"]').click();
+ const choice=page.locator('select[data-custom="outfit"]');
+ await expect(choice).toBeVisible();
+ await choice.selectOption('red');
+ await expect(page.locator('#creator-portrait svg')).toHaveAttribute('data-style','clean-pixel-simulation-v2');
+ const selected=await page.locator('#creator-portrait [data-part="seated-onesie"]').innerHTML();
+ expect(selected).toContain('#dc536d');
+ await page.locator('[name="name"]').fill('Mariana Costa');
+ await page.locator('#creator-form button[type="submit"]').click();
+ const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(stored.profile.outfit).toBe('red');
+ await page.reload();
+ await page.locator('[data-do="continue"]').click();
+ const persisted=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(persisted.profile.outfit).toBe('red');
+});
+
+test('health condition timeline persists and a self-care action reduces severity',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const state=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  state.age=30;state.stats.health=45;
+  state.simulation.conditions=[{id:'fatigue',severity:2,since:24}];
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(state));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.health-condition').first()).toContainText('Cansaço persistente');
+ await expect(page.locator('.health-condition').first()).toContainText('2/3');
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await page.locator('[data-action="care"]').click();
+ await expect(page.locator('.health-condition').first()).toContainText('1/3');
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.conditions[0].severity).toBe(1);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.health-condition').first()).toContainText('1/3');
+});
+
+test('legal choices record outcomes, use annual cooldown and survive reload',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');s.age=25;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await expect(page.locator('.justice-option')).toHaveCount(3);
+ await page.locator('[data-offense="petty-theft"]').click();
+ await expect(page.locator('.justice-history li')).toHaveCount(1);
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.justice.history).toHaveLength(1);
+ expect(saved.simulation.actionLedger.crime).toBe(25);
+ await expect(page.locator('[data-offense="petty-theft"]')).toBeDisabled();
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await expect(page.locator('.justice-history li')).toHaveCount(1);
+});
+
+test('descendant inherits appearance and starts a second playable generation after death',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=78;s.simulation.ended=true;
+  s.simulation.children=1;s.simulation.balance=100000;
+  s.simulation.investments=0;s.simulation.debt=0;
+  s.social.people.push({
+   id:'child-40-0',role:'child',bornAtPlayerAge:40,alive:true,lastSharedAge:-1,closeness:88,
+   profile:{...s.profile,name:'Ana Costa',hair:'waves',outfit:'red'}
+  });
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.recap-descendants button')).toHaveCount(1);
+ page.once('dialog',d=>d.accept());
+ await page.locator('[data-descendant="child-40-0"]').click();
+ await expect(page.locator('.life-recap')).toHaveCount(0);
+ await expect(page.locator('.game-identity')).toContainText('Ana Costa');
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.age).toBe(38);
+ expect(saved.profile.outfit).toBe('red');
+ expect(saved.simulation.balance).toBe(15000);
+ expect(saved.ancestors).toHaveLength(1);
+ expect(saved.ancestors[0].age).toBe(78);
+ expect(saved.social.people.some(p=>!p.alive&&p.profile.name===saved.ancestors[0].name)).toBe(true);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.game-identity')).toContainText('Ana Costa');
+});
+
+test('random newborns stay human while only the custom creator offers supernatural destiny',async({page})=>{
+ await page.goto('/');
+ await expect(page.locator('[data-custom="nature"]')).toHaveCount(0);
+ await page.locator('[data-do="preset-0"]').click();
+ const generated=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(generated.profile.nature).toBe('human');
+ expect(generated.profile.origin).toBe('generated');
+ await page.locator('.game-menu').click();await page.locator('[data-do="home"]').click();
+ await page.locator('[data-do="custom"]').click();
+ await expect(page.locator('[data-custom="nature"]')).toBeVisible();
+ await page.locator('[data-custom="nature"]').selectOption('vampire');
+ await page.locator('[name="name"]').fill('Luna Sombria');
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('#creator-form button[type="submit"]').click();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.profile.origin).toBe('custom');expect(saved.profile.nature).toBe('vampire');
+});
+test('newborn v3 draw uses lively baby anatomy and accessible reduced-motion behavior',async({page})=>{
+ await page.goto('/');
+ await expect(page.locator('.newborn-v3')).toHaveCount(3);
+ for(const n of await page.locator('.newborn-v3').all()){
+  await expect(n.locator('[data-part="infant-face"]')).toHaveCount(1);
+  await expect(n.locator('[data-part="eyes-open"]')).toHaveCount(1);
+  await expect(n.locator('[data-part="seated-onesie"]')).toHaveCount(1);
+  await expect(n.locator('[data-part="facial-hair"]')).toHaveCount(0);
+ }
+ await page.emulateMedia({reducedMotion:'reduce'});
+ await expect(page.locator('.newborn-v3 [data-part="eyes-open"]').first()).toHaveCSS('animation-name','none');
+});
+
+test('custom-created vampire trains powers while random presets never receive them',async({page})=>{
+ await page.goto('/');
+ await page.locator('[data-do="custom"]').click();
+ await page.locator('[data-custom="nature"]').selectOption('vampire');
+ await page.locator('[name="name"]').fill('Mara Noturna');
+ await page.locator('#creator-form button[type="submit"]').click();
+ await page.evaluate(()=>{
+  const life=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  life.age=15;localStorage.setItem('zoid-life-save-v1',JSON.stringify(life));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await expect(page.locator('[data-action="mystic"]')).toBeEnabled();
+ await page.locator('[data-action="mystic"]').click();
+ await expect(page.locator('.special-origin')).toContainText('Vampiro');
+ const s=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(s.simulation.mysticMastery).toBe(5);
+});
+
+test('profession search filters 45 entries and can be reset without changing progress',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=22;localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('.career-vacancy')).toHaveCount(45);
+ const filter=page.locator('[data-career-search]');
+ await filter.fill('dentista');
+ await expect(page.locator('.career-vacancy:visible')).toHaveCount(1);
+ await expect(page.locator('.career-vacancy:visible')).toContainText('Dentista');
+ await filter.fill('');
+ await expect(page.locator('.career-vacancy:visible')).toHaveCount(45);
+});
+test('senior is visually distinct from adult while inheriting the same profile',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=69;s.stats.health=85;s.simulation.ended=false;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.identity-portrait .stage-senior')).toBeVisible();
+ await expect(page.locator('.identity-portrait [data-part="senior-details"]')).toHaveCount(1);
+ await expect(page.locator('.storyboard-senior')).toBeVisible();
+});
+
+test('dedicated work action persists momentum and appears in the career dashboard',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=28;s.simulation.job='professional';s.simulation.occupation='doctor';
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await page.locator('[data-action="work"]').click();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.careerMomentum).toBe(17);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('.career-page')).toContainText('Dedicação');
+});
+
+test('candidate pixel characters occupy the card art region on narrow viewports',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ await expect(page.locator('.newborn-card')).toHaveCount(3);
+ const metrics=await page.locator('.newborn-art').evaluateAll(items=>items.map(x=>{
+  const b=x.getBoundingClientRect();return {w:b.width,h:b.height};
+ }));
+ for(const m of metrics){
+  expect(m.h/m.w).toBeGreaterThan(1.1);
+  expect(m.h/m.w).toBeLessThan(1.5);
+ }
+ await expect.poll(async()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
+});
+
+test('player can change appearance without modifying custom destiny or genetic skin/eyes',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');s.age=18;s.simulation.balance=500;s.profile.hairColor='black';s.profile.outfit='blue';
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await expect(page.locator('.style-studio')).toBeVisible();
+ const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ await page.locator('[data-style-field="hairColor"]').selectOption('red');
+ await page.locator('[data-style-field="outfit"]').selectOption('purple');
+ await page.locator('[data-do="style-apply"]').click();
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(after.profile.hairColor).toBe('red');
+ expect(after.profile.outfit).toBe('purple');
+ expect(after.profile.skin).toBe(before.profile.skin);
+ expect(after.profile.eyes).toBe(before.profile.eyes);
+ expect(after.profile.nature).toBe('human');
+ expect(after.simulation.balance).toBe(250);
+ await expect(page.locator('[data-do="style-apply"]')).toBeDisabled();
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ const again=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(again.profile.outfit).toBe('purple');
+});
+
+test('new relationship choices persist, change the correct NPC, and respect annual social cooldown',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const life=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  life.age=17;life.simulation.balance=400;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(life));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ const chosen=page.locator('[data-person="mother-primary"][data-kind="compliment"]');
+ await expect(chosen).toBeEnabled();
+ const prior=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ await chosen.click();
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(after.social.people[0].closeness).toBeGreaterThan(prior.social.people[0].closeness);
+ expect(after.social.people[1].closeness).toBe(prior.social.people[1].closeness);
+ expect(after.simulation.friends).toBe(prior.simulation.friends);
+ expect(after.simulation.partner).toBe(prior.simulation.partner);
+ expect(after.social.people[0].memories.at(-1).kind).toBe('compliment');
+ await expect(page.locator('[data-person="mother-primary"][data-kind="compliment"]')).toBeDisabled();
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('.person-last-memory').first()).toContainText('Elogiar');
+ await expect(page.locator('[data-person="mother-primary"][data-kind="argue"]')).toBeDisabled();
+});
+test('arguments reduce a specific bond and gifts cannot overspend',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const life=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  life.age=17;life.simulation.balance=50;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(life));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('[data-person="mother-primary"][data-kind="gift"]')).toBeDisabled();
+ const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ await page.locator('[data-person="mother-primary"][data-kind="argue"]').click();
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(after.social.people[0].closeness).toBeLessThan(before.social.people[0].closeness);
+ expect(after.simulation.balance).toBe(50);
+ expect(after.stats.happiness).toBeLessThan(before.stats.happiness);
+});
+
+test('conflict can be reconciled next year only, and history persists through reloads',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=17;localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('[data-person="mother-primary"][data-kind="reconcile"]')).toBeDisabled();
+ await page.locator('[data-person="mother-primary"][data-kind="argue"]').click();
+ const conflict=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ await page.evaluate(()=>{
+   const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');s.age=18;
+   localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('[data-person="mother-primary"][data-kind="reconcile"]')).toBeEnabled();
+ await page.locator('[data-person="mother-primary"][data-kind="reconcile"]').click();
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(after.social.people[0].closeness).toBeGreaterThan(conflict.social.people[0].closeness);
+ expect(after.social.people[0].memories.at(-1).kind).toBe('reconcile');
+ await expect(page.locator('[data-person="mother-primary"][data-kind="reconcile"]')).toBeDisabled();
+});
+
+test('medical degree requires choosing a college specialization before applying',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=28;saved.simulation.education='college';saved.simulation.credits=50;
+  saved.simulation.experience=12;saved.simulation.studyTrack='general';
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('[data-career="doctor"]')).toBeDisabled();
+ await page.locator('[data-study-track]').selectOption('medicine');
+ await page.locator('[data-do="track-apply"]').click();
+ await expect(page.locator('.career-page')).toContainText('Medicina e Saúde');
+ await expect(page.locator('[data-career="doctor"]')).toBeEnabled();
+ await page.locator('[data-career="doctor"]').click();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.studyTrack).toBe('medicine');
+ expect(saved.simulation.occupation).toBe('doctor');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('.career-vacancy.current')).toContainText('Médico');
+});
+
+test('at birth, jobs are absent and the game opens with the interactive life journal',async({page})=>{
+ await chooseBaby(page);
+ await expect(page.locator('.game-dock [data-tab="career"]')).toContainText('Crescer');
+ const layout=await page.locator('.game-feed > *').evaluateAll(nodes=>nodes.map(n=>n.className));
+ expect(layout[0]).toContain('story-primary');
+ await expect(page.locator('.game-feed > .story-primary > .life-journal')).toBeVisible();
+ await expect(page.locator('.game-feed > .story-intro')).toHaveCount(0);
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('[data-age-mode="early"]')).toBeVisible();
+ await expect(page.locator('.career-vacancy')).toHaveCount(0);
+ await expect(page.locator('[data-career="doctor"]')).toHaveCount(0);
+ await page.locator('.game-dock [data-tab="actions"]').click();
+ await expect(page.locator('[data-action="job"]')).toHaveCount(0);
+ await expect(page.locator('.justice-board')).toHaveCount(0);
+});
+test('age-appropriate school and first jobs grow naturally instead of showing adult careers to children',async({page})=>{
+ await chooseBaby(page);
+ const at=async(age)=>{
+  await page.evaluate(age=>{
+   const save=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+   save.age=age;save.simulation.ended=false;
+   localStorage.setItem('zoid-life-save-v1',JSON.stringify(save));
+  },age);
+  await page.reload();await page.locator('[data-do="continue"]').click();
+  await page.locator('.game-dock [data-tab="career"]').click();
+ };
+ await at(8);
+ await expect(page.locator('.game-dock [data-tab="career"]')).toContainText('Escola');
+ await expect(page.locator('[data-age-mode="school"]')).toBeVisible();
+ await expect(page.locator('[data-action="study"]')).toBeEnabled();
+ await expect(page.locator('.career-vacancy')).toHaveCount(0);
+ await at(15);
+ await expect(page.locator('.career-vacancy')).toHaveCount(0);
+ await at(16);
+ await expect(page.locator('.career-vacancy')).toHaveCount(1);
+ await expect(page.locator('[data-career="barista"]')).toBeVisible();
+ await expect(page.locator('[data-career="surgeon"]')).toHaveCount(0);
+ await at(18);
+ await expect(page.locator('.career-vacancy')).toHaveCount(45);
+});
+test('new events are rendered before the journal and illustrated chapters and remain clickable',async({page})=>{
+ await chooseBaby(page);
+ await page.locator('.dock-age').click();
+ await expect(page.locator('.story-primary .event-modal-overlay > .decision-card[role="dialog"]')).toBeVisible();
+ await expect(page.locator('.story-primary [data-choice="0"]')).toBeEnabled();
+ await page.locator('.story-primary [data-choice="0"]').click();
+ await expect(page.locator('.story-chapters .storyboard-track')).toBeVisible();
+ await expect(page.locator('.story-primary .life-journal .life-entry').first()).toBeVisible();
+});
+
+test('child, teen, adult and senior have new independent body anatomy and stage-specific faces',async({page})=>{
+ await chooseBaby(page);
+ for(const [age,stage] of [[4,'child'],[14,'teen'],[28,'adult'],[72,'senior']]){
+  await page.evaluate(n=>{
+   const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+   saved.age=n;saved.simulation.ended=false;
+   localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+  },age);
+  await page.reload();await page.locator('[data-do="continue"]').click();
+  const avatar=page.locator('.identity-portrait .stage-'+stage);
+  await expect(avatar).toHaveAttribute('data-renderer','mature-v3');
+  await expect(avatar.locator('[data-part="age-face"]')).toHaveCount(1);
+  await expect(avatar.locator('[data-part="age-hair"]')).toHaveCount(1);
+  await expect(avatar.locator('[data-part="body-outfit"]')).toHaveCount(1);
+  await expect(avatar.locator('[data-part="facial-hair"]')).toHaveCount(0);
+  if(stage==='senior')await expect(avatar.locator('[data-part="senior-details"]')).toHaveCount(1);
+ }
+ await expect(page.locator('.storyboard-senior .stage-senior')).toBeVisible();
+});
+
+test('desktop uses available width for the life timeline without losing the inspector column',async({page})=>{
+ await page.setViewportSize({width:1440,height:900});
+ await chooseBaby(page);
+ const box=await page.locator('.game-content-layout').boundingBox();
+ const sidebar=await page.locator('.game-side').boundingBox();
+ const story=await page.locator('.storyboard-timeline').boundingBox();
+ expect(box&&sidebar&&story).toBeTruthy();
+ expect(box.width).toBeGreaterThan(1210);
+ expect(story.width).toBeGreaterThan(850);
+ expect(sidebar.width).toBeLessThan(330);
+ await expect.poll(async()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(1442);
+});
+
+test('children see their money but not adult finance operations or mortgage buttons',async({page})=>{
+ await chooseBaby(page);
+ await page.locator('.game-dock [data-tab="finances"]').click();
+ await expect(page.locator('[data-finances-mode="youth"]')).toBeVisible();
+ await expect(page.locator('[data-action="home"]')).toHaveCount(0);
+ await expect(page.locator('[data-action="invest"]')).toHaveCount(0);
+ await expect(page.locator('.youth-finances .data-list')).toBeVisible();
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=17;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="finances"]').click();
+ await expect(page.locator('[data-finances-mode="adult"]')).toBeVisible();
+ await expect(page.locator('[data-action="budget"]')).toHaveCount(1);
+ await expect(page.locator('[data-action="home"]')).toHaveCount(0);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=18;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="finances"]').click();
+ await expect(page.locator('[data-action="home"]')).toHaveCount(1);
+});
+
+test('timeline branding and loading wordmark never paint both brand words the same color',async({page})=>{
+ await chooseBaby(page);
+ const colors=await page.locator('.storyboard-eyebrow').evaluate(el=>({
+  blue:getComputedStyle(el.querySelector('.brand-zoid')).color,
+  red:getComputedStyle(el.querySelector('.brand-life')).color
+ }));
+ expect(colors.blue).toBe('rgb(58, 134, 255)');
+ expect(colors.red).toBe('rgb(255, 0, 68)');
+});
+
+test('an idle life starts directly with the illustrated chronology, never a generic readiness banner',async({page})=>{
+ await chooseBaby(page);
+ await expect(page.locator('.storyboard-timeline')).toBeVisible();
+ await expect(page.locator('.storyboard-timeline .storyboard-track')).toBeVisible();
+ await expect(page.locator('.age-ready')).toHaveCount(0);
+ await expect(page.locator('.story-primary .decision-card')).toHaveCount(0);
+ await expect(page.locator('.storyboard-baby .storyboard-scene')).toBeVisible();
+});
+
+test('a real schoolmate appears on entering school and remembers chosen social interactions',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const life=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  life.age=5;life.simulation.ended=false;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(life));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('.person-card')).toHaveCount(2);
+ await page.locator('.dock-age').click();
+ await page.locator('[data-choice="0"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ expect(await page.locator('.person-card').count()).toBeGreaterThanOrEqual(3);
+ await expect(page.locator('[data-person="classmate-school"][data-kind="compliment"]')).toHaveCount(1);
+ await expect(page.locator('.people-panel')).toContainText('Colega da escola');
+ await expect(page.locator('[data-person="classmate-school"][data-kind="compliment"]')).toBeEnabled();
+ await page.locator('[data-person="classmate-school"][data-kind="compliment"]').click();
+ const state=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ const peer=state.social.people.find(p=>p.id==='classmate-school');
+ expect(peer.memories.at(-1).kind).toBe('compliment');
+ expect(state.simulation.friends).toBeGreaterThan(30);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('[data-person="classmate-school"][data-kind="compliment"]')).toBeDisabled();
+});
+
+test('adult partner proposal is explicit and never available to children or parents',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=24;s.simulation.relationship='dating';s.simulation.partner=85;s.simulation.balance=500;
+  s.social.people.push({id:'partner-24',role:'partner',profile:{...s.profile,name:'Alex Santos'},
+   bornAtPlayerAge:-6,closeness:85,alive:true,lastSharedAge:-1,memories:[]});
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ const p=page.locator('[data-kind="propose"]');
+ await expect(p).toHaveCount(1);
+ await expect(p).toBeEnabled();
+ await expect(page.locator('[data-person="mother-primary"][data-kind="propose"]')).toHaveCount(0);
+ await p.click();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.relationship).toBe('married');
+ expect(saved.simulation.balance).toBe(250);
+ await expect(page.locator('[data-kind="propose"]')).toBeDisabled();
+});
+
+test('school friend retains the same identity and encounter memory after turning eighteen',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=5;localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.dock-age').click();
+ await page.locator('[data-choice="0"]').click();
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=14;localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await expect(page.locator('[data-person="classmate-school"][data-kind="compliment"]')).toBeEnabled();
+ await page.locator('[data-person="classmate-school"][data-kind="compliment"]').click();
+ const before=await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  return s.social.people.find(p=>p.id==='classmate-school');
+ });
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=18;localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ const after=await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  return s.social.people.find(p=>p.id==='classmate-school');
+ });
+ expect(after.role).toBe('friend');
+ expect(after.profile.name).toBe(before.profile.name);
+ expect(after.memories).toEqual(before.memories);
+});
+
+test('life journal is the top content and illustrated chapters collapse without losing choices',async({page})=>{
+ await chooseBaby(page);
+ await page.locator('.dock-age').click();
+ const first=await page.locator('.game-feed > *').evaluateAll(items=>items.map(x=>x.className));
+ expect(first[0]).toContain('story-primary');
+ await expect(page.locator('.story-chapters')).toHaveAttribute('open','');
+ await expect(page.getByRole('dialog',{name:/.+/})).toBeVisible();
+ await expect(page.locator('.dock-age')).toBeDisabled();
+ await expect(page.locator('.story-primary [data-choice="0"]')).toBeEnabled();
+ await page.locator('.story-primary [data-choice="0"]').click();
+ await expect(page.locator('.life-journal .life-entry').first()).toBeVisible();
+ await page.locator('.story-chapters-toggle').click();
+ await expect(page.locator('.story-chapters')).not.toHaveAttribute('open','');
+ await page.locator('.story-chapters-toggle').click();
+ await expect(page.locator('.story-chapters')).toHaveAttribute('open','');
+ await expect(page.locator('.storyboard-baby')).toBeVisible();
+});
+
+test('adult streetwear, blazer and casual jacket use distinct identity-based pixel layers',async({page})=>{
+ await page.goto('/');
+ // Verified at source level by unit test; browser must render independent staged clothes.
+ await page.locator('[data-do="preset-0"]').click();
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=30;s.simulation.ended=false;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ const avatar=page.locator('.identity-portrait [data-renderer="mature-v3"]');
+ await expect(avatar).toBeVisible();
+ await expect(avatar.locator('[data-part^="adult-"]')).toHaveCount(1);
+});
+
+test('every yearly choice is mandatory and becomes a truthful illustrated persistent journal card',async({page})=>{
+ await chooseBaby(page);
+ await page.locator('.dock-age').click();
+ const modal=page.getByRole('dialog');
+ await expect(modal).toBeVisible();
+ await expect(modal.locator('.event-choices .choice')).toHaveCount(3);
+ await expect(page.locator('.dock-age')).toBeDisabled();
+ await page.keyboard.press('Escape');
+ await expect(modal).toBeVisible();
+ const chosen=await modal.locator('[data-choice="1"]').innerText();
+ await modal.locator('[data-choice="1"]').click();
+ await expect(modal).toHaveCount(0);
+ await expect(page.locator('.life-journal .chronicle-panel')).toHaveCount(1);
+ await expect(page.locator('.life-journal .chronicle-choice')).toContainText(chosen.split('\n')[0]);
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.chronicle).toHaveLength(1);
+ expect(saved.history[saved.chronicle[0].historyIndex]).toContain(saved.chronicle[0].result);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.life-journal .chronicle-panel')).toHaveCount(1);
+ await expect(page.locator('.life-journal .chronicle-result')).toContainText(saved.chronicle[0].result);
+});
+test('life journal excludes future-dated records and can reveal the whole saved history',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=4;
+  for(let i=0;i<145;i++)saved.history.push('3: Registro real '+i+'.');
+  saved.history.push('80: Evento impossível, ainda não vivido.');
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.life-journal')).not.toContainText('Evento impossível');
+ await expect(page.locator('.life-journal .life-entry')).toHaveCount(60);
+ await expect(page.locator('[data-do="more-history"]')).toBeVisible();
+ await page.locator('[data-do="more-history"]').click();
+ await expect(page.locator('.life-journal .life-entry')).toHaveCount(120);
+ await page.locator('[data-do="more-history"]').click();
+ await expect(page.locator('[data-do="more-history"]')).toHaveCount(0);
+ await expect(page.locator('.life-journal')).toContainText('Registro real 0.');
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.history.some(x=>x.startsWith('80:'))).toBe(true);
+});
+
+test('school and family actions create verified illustrated decisions with actual state changes',async({page})=>{
+ await chooseBaby(page);
+ await advance(page,6);
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await page.locator('[data-action="study"]').click();
+ const afterStudy=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(afterStudy.simulation.credits).toBeGreaterThan(0);
+ expect(afterStudy.chronicle.some(x=>x.eventId==='activity-study'&&x.result.includes('Inteligência'))).toBe(true);
+ await page.locator('.game-dock [data-tab="people"]').click();
+ await page.locator('[data-person="mother-primary"][data-kind="compliment"]').click();
+ const afterSocial=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(afterSocial.chronicle.some(x=>x.eventId==='social-compliment')).toBe(true);
+ await page.locator('.game-identity').click();
+ await expect(page.locator('[data-chronicle-event="activity-study"]')).toBeVisible();
+ await expect(page.locator('[data-chronicle-event="social-compliment"]')).toBeVisible();
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('[data-chronicle-event="social-compliment"]')).toBeVisible();
+});
+test('a forged pending event is replaced with canonical decisions on reload',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=20;
+  saved.pendingEvent={id:'fabricated-event',title:'Unlimited money',description:'Exploit',
+   choices:[{label:'A',result:'A',effects:{happiness:100},world:{cash:900000}},
+    {label:'B',result:'B',effects:{}},{label:'C',result:'C',effects:{}}]};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay .story-event')).toBeVisible();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Um ano de pequenas escolhas');
+ await page.locator('[data-choice="0"]').click();
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(after.simulation.balance).toBe(0);
+ expect(after.chronicle.some(x=>x.eventId==='fabricated-event')).toBe(false);
+});
+
+test('job resignation is a real reversible career decision with persistent effects',async({page})=>{
+ await chooseBaby(page);
+ await advance(page,18);
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('[data-career="retail"]')).toBeVisible();
+ await page.locator('[data-career="retail"]').click();
+ const working=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(working.simulation.occupation).toBe('retail');
+ await expect(page.locator('[data-action="resign"]')).toBeEnabled();
+ await page.locator('[data-action="resign"]').click();
+ const resigned=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(resigned.simulation.job).toBe('none');
+ expect(resigned.simulation.occupation).toBe(null);
+ expect(resigned.simulation.experience).toBe(working.simulation.experience);
+ expect(resigned.chronicle.some(x=>x.eventId==='activity-resign')).toBe(true);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await expect(page.locator('[data-action="resign"]')).toHaveCount(0);
+});
+test('mandatory dialog traps focus, has no interactable background and reflects real stat changes',async({page})=>{
+ await chooseBaby(page);
+ await page.locator('.dock-age').click();
+ const dialog=page.getByRole('dialog');
+ await expect(dialog).toBeVisible();
+ await expect(page.locator('.game-dock')).toHaveAttribute('inert','');
+ await expect(page.locator('.life-journal')).toHaveAttribute('aria-hidden','true');
+ await page.keyboard.press('Tab');
+ expect(await page.evaluate(()=>document.activeElement?.closest('[role="dialog"]')!==null)).toBe(true);
+ await dialog.locator('[data-choice="2"]').click();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.chronicle).toHaveLength(1);
+ const card=saved.chronicle[0];
+ expect(saved.history[card.historyIndex]).toContain(card.result);
+ expect(card.result).toMatch(/Saúde|Felicidade|Inteligência|Aparência|Sem mudança/);
+});
+
+test('real full life from newborn to terminal recap preserves only lived choices',async({page})=>{
+ test.setTimeout(210_000);
+ await chooseBaby(page);
+ for(let year=1;year<=110;year++){
+  if(await page.locator('.life-recap').count())break;
+  await expect(page.locator('.dock-age')).toBeEnabled();
+  await page.locator('.dock-age').click();
+  if(await page.locator('.event-modal-overlay').count()){
+   await expect(page.locator('.event-modal-overlay .choice')).toHaveCount(3);
+   await page.locator('.event-modal-overlay [data-choice="2"]').click();
+  }
+ }
+ await expect(page.locator('.life-recap')).toBeVisible();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.ended).toBe(true);
+ expect(saved.age).toBeGreaterThan(30);
+ expect(saved.age).toBeLessThanOrEqual(110);
+ expect(saved.chronicle.length).toBeGreaterThan(25);
+ expect(saved.chronicle.every(e=>e.age<=saved.age&&
+   saved.history[e.historyIndex]?.includes(e.result))).toBe(true);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.life-recap')).toBeVisible();
+ await expect(page.locator('.dock-age')).toBeDisabled();
+});
+test('adolescent annual finance forecast matches actual expenses charged only after 18',async({page})=>{
+ await chooseBaby(page);
+ await advance(page,16);
+ await page.locator('.game-dock [data-tab="finances"]').click();
+ await expect(page.locator('.data-list')).toContainText('Despesas anuais previstas');
+ const expenseRow=page.locator('.data-row').filter({hasText:'Despesas anuais previstas'});
+ const numeric=async()=>Number((await expenseRow.locator('strong').innerText()).replace(/[^0-9-]/g,''));
+ expect(await numeric()).toBe(0);
+ await page.locator('.dock-age').click();await page.locator('[data-choice="0"]').click();
+ const finance17=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(finance17.age).toBe(17);
+ await page.locator('.dock-age').click();await page.locator('[data-choice="0"]').click();
+ await page.locator('.game-dock [data-tab="finances"]').click();
+ expect(await numeric()).toBeGreaterThan(0);
+});
+
+test('invalid local save is never overwritten silently and can be recovered as raw data',async({page})=>{
+ await page.goto('/');
+ const raw='{corrupted save that must not vanish';
+ await page.evaluate(value=>localStorage.setItem('zoid-life-save-v1',value),raw);
+ await page.reload();
+ await expect(page.locator('.save-recovery[role="alert"]')).toBeVisible();
+ const downloadPromise=page.waitForEvent('download');
+ await page.locator('[data-do="export-recovery"]').click();
+ const download=await downloadPromise;
+ expect(download.suggestedFilename()).toBe('zoid-life-recovery.txt');
+ const stream=await download.createReadStream();
+ let recovered='';
+ for await(const chunk of stream)recovered+=chunk.toString();
+ expect(recovered).toBe(raw);
+ page.once('dialog',dialog=>dialog.dismiss());
+ await page.locator('[data-do="preset-0"]').click();
+ await expect(page.locator('.newborn-card')).toHaveCount(3);
+ expect(await page.evaluate(()=>localStorage.getItem('zoid-life-save-v1'))).toBe(raw);
+ page.once('dialog',dialog=>dialog.accept());
+ await page.locator('[data-do="preset-0"]').click();
+ await expect(page.locator('.game-layout')).toBeVisible();
+ await expect(page.locator('.save-recovery')).toHaveCount(0);
+ const actual=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(actual.age).toBe(0);
+});
+test('a storage quota error is visible and the unsaved life can still be exported',async({page})=>{
+ await page.addInitScript(()=>{
+  const previous=Storage.prototype.setItem;
+  Storage.prototype.setItem=function(key,value){
+   if(key==='zoid-life-save-v1')throw new DOMException('QuotaExceededError','QuotaExceededError');
+   return previous.call(this,key,value);
+  };
+ });
+ await chooseBaby(page);
+ await expect(page.getByRole('alert')).toContainText('Não foi possível salvar');
+ await page.locator('.game-menu').click();
+ await expect(page.getByRole('dialog')).toContainText('Salvamento indisponível');
+ const downloadPromise=page.waitForEvent('download');
+ await page.locator('[data-do="export-save"]').click();
+ const download=await downloadPromise;
+ expect(download.suggestedFilename()).toMatch(/^zoid-life-.*\.json$/);
+ const stream=await download.createReadStream();
+ let exported='';for await(const chunk of stream)exported+=chunk.toString();
+ expect(JSON.parse(exported).name).toBeTruthy();
+});
+
+test('investment purchase and redemption affect the real balance and survive reload',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+   const save=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+   save.age=25;save.simulation.balance=8000;save.simulation.investments=0;save.simulation.debt=0;
+   localStorage.setItem('zoid-life-save-v1',JSON.stringify(save));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="finances"]').click();
+ await expect(page.locator('[data-action="invest"]')).toBeEnabled();
+ await page.locator('[data-action="invest"]').click();
+ const invested=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(invested.simulation.balance).toBe(5000);
+ expect(invested.simulation.investments).toBe(3000);
+ await page.locator('[data-action="withdraw"]').click();
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(after.simulation.balance).toBe(8000);
+ expect(after.simulation.investments).toBe(0);
+ expect(after.chronicle.some(x=>x.eventId==='activity-withdraw')).toBe(true);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-dock [data-tab="finances"]').click();
+ await expect(page.locator('[data-action="withdraw"]')).toBeDisabled();
+});
+
+test('real decisions produce two mandatory yearly follow-ups with persistent branching',async({page})=>{
+ await chooseBaby(page);
+ await advance(page,10);
+ await page.evaluate(()=>{
+   const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+   saved.storyArc=null;
+   saved.pendingEvent={id:'computer-club'}; // Restore from the actual trusted scenario catalog.
+   localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Um clube de tecnologia');
+ await page.locator('[data-choice="0"]').click();
+ let saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.storyArc).toMatchObject({id:'coding-club',phase:1,originAge:10,dueAge:11});
+ await page.locator('.dock-age').click();
+ await expect(page.locator('[data-story-arc="arc-coding-club-1"]')).toBeVisible();
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('[data-story-arc="arc-coding-club-1"]')).toBeVisible();
+ await page.locator('.event-modal-overlay .event-language').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Your game gets noticed');
+ await page.locator('[data-choice="0"]').click();
+ saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.storyArc).toMatchObject({id:'coding-club',phase:2,dueAge:12});
+ await page.locator('.dock-age').click();
+ await expect(page.locator('[data-story-arc="arc-coding-club-2"]')).toBeVisible();
+ await page.locator('[data-choice="1"]').click();
+ saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.storyArc).toBe(null);
+ expect(saved.chronicle.map(x=>x.eventId)).toEqual(expect.arrayContaining([
+  'computer-club','arc-coding-club-1','arc-coding-club-2'
+ ]));
+ expect(saved.chronicle.every(x=>saved.history[x.historyIndex]?.includes(x.result))).toBe(true);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('[data-chronicle-event="arc-coding-club-2"]')).toBeVisible();
+});
+
+test('real decision and persistent chronicle have age-accurate environmental scene art',async({page})=>{
+ await chooseBaby(page);await page.locator('.dock-age').click();
+ await expect(page.locator('.event-modal-overlay .scene-world')).toBeVisible();
+ await expect(page.locator('.event-modal-overlay .scene-world rect')).not.toHaveCount(0);
+ await page.locator('[data-choice="0"]').click();
+ await expect(page.locator('.chronicle-panel .scene-world')).toBeVisible();
+ const save=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(save.chronicle.length).toBe(1);
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.chronicle-panel .scene-world')).toBeVisible();
+});
+
+test('resignation invalidates a promised future career storyline before the next year',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=30;saved.simulation.job='office';saved.simulation.experience=8;
+  saved.pendingEvent={id:'work-project-lead'};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Uma oportunidade no trabalho');
+ await page.locator('[data-choice="0"]').click();
+ let saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.storyArc?.id).toBe('career-lead');
+ await page.locator('.game-dock [data-tab="career"]').click();
+ await page.locator('[data-action="resign"]').click();
+ saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.job).toBe('none');
+ await page.locator('.dock-age').click();
+ saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.storyArc).toBe(null);
+ expect(saved.pendingEvent?.id).not.toContain('arc-career-lead');
+});
+
+test('story journal leads and the separate phase gallery scrolls horizontally without duplicating a giant timeline',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=72;saved.simulation.ended=false;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.setViewportSize({width:390,height:844});
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ const journal=page.locator('.life-journal'), gallery=page.locator('.story-chapters .storyboard-track');
+ await expect(journal).toBeVisible();await expect(gallery).toBeVisible();
+ await expect(gallery.locator('.storyboard-milestone')).toHaveCount(5);
+ const positions=await page.locator('.game-feed > *').evaluateAll(items=>items.map(i=>i.className));
+ expect(positions[0]).toContain('story-primary');
+ const sizes=await gallery.evaluate(el=>({scroll:el.scrollWidth,client:el.clientWidth,
+  direction:getComputedStyle(el).flexDirection,overflow:getComputedStyle(el).overflowX}));
+ expect(sizes.direction).toBe('row');
+ expect(sizes.scroll).toBeGreaterThan(sizes.client);
+ expect(sizes.overflow).toBe('auto');
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
+});
+
+test('restoring known event identifiers never bypasses career, school or relationship prerequisites',async({page})=>{
+ await chooseBaby(page);
+ const scenarios=[
+  {id:'salary-review',age:28},
+  {id:'college-team',age:25},
+  {id:'wedding-ideas',age:28},
+  {id:'work-pressure',age:29}
+ ];
+ for(const scenario of scenarios){
+  await page.evaluate(({id,age})=>{
+   const save=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+   save.age=age;save.simulation.ended=false;save.simulation.job='none';
+   save.simulation.education='secondary';save.simulation.relationship='single';
+   save.pendingEvent={id,title:'Forged',description:'Ignore',choices:[]};
+   localStorage.setItem('zoid-life-save-v1',JSON.stringify(save));
+  },scenario);
+  await page.reload();await page.locator('[data-do="continue"]').click();
+  await expect(page.locator('.event-modal-overlay h2')).toContainText('Um ano de pequenas escolhas');
+  await expect(page.locator('[data-choice]')).toHaveCount(3);
+  const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+  await page.locator('[data-choice="0"]').click();
+  const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+  expect(after.chronicle.at(-1).eventId).toBe('quiet-year');
+  expect(after.simulation.balance).toBe(before.simulation.balance);
+ }
+});
+test('saved pending stories are not allowed to time travel into future callback years',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=11;saved.simulation.education='school';
+  saved.storyArc={id:'coding-club',phase:1,originAge:11,dueAge:12};
+  saved.pendingEvent={id:'arc-coding-club-1'};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Um ano de pequenas escolhas');
+ await page.locator('[data-choice="1"]').click();
+ await page.locator('.dock-age').click();
+ await expect(page.locator('[data-story-arc="arc-coding-club-1"]')).toBeVisible();
+});
+
+test('alternate path in a multi-year story changes the next-year dialogue and persists across reload',async({page})=>{
+ await chooseBaby(page);await advance(page,10);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.storyArc=null;saved.pendingEvent={id:'computer-club'};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Um clube de tecnologia');
+ await page.locator('[data-choice="0"]').click();
+ await page.locator('.dock-age').click();
+ await expect(page.locator('[data-story-arc="arc-coding-club-1"]')).toBeVisible();
+ await page.locator('[data-choice="1"]').click();
+ let saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.storyArc).toMatchObject({id:'coding-club',phase:2,branch:1,dueAge:12});
+ await page.locator('.dock-age').click();
+ await expect(page.locator('[data-story-arc="arc-coding-club-2"]')).toBeVisible();
+ await expect(page.locator('.event-modal-overlay p').last()).toContainText('aperfeiçoou o projeto');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay p').last()).toContainText('aperfeiçoou o projeto');
+ await page.locator('.event-language').click();
+ await expect(page.locator('.event-modal-overlay p').last()).toContainText('improved project');
+ await page.locator('[data-choice="1"]').click();
+ saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.storyArc).toBe(null);
+ expect(saved.chronicle.at(-1).description).toContain('improved project');
+});
+
+test('audio is opt-in, actual synthesis occurs, and volume/music/mute persist across reload',async({page})=>{
+ await page.addInitScript(()=>{
+  window.__playedSoundNotes=0;
+  window.AudioContext=class {
+   currentTime=0;state='running';destination={};
+   createOscillator(){return {type:'sine',frequency:{setValueAtTime(){}},connect(){},
+    start(){window.__playedSoundNotes++},stop(){},disconnect(){},onended:null};}
+   createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){},
+    exponentialRampToValueAtTime(){}},connect(){},disconnect(){}};}
+   resume(){return Promise.resolve();}close(){return Promise.resolve();}
+  };
+ });
+ await page.goto('/');
+ await expect(page.locator('.welcome-audio-toolbar [data-do="toggle-sound"]')).toHaveAttribute('aria-pressed','false');
+ expect(await page.evaluate(()=>window.__playedSoundNotes)).toBe(0);
+ await page.locator('.welcome-audio-toolbar [data-do="toggle-sound"]').click();
+ await expect(page.locator('.welcome-audio-toolbar [data-do="toggle-sound"]')).toHaveAttribute('aria-pressed','true');
+ expect(await page.evaluate(()=>window.__playedSoundNotes)).toBeGreaterThan(0);
+ await page.locator('[data-do="preset-0"]').click();
+ await page.locator('.game-menu').click();
+ await expect(page.locator('[data-sound-enabled]')).toBeChecked();
+ await page.locator('[data-sound-volume]').evaluate(el=>{el.value='25';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ await expect(page.locator('[data-sound-output]')).toContainText('25%');
+ await page.locator('[data-sound-music]').check();
+ const preferences=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-sound-v1')||'{}'));
+ expect(preferences).toMatchObject({enabled:true,volume:.25,music:true});
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('.game-menu').click();
+ await expect(page.locator('[data-sound-enabled]')).toBeChecked();
+ await expect(page.locator('[data-sound-music]')).toBeChecked();
+ await expect(page.locator('[data-sound-volume]')).toHaveValue('25');
+ await page.locator('[data-sound-enabled]').uncheck();
+ const old=await page.evaluate(()=>window.__playedSoundNotes);
+ await page.locator('[data-do="close-menu"]').click();
+ await page.locator('.dock-age').click();
+ await page.locator('[data-choice="0"]').click();
+ expect(await page.evaluate(()=>window.__playedSoundNotes)).toBe(old);
+});
+
+test('real hobby studio progresses only twice per year, survives reload and unlocks awards',async({page})=>{
+ await chooseBaby(page);
+ await advance(page,6);
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-hobby-card]')).toHaveCount(6);
+ await page.locator('[data-hobby="coding"]').click();
+ await expect(page.locator('[data-hobby-card="coding"] [role="progressbar"]')).toHaveAttribute('aria-valuenow','10');
+ await expect(page.locator('[data-hobby="coding"]')).toBeDisabled();
+ await page.locator('[data-hobby="sports"]').click();
+ await expect(page.locator('[data-hobby="music"]')).toBeDisabled();
+ let saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.hobbies.coding.xp).toBe(10);
+ expect(saved.simulation.hobbies.sports.xp).toBe(10);
+ expect(saved.simulation.training).toBe(3);
+ expect(saved.chronicle.map(x=>x.eventId)).toEqual(expect.arrayContaining(['hobby-coding','hobby-sports']));
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-hobby="coding"]')).toBeDisabled();
+ await page.locator('.dock-age').click();await page.locator('[data-choice="0"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await page.locator('[data-hobby="coding"]').click();
+ saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.hobbies.coding.xp).toBe(23);
+ await page.locator('.dock-age').click();await page.locator('[data-choice="0"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await page.locator('[data-hobby="coding"]').click();
+ saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.simulation.hobbies.coding.awards).toBe(1);
+ expect(saved.simulation.hobbies.coding.xp).toBe(36);
+ expect(saved.history.some(x=>x.includes('Conquista em Programação'))).toBe(true);
+});
+test('hobby progress and audio controls are responsive without horizontal overflow on a mobile viewport',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await chooseBaby(page);
+ await advance(page,7);
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('.talent-grid')).toBeVisible();
+ await expect(page.locator('[data-hobby="art"]')).toBeEnabled();
+ await expect(page.locator('.game-status .sound-toggle-mini')).toBeVisible();
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
+});
+
+test('earned coding talent unlocks a bilingual product decision with real retained money',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const save=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  save.age=24;save.simulation.balance=1000;save.simulation.debt=0;
+  save.simulation.hobbies.coding={xp:72,awards:2,lastAge:23};
+  save.pendingEvent={id:'hobby-story-coding-2',title:'forged placeholder'};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(save));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Uma ideia vira produto');
+ await expect(page.locator('[data-choice]')).toHaveCount(3);
+ await page.locator('.event-modal-overlay .event-language').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('An idea becomes a product');
+ await page.locator('[data-choice="2"]').click();
+ const save=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(save.simulation.balance).toBe(4200);
+ expect(save.chronicle.at(-1).eventId).toBe('hobby-story-coding-2');
+ expect(save.chronicle.at(-1).result).toContain('purchased your product');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('[data-chronicle-event="hobby-story-coding-2"]')).toBeVisible();
+});
+test('an imported locked talent scenario cannot be played without earned experience',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=25;saved.pendingEvent={id:'hobby-story-coding-2'};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Um ano de pequenas escolhas');
+ await page.locator('[data-choice="0"]').click();
+ const save=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(save.chronicle.at(-1).eventId).toBe('quiet-year');
+});
+
+test('the living portrait reacts to happiness and health while identity genes remain unchanged',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=25;saved.stats={happiness:92,health:92,smarts:64,looks:56};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.identity-portrait [data-part="age-expression-cheerful"]')).toBeVisible();
+ let saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ const genes=[saved.profile.skin,saved.profile.hairColor,saved.profile.eyes];
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.stats.health=18;s.stats.happiness=22;localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.identity-portrait [data-part="age-expression-thoughtful"]')).toBeVisible();
+ await expect(page.locator('.game-side [data-part="age-expression-thoughtful"]')).toBeVisible();
+ saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect([saved.profile.skin,saved.profile.hairColor,saved.profile.eyes]).toEqual(genes);
+});
+
+test('muting stops active WebAudio oscillators immediately instead of merely preventing new notes',async({page})=>{
+ await page.addInitScript(()=>{
+  window.__soundStarts=0;window.__soundStops=0;
+  window.AudioContext=class{
+   currentTime=0;state='running';destination={};
+   createOscillator(){return {type:'sine',frequency:{setValueAtTime(){}},connect(){},
+    start(){window.__soundStarts++},stop(){window.__soundStops++},disconnect(){},onended:null};}
+   createGain(){return {gain:{setValueAtTime(){},linearRampToValueAtTime(){},
+    exponentialRampToValueAtTime(){}},connect(){},disconnect(){}};}
+   resume(){return Promise.resolve();}close(){return Promise.resolve();}
+  };
+ });
+ await page.goto('/');
+ await page.locator('.welcome-audio-toolbar [data-do="toggle-sound"]').click();
+ const before=await page.evaluate(()=>({starts:window.__soundStarts,stops:window.__soundStops}));
+ expect(before.starts).toBeGreaterThan(0);
+ await page.locator('.welcome-audio-toolbar [data-do="toggle-sound"]').click();
+ expect(await page.evaluate(()=>window.__soundStops)).toBeGreaterThan(before.stops);
+ await expect(page.locator('.welcome-audio-toolbar [data-do="toggle-sound"]')).toHaveAttribute('aria-pressed','false');
+});
+
+test('paid family journey changes actual money, bonds and journal; next year resets its gate',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=20;s.simulation.balance=18000;s.simulation.debt=0;s.pendingEvent=null;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-journey-card]')).toHaveCount(6);
+ await expect(page.locator('[data-journey="expedition"]')).toBeEnabled();
+ await page.locator('[data-journey="family"]').click();
+ let s=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(s.simulation.balance).toBe(16200);
+ expect(s.simulation.family).toBe(83);
+ expect(s.simulation.travel).toMatchObject({lastAge:20,visits:[{id:'family',age:20}]});
+ expect(s.simulation.actionLedger.travel).toBe(20);
+ expect(s.chronicle.at(-1).eventId).toBe('travel-family');
+ await expect(page.locator('[data-journey="mountains"]')).toBeDisabled();
+ await expect(page.locator('.journey-memory')).toContainText('1');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-journey="family"]')).toBeDisabled();
+ await page.locator('.dock-age').click();await expect(page.locator('.event-modal-overlay')).toBeVisible();
+ await page.locator('[data-choice="0"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-journey="mountains"]')).toBeEnabled();
+ await page.locator('[data-journey="mountains"]').click();
+ s=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(s.simulation.travel.visits).toEqual([{id:'family',age:20},{id:'mountains',age:21}]);
+ expect(s.chronicle.at(-1).eventId).toBe('travel-mountains');
+});
+test('journey cards reject underage and unaffordable trips, and restore English travel memory',async({page})=>{
+ await chooseBaby(page);
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('.travel-studio')).toHaveCount(0);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=24;s.simulation.balance=1200;s.pendingEvent=null;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-journey-card]')).toHaveCount(6);
+ await expect(page.locator('[data-journey="family"]')).toBeDisabled();
+ await expect(page.locator('[data-journey="expedition"]')).toBeDisabled();
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.simulation.balance=8500;localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await page.locator('[data-journey="history"]').click();
+ await page.locator('[data-do="language"]').first().click();
+ await expect(page.locator('.journey-memory')).toContainText('Historic circuit');
+ let s=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(s.simulation.balance).toBe(5800);
+ expect(s.simulation.credits).toBe(2);
+ expect(s.chronicle.at(-1).eventId).toBe('travel-history');
+});
+
+test('save restoration drops future journey visits and preserves actual earlier travel',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=27;s.simulation.balance=14000;s.simulation.travel={
+   lastAge:99,visits:[{id:'family',age:25},{id:'coast',age:62},{id:'expedition',age:18},{id:'history',age:26}]
+  };
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('.journey-memory')).toContainText('2');
+ await expect(page.locator('.journey-travelogue li')).toHaveCount(2);
+ await expect(page.locator('.journey-travelogue')).not.toContainText('Costa do Atlântico');
+ await expect(page.locator('.journey-travelogue')).toContainText('Circuito histórico');
+});
+
+test('a named pet is genuinely adopted, paid for, cared for once a year and saved across reload',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=20;s.simulation.balance=25000;s.pendingEvent=null;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-pet-adoption]')).toHaveCount(4);
+ await page.locator('[data-pet-name="dog"]').fill('Bento');
+ await page.locator('[data-pet-adopt="dog"]').click();
+ let state=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(state.simulation.balance).toBe(24350);
+ expect(state.simulation.pets.pets).toHaveLength(1);
+ expect(state.simulation.pets.pets[0]).toMatchObject({name:'Bento',species:'dog',
+  adoptedAt:20,alive:true,lastCareAge:20});
+ expect(state.chronicle.at(-1).eventId).toBe('pet-adopt-dog');
+ await expect(page.locator('.pet-family-info')).toContainText('Bento');
+ await expect(page.locator('[data-pet-adopt="cat"]')).toBeDisabled();
+ await expect(page.locator('[data-pet-care="pet-1"]')).toBeDisabled();
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('.pet-family-info strong')).toContainText('Bento');
+ await page.locator('.dock-age').click();await page.locator('[data-choice="0"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-pet-care="pet-1"]')).toBeEnabled();
+ const bondBefore=await page.locator('[data-pet-card="pet-1"] .pet-bond-meter').getAttribute('aria-valuenow');
+ await page.locator('[data-pet-care="pet-1"]').click();
+ const bondAfter=await page.locator('[data-pet-card="pet-1"] .pet-bond-meter').getAttribute('aria-valuenow');
+ expect(Number(bondAfter)).toBeGreaterThan(Number(bondBefore));
+ await expect(page.locator('[data-pet-care="pet-1"]')).toBeDisabled();
+ state=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(state.simulation.pets.pets[0].lastCareAge).toBe(21);
+ expect(state.chronicle.at(-1).eventId).toBe('pet-care-dog');
+});
+test('adoption names are escaped rather than inserted as executable HTML',async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=22;s.simulation.balance=14000;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await page.locator('[data-pet-name="cat"]').fill('<b>Luna</b>');
+ await page.locator('[data-pet-adopt="cat"]').click();
+ await expect(page.locator('[data-pet-card="pet-1"] .pet-family-info strong')).toContainText('<b>Luna</b>');
+ await expect(page.locator('[data-pet-card="pet-1"] .pet-family-info b')).toHaveCount(0);
+ expect(errors).toEqual([]);
+});
+test('childhood pet adoption uses family allowance, not an imaginary child salary',async({page})=>{
+ await chooseBaby(page);
+ await advance(page,8);
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-pet-adoption]')).toHaveCount(4);
+ const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}').simulation.balance);
+ await page.locator('[data-pet-adopt="rabbit"]').click();
+ const state=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(state.simulation.balance).toBe(before,'parents cover adoption; no imaginary child earnings');
+ expect(state.simulation.pets.pets[0]).toMatchObject({species:'rabbit',name:'Pipoca',adoptedAt:8});
+ await expect(page.locator('[data-pet-adopt="dog"]')).toBeDisabled();
+});
+
+test('a real living dog triggers a localized yearly decision and lasting companionship consequences',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=25;
+  saved.simulation.pets={schema:1,nextId:2,lastAdoptionAge:21,pets:[
+   {id:'pet-1',species:'dog',name:'Bento',adoptedAt:21,ageYears:4,
+    affection:75,energy:85,alive:true,lastCareAge:24,lastUpdatedAge:25}
+  ]};
+  saved.pendingEvent={id:'pet-story-pet-1-bond',title:'forged title',description:'forged',
+   choices:[{label:'tampered',result:'tampered',effects:{}},
+    {label:'tampered',result:'tampered',effects:{}},
+    {label:'tampered',result:'tampered',effects:{}}]};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('O parque dos cachorros');
+ await expect(page.locator('.event-modal-overlay p').last()).toContainText('Bento');
+ await expect(page.locator('.event-modal-overlay')).not.toContainText('tampered');
+ await page.locator('.event-language').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('The dog park');
+ await expect(page.locator('.event-modal-overlay p').last()).toContainText('Bento');
+ await page.locator('[data-choice="0"]').click();
+ let s=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(s.simulation.pets.pets[0].affection).toBe(87);
+ expect(s.simulation.pets.pets[0].energy).toBe(80);
+ expect(s.simulation.friends).toBe(34);
+ expect(s.chronicle.at(-1).eventId).toBe('pet-story-pet-1-bond');
+ expect(s.chronicle.at(-1).result).toContain('playful afternoon');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-pet-card="pet-1"] .pet-bond-meter')).toHaveAttribute('aria-valuenow','87');
+});
+test('forged animal-story events cannot grant rewards without a real companion',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=28;s.pendingEvent={id:'pet-story-pet-1-milestone'};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay h2')).toContainText('Um ano de pequenas escolhas');
+ await page.locator('[data-choice="0"]').click();
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(saved.chronicle.at(-1).eventId).toBe('quiet-year');
+ expect(saved.simulation.pets.pets.length).toBe(0);
+});
+
+test('wardrobe cuts preview instantly and only persist when player confirms real styling',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=25;s.simulation.balance=3000;s.pendingEvent=null;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ await page.locator('[data-style-field="outfitStyle"]').selectOption('sporty');
+ await expect(page.locator('[data-style-preview] svg')).toHaveAttribute('data-outfit-cut','sporty');
+ await expect(page.locator('[data-style-preview] [data-part="adult-streetwear"]')).toBeVisible();
+ const unchanged=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(unchanged.profile.outfitStyle).toBe(before.profile.outfitStyle);
+ expect(unchanged.simulation.balance).toBe(3000);
+ await page.locator('[data-do="style-apply"]').click();
+ const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(after.profile.outfitStyle).toBe('sporty');
+ expect(after.simulation.balance).toBe(2750);
+ expect(after.chronicle.at(-1).eventId).toBe('appearance-changed');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-style-field="outfitStyle"]')).toHaveValue('sporty');
+ await expect(page.locator('[data-style-preview] svg')).toHaveAttribute('data-outfit-cut','sporty');
+ await expect(page.locator('[data-do="style-apply"]')).toBeDisabled();
+});
+
+test('the adopted animal appears inside its story comic and remains in the chronological illustration',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=26;
+  s.simulation.pets={schema:1,nextId:2,lastAdoptionAge:22,pets:[
+   {id:'pet-1',species:'rabbit',name:'Nuvem',adoptedAt:22,ageYears:4,
+    affection:79,energy:85,alive:true,lastCareAge:25,lastUpdatedAge:26}
+  ]};
+  s.pendingEvent={id:'pet-story-pet-1-bond'};
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('.event-modal-overlay .scene-pet-actor')).toHaveAttribute('data-pet-species','rabbit');
+ await page.locator('[data-choice="1"]').click();
+ await expect(page.locator('[data-chronicle-event="pet-story-pet-1-bond"] .scene-pet-actor')).toHaveAttribute('data-pet-species','rabbit');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('[data-chronicle-event="pet-story-pet-1-bond"] .scene-pet-actor')).toBeVisible();
+});
+
+test('mobile players can navigate to actually available life systems without horizontal page overflow',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=28;s.simulation.balance=6500;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('.activity-quick-links a')).toHaveCount(5);
+ for(const section of ['life-talents','life-travel','life-pets','life-appearance','life-justice']){
+  const anchor=page.locator('.activity-quick-links a[href="#'+section+'"]');
+  await anchor.click();
+  await expect(page.locator('#'+section)).toBeVisible();
+  expect(new URL(page.url()).hash).toBe('#'+section);
+ }
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
+});
+
+test('a real paid trip keeps its distinct visual destination in the permanent illustrated story',async({page})=>{
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=26;s.simulation.balance=8000;s.simulation.debt=0;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await page.locator('[data-journey="coast"]').click();
+ await page.locator('[data-tab="story"]').click();
+ await expect(page.locator('[data-chronicle-event="travel-coast"] .journey-world')).toHaveAttribute('data-destination','coast');
+ await expect(page.locator('[data-chronicle-event="travel-coast"] .scene-label')).toContainText('VIAGEM');
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await expect(page.locator('[data-chronicle-event="travel-coast"] .journey-world')).toBeVisible();
+ const s=await page.evaluate(()=>JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}'));
+ expect(s.simulation.travel.visits[0]).toMatchObject({id:'coast',age:26});
+ expect(s.simulation.balance).toBe(5800);
+});
+
+test('compact 320px viewport keeps sounds, pet adoption, wardrobe and travel controls reachable',async({page})=>{
+ await page.setViewportSize({width:320,height:720});
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const saved=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  saved.age=28;saved.simulation.balance=9000;saved.pendingEvent=null;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(saved));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-journey-card]')).toHaveCount(6);
+ await expect(page.locator('[data-pet-adoption]')).toHaveCount(4);
+ await expect(page.locator('[data-style-field="outfitStyle"]')).toBeVisible();
+ await expect(page.locator('.activity-quick-links a')).toHaveCount(5);
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(321);
+ await page.locator('[data-pet-adopt="bird"]').click();
+ await expect(page.locator('[data-pet-card="pet-1"]')).toBeVisible();
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(321);
+ await page.locator('.game-menu').click();
+ await expect(page.locator('[data-sound-enabled]')).toBeVisible();
+ await expect(page.locator('[data-sound-volume]')).toBeVisible();
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(321);
+});
+test('tablet viewport supports illustrated modal, growing age and life-stage gallery without clipping',async({page})=>{
+ await page.setViewportSize({width:768,height:1024});
+ await chooseBaby(page);
+ await page.locator('.dock-age').click();
+ await expect(page.locator('.event-modal-overlay')).toBeVisible();
+ await expect(page.locator('.event-modal-overlay [data-choice]')).toHaveCount(3);
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(769);
+ await page.locator('[data-choice="1"]').click();
+ await expect(page.locator('.event-modal-overlay')).toHaveCount(0);
+ await expect(page.locator('.story-chapters')).toBeVisible();
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(769);
 });
