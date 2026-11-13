@@ -1788,3 +1788,23 @@ test('the adopted animal appears inside its story comic and remains in the chron
  await page.reload();await page.locator('[data-do="continue"]').click();
  await expect(page.locator('[data-chronicle-event="pet-story-pet-1-bond"] .scene-pet-actor')).toBeVisible();
 });
+
+test('mobile players can navigate to actually available life systems without horizontal page overflow',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await chooseBaby(page);
+ await page.evaluate(()=>{
+  const s=JSON.parse(localStorage.getItem('zoid-life-save-v1')||'{}');
+  s.age=28;s.simulation.balance=6500;
+  localStorage.setItem('zoid-life-save-v1',JSON.stringify(s));
+ });
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('.activity-quick-links a')).toHaveCount(5);
+ for(const section of ['life-talents','life-travel','life-pets','life-appearance','life-justice']){
+  const anchor=page.locator('.activity-quick-links a[href="#'+section+'"]');
+  await anchor.click();
+  await expect(page.locator('#'+section)).toBeVisible();
+  expect(new URL(page.url()).hash).toBe('#'+section);
+ }
+ await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(392);
+});
