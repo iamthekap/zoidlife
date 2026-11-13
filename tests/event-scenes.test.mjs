@@ -24,7 +24,7 @@ test('scenarios keep the actual avatar and environment of the chosen category',(
 });
 
 test('companion scenes show actual species without interpolating potentially unsafe pet names',()=>{
- const p=randomCharacter();
+ const p=profile;
  const scene=eventScene('pet-story-pet-1-bond',p,'pt-BR',24,'family',undefined,
   {species:'dog',name:'<img src=x onerror=alert(1)>'});
  assert.ok(scene.includes('data-pet-species="dog"'));
