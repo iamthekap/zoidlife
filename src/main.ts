@@ -1245,7 +1245,7 @@ function describeActualChanges(before:Simulation,after:Simulation,prior:Stats,ne
 }
 const activityCategory:Record<Action,string>={
  study:'school',job:'work',resign:'work',socialize:'friend',care:'health',budget:'money',retire:'retirement',
- invest:'money',withdraw:'money',home:'money',child:'family',crime:'city',train:'leisure',mystic:'leisure',work:'work',style:'leisure'
+ invest:'money',withdraw:'money',home:'money',child:'family',crime:'city',train:'leisure',mystic:'leisure',work:'work',style:'leisure',travel:'leisure'
 };
 
 function visitPerson(id:string,kind='talk'):void {
