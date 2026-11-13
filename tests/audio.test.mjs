@@ -20,8 +20,8 @@ test('volume is bounded, invalid values are sanitized and settings do not affect
  player.destroy();
 });
 test('all sounds are bounded, distinct, locally synthesized and free of external media',()=>{
- const names=['start','year','choice','success','career','social','finance','hobby','travel','warning','ending','open'];
- assert.equal(names.length,12);
+ const names=['start','year','choice','success','career','social','finance','hobby','travel','dog','cat','rabbit','bird','warning','ending','open'];
+ assert.equal(names.length,16);
  const sequences=names.map(cue=>soundNotes(cue));
  assert.equal(new Set(sequences.map(s=>JSON.stringify(s))).size,names.length);
  for(const list of [...sequences,...Array.from({length:4},(_,i)=>ambienceNotes(i))]){

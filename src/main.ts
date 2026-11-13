@@ -1077,7 +1077,7 @@ function adoptPetFromUI(id:string):void{
  const applied=adoptCompanion(before,prior,life.age,species,name);
  if(!applied.ok)return;
  life.simulation=applied.state;life.stats=applied.stats;
- sound.play('social');
+ sound.play(species);
  recordStoryChoice('pet-adopt-'+species,
    language==='pt-BR'?'Nova adoção':'New adoption',petLabel(species,language)+' · '+name,
    language==='pt-BR'?'Acolher um companheiro':'Welcome a companion',
@@ -1094,7 +1094,7 @@ function carePetFromUI(id:string):void{
  const result=careForCompanion(before,prior,life.age,id);
  if(!result.ok)return;
  life.simulation=result.state;life.stats=result.stats;
- sound.play('social');
+ sound.play(pet.species);
  recordStoryChoice('pet-care-'+pet.species,
    language==='pt-BR'?'Cuidar do companheiro':'Care for a companion',
    petLabel(pet.species,language)+' · '+pet.name,
