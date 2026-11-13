@@ -17,6 +17,7 @@ import {HOBBY_IDS,canPracticeHobby,hobbyName,hobbyCost,hobbyCreditAlternative,ty
 import {hobbyEvents} from "./hobby-events";
 import {DESTINATIONS,destination,canTravel,normalizeTravelState,type JourneyId} from "./travel";
 import {PET_SPECIES,PET_COST,petLabel,petPortrait,canAdoptPet,normalizePetHousehold,type PetSpecies} from "./pets";
+import {petStoryEvents,applyPetStoryChoice} from "./pet-events";
 import { healthLabel,type ConditionId } from "./health";
 import { OFFENSES,justiceLabel,legalStatus,type OffenseId } from "./justice";
 import { CAREERS,careerById,careerAvailable,careerLabel,careerRequirements,type OccupationId } from "./careers";
@@ -323,7 +324,7 @@ function restorePendingEvent(raw:unknown,profile:CharacterProfile,simulation:Sim
   return episode?.id===id&&age===episode.minAge?episode:quietEvent();
  }
  const pool:LifeEvent[]=[...(copy[language].events as LifeEvent[]),...extraEvents(language),
-  ...extendedEvents(language),...advancedEvents(language),...hobbyEvents(language,simulation),...mysticEvents(language,profile),
+  ...extendedEvents(language),...advancedEvents(language),...hobbyEvents(language,simulation),...petStoryEvents(language,simulation,age),...mysticEvents(language,profile),
   ...careerEvents(language,simulation)];
  const match=pool.find(x=>x.id===id);
  if(!match||age<match.minAge||age>match.maxAge)return quietEvent();
@@ -1285,7 +1286,7 @@ function activeEventForLanguage(): void {
    if(followup?.id===id)life.pendingEvent=followup;
    return;
   }
-  const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language),...extendedEvents(language),...advancedEvents(language),...hobbyEvents(language,life!.simulation),...mysticEvents(language,life?.profile),...(life?careerEvents(language,life.simulation):[])] as LifeEvent[]).find(e=>e.id===id);
+  const localized=([...(copy[language].events as LifeEvent[]), ...extraEvents(language),...extendedEvents(language),...advancedEvents(language),...hobbyEvents(language,life!.simulation),...petStoryEvents(language,life!.simulation,life!.age),...mysticEvents(language,life?.profile),...(life?careerEvents(language,life.simulation):[])] as LifeEvent[]).find(e=>e.id===id);
   if(localized)life.pendingEvent=localized;
 }
 function syncLifePeople():void {
@@ -1380,7 +1381,7 @@ function ageUp(): void {
   syncLifePeople();
   transition.notes.forEach(n=>life!.history.push(age+": "+caption(n)));
   if (!transition.state.ended) {
-    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language),...extendedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...advancedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...hobbyEvents(language,life!.simulation),...mysticEvents(language,life!.profile),...careerEvents(language,life!.simulation)] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
+    const eligible=([...(copy[language].events as LifeEvent[]),...extraEvents(language),...extendedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...advancedEvents(language).filter(e=>extendedAllowed(e,life!.simulation)),...hobbyEvents(language,life!.simulation),...petStoryEvents(language,life!.simulation,age),...mysticEvents(language,life!.profile),...careerEvents(language,life!.simulation)] as LifeEvent[]).filter(e=>eventAllowed(e,life!.simulation));
     if(life.storyArc&&!storyArcAllowed(life.storyArc,life.simulation,age))life.storyArc=null;
     const continuing=storyArcEvent(life.storyArc,language);
     life.pendingEvent=continuing&&age>=continuing.minAge?
@@ -1394,10 +1395,18 @@ function choose(index:number): void {
   if (!life?.pendingEvent)return;
   const event=life.pendingEvent;const choice=event.choices[index];if(!choice)return;
   const before=life.simulation,prior=life.stats;
+  // A companion decision requires its own living pet, not just a copied event ID.
+  if(event.id.startsWith('pet-story-')&&
+    !petStoryEvents(language,life.simulation,life.age).some(e=>e.id===event.id)){
+    life.pendingEvent=quietEvent();saveLife();render();return;
+  }
   const result=applyNarrativeChoice(life.simulation,life.stats,life.age,event.id,index,choice.effects,choice.world);
   if(!result.ok)return;
+  const petResult=event.id.startsWith('pet-story-')?
+    applyPetStoryChoice(result.state,life.age,event.id,index):null;
+  if(petResult&&!petResult.ok)return;
   sound.play(index===2?'warning':event.id.startsWith('arc-')?'success':'choice');
-  life.simulation=result.state;life.stats=result.stats;
+  life.simulation=petResult?.state??result.state;life.stats=result.stats;
   syncLifePeople();
   const historyIndex=life.history.length;
   const realResult=choice.result+' · '+describeActualChanges(before,life.simulation,prior,life.stats);
@@ -1406,6 +1415,12 @@ function choose(index:number): void {
     description:event.description,choice:choice.label,result:realResult,
     ...(event.category?{category:event.category}:{})});
   for(const n of result.notes)life.history.push(life.age+": "+caption(n));
+  if(petResult?.ok){
+    const namedPet=life.simulation.pets.pets.find(p=>petResult.note.startsWith('pet-story:'+p.id+':'));
+    if(namedPet)life.history.push(life.age+': '+(language==='pt-BR'?
+      'Vínculo com '+namedPet.name+': '+namedPet.affection+'/100.':
+      'Bond with '+namedPet.name+': '+namedPet.affection+'/100.'));
+  }
   if(event.id!=="quiet-year"){
     if(!life.seenEventIds.includes(event.id))life.seenEventIds.push(event.id);
     life.eventLedger=recordEvent(life.eventLedger,event.id,life.age);
