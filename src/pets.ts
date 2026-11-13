@@ -39,7 +39,7 @@ export function normalizePetHousehold(raw:unknown):PetHousehold{
  }
  const maxId=Math.max(0,...pets.map(x=>Number(x.id.slice(4))));
  result.pets=pets.slice(-12);
- result.nextId=Math.min(99999,Math.max(maxId+1,1,
+ result.nextId=Math.min(100000,Math.max(maxId+1,1,
   Number.isInteger(input.nextId)?Number(input.nextId):1));
  result.lastAdoptionAge=Math.max(-1,...result.pets.map(x=>x.adoptedAt));
  return result;

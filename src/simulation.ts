@@ -4,6 +4,8 @@ import {careerById,careerAvailable,type OccupationId} from './careers.ts';
 import type {CharacterProfile} from './characters.ts';
 import {HOBBY_IDS,normalizeHobbyBook,progressHobby,hobbyCost,hobbyCareer,type HobbyBook,type HobbyId} from './hobbies.ts';
 import {destination,canTravel,normalizeTravelState,recordTravel,type TravelState,type JourneyId} from './travel.ts';
+import {normalizePetHousehold,adoptPet,careForPet,advancePets,canAdoptPet,PET_COST,
+ type PetHousehold,type PetSpecies} from './pets.ts';
 /** Original Zoid Life simulation engine; independent of third-party game code or assets. */
 export type Stats = Record<'happiness' | 'health' | 'smarts' | 'looks', number>;
 export type Job = 'none' | 'parttime' | 'service' | 'office' | 'professional' | 'retired';
@@ -18,7 +20,7 @@ export type Simulation = {
   relationship: Relation; lastActionAge: number; lastYearNotes: string[]; ended: boolean;
   /** Most recent age that each activity was performed. Allows different activities in one year. */
   actionLedger: Partial<Record<Action,number>>;
-  investments: number; homeOwned: boolean; homeValue: number; children: number; training:number;mysticMastery:number;careerLevel:number;careerTenure:number;careerMomentum:number;sportsVictories:number; conditions:Condition[];justice:JusticeState;hobbies:HobbyBook;travel:TravelState;
+  investments: number; homeOwned: boolean; homeValue: number; children: number; training:number;mysticMastery:number;careerLevel:number;careerTenure:number;careerMomentum:number;sportsVictories:number; conditions:Condition[];justice:JusticeState;hobbies:HobbyBook;travel:TravelState;pets:PetHousehold;
 };
 export type WorldImpact={cash?:number;debt?:number;investments?:number;family?:number;friends?:number;partner?:number;credits?:number;experience?:number;careerMomentum?:number;training?:number;mysticMastery?:number;relationship?:Relation};
 export type Outcome = { state: Simulation; stats: Stats; notes: string[]; ok: boolean };
@@ -70,7 +72,7 @@ export function createSimulation(): Simulation {
   return { schema: 2, balance: 0, debt: 0, education: 'none', credits: 0, studyTrack:'general',job: 'none', occupation:null,
     experience: 0, family: 70, friends: 30, partner: 0, relationship: 'single',
     lastActionAge: -1, actionLedger: {}, lastYearNotes: [], ended: false,
-    investments: 0, homeOwned: false, homeValue: 0, children: 0,training:0,mysticMastery:0,careerLevel:0,careerTenure:0,careerMomentum:0,sportsVictories:0,conditions:[],justice:createJustice(),hobbies:normalizeHobbyBook(null),travel:normalizeTravelState(null) };
+    investments: 0, homeOwned: false, homeValue: 0, children: 0,training:0,mysticMastery:0,careerLevel:0,careerTenure:0,careerMomentum:0,sportsVictories:0,conditions:[],justice:createJustice(),hobbies:normalizeHobbyBook(null),travel:normalizeTravelState(null),pets:normalizePetHousehold(null) };
 }
 /** Migrate v1 saves safely without rewriting older life history. */
 export function loadSimulation(raw: unknown): Simulation {
@@ -97,7 +99,7 @@ export function loadSimulation(raw: unknown): Simulation {
     homeValue: r.homeOwned===true ? money(r.homeValue??0) : 0,
     children: Math.min(20,money(r.children??0)),training:Math.min(100,money(r.training??0)),mysticMastery:Math.min(100,money(r.mysticMastery??0)),
  careerLevel:Math.min(5,money(r.careerLevel??0)),careerTenure:Math.min(110,money(r.careerTenure??0)),
- careerMomentum:Math.min(100,money(r.careerMomentum??0)),sportsVictories:Math.min(1000,money(r.sportsVictories??0)),conditions:normalizeConditions(r.conditions),justice:loadJustice(r.justice),hobbies:normalizeHobbyBook(r.hobbies),travel:normalizeTravelState(r.travel) };
+ careerMomentum:Math.min(100,money(r.careerMomentum??0)),sportsVictories:Math.min(1000,money(r.sportsVictories??0)),conditions:normalizeConditions(r.conditions),justice:loadJustice(r.justice),hobbies:normalizeHobbyBook(r.hobbies),travel:normalizeTravelState(r.travel),pets:normalizePetHousehold(r.pets) };
 }
 const updatedStats = (stats: Stats, effects: Partial<Stats>): Stats => ({
   happiness: bound(stats.happiness + (effects.happiness ?? 0)),
@@ -168,6 +170,18 @@ export function passYear(raw: Simulation, rawStats: Stats, age: number): Outcome
     const childcare=2000*s.children;
     charge(s,childcare);
     notes.push('childcare:'+childcare);
+  }
+  const companionYear=advancePets(normalizePetHousehold(s.pets),age);
+  s.pets=companionYear.state;
+  if(companionYear.maintenance){
+    charge(s,companionYear.maintenance);
+    notes.push('pet-upkeep:'+companionYear.maintenance);
+  }
+  if(companionYear.companionship)
+    stats=updatedStats(stats,{happiness:Math.min(2,companionYear.companionship)});
+  for(const pet of companionYear.deaths){
+    notes.push('pet-farewell:'+pet.name);
+    stats=updatedStats(stats,{happiness:-7});
   }
   if (s.debt > 0) {
     s.debt = money(s.debt * 1.04);
@@ -309,6 +323,33 @@ export function practiceHobby(raw:Simulation,rawStats:Stats,age:number,id:HobbyI
   notes.push('hobby-award:'+id+':'+tier);
  }
  return {state:s,stats,notes,ok:true};
+}
+
+/** Adopt at most two living companions; parents cover costs for minors. */
+export function adoptCompanion(raw:Simulation,rawStats:Stats,age:number,
+ species:PetSpecies,name:string):Outcome{
+ const pets=normalizePetHousehold(raw.pets);
+ const cost=age>=18?PET_COST[species]:0;
+ if(raw.ended||loadJustice(raw.justice).incarceratedUntil>age||
+  !canAdoptPet(pets,age,species,name)||raw.balance<cost)
+  return {state:raw,stats:rawStats,notes:[],ok:false};
+ const adopted=adoptPet(pets,age,species,name);
+ if(!adopted.ok||!adopted.pet)return {state:raw,stats:rawStats,notes:[],ok:false};
+ const s:Simulation={...raw,pets:adopted.state,lastYearNotes:[...raw.lastYearNotes]};
+ if(cost>0)charge(s,cost);
+ s.family=bound(s.family+3);
+ return {state:s,stats:updatedStats(rawStats,{happiness:6}),
+  notes:['pet-adopted:'+species+':'+adopted.pet.name],ok:true};
+}
+/** Each living pet can be cared for once in a year, with real wellness/bond effects. */
+export function careForCompanion(raw:Simulation,rawStats:Stats,age:number,id:string):Outcome{
+ if(raw.ended||loadJustice(raw.justice).incarceratedUntil>age)return {state:raw,stats:rawStats,notes:[],ok:false};
+ const pets=normalizePetHousehold(raw.pets),cared=careForPet(pets,age,id);
+ if(!cared.ok||!cared.pet)return {state:raw,stats:rawStats,notes:[],ok:false};
+ const s:Simulation={...raw,pets:cared.state,lastYearNotes:[...raw.lastYearNotes]};
+ if(age>=18)charge(s,120);
+ return {state:s,stats:updatedStats(rawStats,{happiness:3,health:1}),
+  notes:['pet-cared:'+cared.pet.id],ok:true};
 }
 
 /** Optional yearly journey: actually charge the fare, update bonds and remember the trip. */
