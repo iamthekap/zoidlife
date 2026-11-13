@@ -1059,7 +1059,6 @@ function adoptPetFromUI(id:string):void{
  const applied=adoptCompanion(before,prior,life.age,species,name);
  if(!applied.ok)return;
  life.simulation=applied.state;life.stats=applied.stats;
- const adopted=applied.state.pets.pets.at(-1);
  sound.play('social');
  recordStoryChoice('pet-adopt-'+species,
    language==='pt-BR'?'Nova adoção':'New adoption',petLabel(species,language)+' · '+name,

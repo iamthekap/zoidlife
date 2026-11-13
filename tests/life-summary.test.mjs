@@ -76,3 +76,20 @@ test('earned travel memories are counted by real distinct places without claimin
  const early=makeLifeReport({...input,age:18,simulation:s},'pt-BR');
  assert.ok(!early.achievements.some(a=>a.includes('destinos')||a.includes('viagem')));
 });
+
+test('end-of-life report names only pets truly adopted by that age',()=>{
+ const s={...createSimulation(),pets:{schema:1,nextId:3,lastAdoptionAge:50,pets:[
+  {id:'pet-1',species:'cat',name:'Luna',adoptedAt:20,ageYears:4,
+   affection:85,energy:80,lastCareAge:24,lastUpdatedAge:24,alive:true},
+  {id:'pet-2',species:'dog',name:'Rex',adoptedAt:50,ageYears:2,
+   affection:60,energy:70,lastCareAge:52,lastUpdatedAge:52,alive:false}
+ ]}};
+ const early=makeLifeReport({...input,age:25,simulation:s},'pt-BR');
+ assert.ok(early.achievements.includes('Acolheu animais: 1'));
+ assert.ok(early.achievements.some(a=>a.includes('Luna (Gato)')));
+ assert.ok(!early.achievements.some(a=>a.includes('Rex')));
+ const old=makeLifeReport({...input,age:80,simulation:s},'en');
+ assert.ok(old.achievements.includes('Adopted companions: 2'));
+ assert.ok(old.achievements.some(a=>a.includes('Luna (Cat)')));
+ assert.ok(!old.achievements.some(a=>a.includes('Rex (Dog)')));
+});

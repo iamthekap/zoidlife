@@ -175,3 +175,27 @@ test('capture six live-priced postcard destinations and persistent visited passp
  await expect(page.locator('[data-journey="history"]')).toBeDisabled();
  await page.screenshot({path:'test-results/visual/29-visited-travel-passport-mobile.png',fullPage:true});
 });
+
+test('capture four original animal adoption cards and a persistent companion profile',async({page})=>{
+ test.setTimeout(110_000);
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ await page.locator('[data-do="preset-0"]').click();
+ for(let year=1;year<=8;year++){
+  await page.locator('.dock-age').click();
+  await page.locator('[data-choice="0"]').click();
+ }
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('[data-pet-adoption]')).toHaveCount(4);
+ await expect(page.locator('.pet-pixel-art')).toHaveCount(4);
+ await page.screenshot({path:'test-results/visual/30-four-original-pets-mobile.png',fullPage:true});
+ await page.locator('[data-pet-adopt="rabbit"]').click();
+ await expect(page.locator('[data-pet-card="pet-1"]')).toBeVisible();
+ await expect(page.locator('.pet-family-info strong')).toContainText('Pipoca');
+ await page.screenshot({path:'test-results/visual/31-adopted-pet-bond-mobile.png',fullPage:true});
+ await page.setViewportSize({width:1440,height:900});
+ await page.reload();await page.locator('[data-do="continue"]').click();
+ await page.locator('[data-tab="actions"]').click();
+ await expect(page.locator('.pet-family-card')).toBeVisible();
+ await page.screenshot({path:'test-results/visual/32-companion-family-desktop.png',fullPage:true});
+});

@@ -4,6 +4,7 @@ import type {SocialState} from './social.ts';
 import {careerById,careerLabel} from './careers.ts';
 import {HOBBY_IDS,hobbyName,normalizeHobbyBook} from './hobbies.ts';
 import {destination,normalizeTravelState} from './travel.ts';
+import {normalizePetHousehold,petLabel} from './pets.ts';
 export type Locale='pt-BR'|'en';
 export type LifeReportInput={
  name:string;age:number;birthYear:number;stats:Stats;simulation:Simulation;social:SocialState;
@@ -57,6 +58,14 @@ export function makeLifeReport(input:LifeReportInput,lang:Locale):LifeReport{
   achievements.push(txt(lang,'Descobriu novos destinos: ','Explored destinations: ')+distinct);
   const last=destination(livedTrips[livedTrips.length-1].id);
   if(last)achievements.push(txt(lang,'Última viagem: ','Latest journey: ')+(lang==='en'?last.en:last.pt));
+ }
+ const companions=normalizePetHousehold(s.pets).pets.filter(p=>p.adoptedAt<=input.age);
+ if(companions.length){
+  achievements.push(txt(lang,'Acolheu animais: ','Adopted companions: ')+companions.length);
+  const remaining=companions.filter(p=>p.alive);
+  if(remaining.length)achievements.push(
+   txt(lang,'Companheiros na família: ','Companions in the family: ')+
+   remaining.map(p=>p.name+' ('+petLabel(p.species,lang)+')').join(', '));
  }
  // Imported history may contain notes from future ages: never report them as lived events.
  const news=input.history.filter(x=>{
