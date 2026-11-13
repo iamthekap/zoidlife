@@ -16,6 +16,7 @@ import {GameSound} from "./audio";
 import {HOBBY_IDS,canPracticeHobby,hobbyName,hobbyCost,hobbyCreditAlternative,type HobbyId} from "./hobbies";
 import {hobbyEvents} from "./hobby-events";
 import {DESTINATIONS,destination,canTravel,normalizeTravelState,type JourneyId} from "./travel";
+import {PET_SPECIES,PET_COST,petLabel,petPortrait,canAdoptPet,normalizePetHousehold,type PetSpecies} from "./pets";
 import { healthLabel,type ConditionId } from "./health";
 import { OFFENSES,justiceLabel,legalStatus,type OffenseId } from "./justice";
 import { CAREERS,careerById,careerAvailable,careerLabel,careerRequirements,type OccupationId } from "./careers";
@@ -23,7 +24,7 @@ import { validateLifeSave, serializeLife, saveFilename, MAX_SAVE_BYTES } from ".
 import { initialSocial, normalizeSocial, syncSocial, personAge, personLabel, type SocialState } from "./social";
 import {SOCIAL_KINDS,interactionLabel,interactionCost,canInteract,resolveSocialEncounter,recentSocialMemory,type Lang} from "./social-interactions";
 
-import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, applyCareer, applyOffense, practiceHobby, takeJourney, type Simulation, type Action, type WorldImpact, canTakeAction, STUDY_TRACKS, selectStudyTrack, type StudyTrack } from "./simulation";
+import { createSimulation, loadSimulation, annualSalary, takeAction, passYear, applyNarrativeChoice, applyCareer, applyOffense, practiceHobby, takeJourney, adoptCompanion,careForCompanion, type Simulation, type Action, type WorldImpact, canTakeAction, STUDY_TRACKS, selectStudyTrack, type StudyTrack } from "./simulation";
 
 type Language = "pt-BR" | "en";
 type StatKey = "happiness" | "health" | "smarts" | "looks";
@@ -345,6 +346,13 @@ function loadLife(): Life|null {
     const simulation=loadSimulation(r.simulation);
     // The future is not a lived achievement, even in manually altered/imported saves.
     simulation.travel=normalizeTravelState({visits:simulation.travel.visits.filter(v=>v.age<=Number(r.age))});
+    simulation.pets=normalizePetHousehold({nextId:simulation.pets.nextId,
+     pets:simulation.pets.pets.filter(p=>p.adoptedAt<=Number(r.age)).map(p=>({
+       ...p,
+       lastCareAge:p.lastCareAge<=Number(r.age)?p.lastCareAge:-1,
+       lastUpdatedAge:Math.min(p.lastUpdatedAge,Number(r.age)),
+       ageYears:Math.min(p.ageYears,Math.max(0,Number(r.age)-p.adoptedAt))
+     }))});
     const history=Array.isArray(r.history)?r.history.filter((x):x is string=>typeof x==='string').slice(-6000):[];
     const recoveredArc=normalizeStoryArc(r.storyArc,Math.max(0,Math.min(110,r.age)));
     const storyArc=storyArcAllowed(recoveredArc,simulation,r.age)?recoveredArc:null;
@@ -411,6 +419,14 @@ function caption(s: string): string {
   if(s==='classmate-graduated')return language==='pt-BR'?'A amizade da escola continuou depois da formatura.':'A school friendship continued after graduation.';
   if(s.startsWith("job:"))return u("newJob")+": "+u(s.slice(4));
   if(s.startsWith("occupation:")){const role=careerById(s.slice(11));return role?careerLabel(role,language):u("job");}
+  if(s.startsWith('pet-upkeep:'))return (language==='pt-BR'?'Cuidados anuais dos animais: ':'Annual pet care: ')+cash(Number(s.slice(11)));
+  if(s.startsWith('pet-farewell:'))return (language==='pt-BR'?'Seu companheiro partiu: ':'A companion passed away: ')+s.slice(13);
+  if(s.startsWith('pet-adopted:')){
+    const parts=s.split(':'),id=parts[1] as PetSpecies;
+    return (language==='pt-BR'?'Sua família acolheu ':'Your family adopted ')+
+      parts.slice(2).join(':')+' ('+(PET_SPECIES.includes(id)?petLabel(id,language):'pet')+').';
+  }
+  if(s.startsWith('pet-cared:'))return language==='pt-BR'?'Você cuidou do seu animal de estimação.':'You cared for your companion.';
   if(s.startsWith('trip:')){
     const trip=destination(s.slice(5));if(trip)return (language==='pt-BR'?'Visitou ':'Visited ')+
       (language==='pt-BR'?trip.pt:trip.en)+'.';
@@ -991,6 +1007,86 @@ function travelFromUI(id:string):void{
  saveLife();tab='actions';render();
 }
 
+function renderPetStudio():string{
+ if(!life||life.age<8)return '';
+ const s=life.simulation,age=life.age,pt=language==='pt-BR',house=s.pets;
+ const alive=house.pets.filter(p=>p.alive);
+ const names:Record<PetSpecies,string>={dog:'Rex',cat:'Luna',rabbit:'Pipoca',bird:'Tico'};
+ const adoption=PET_SPECIES.map(species=>{
+  const cost=age>=18?PET_COST[species]:0;
+  const allowed=!life!.pendingEvent&&!s.ended&&s.justice.incarceratedUntil<=age&&
+    canAdoptPet(house,age,species,names[species])&&s.balance>=cost;
+  return '<article class="pet-adopt-card" data-pet-adoption="'+species+'">'+
+   '<div class="pet-card-art">'+petPortrait(species)+'</div>'+
+   '<strong>'+safe(petLabel(species,language))+'</strong>'+
+   '<small>'+safe(cost?cash(cost):(pt?'Adotar com a família':'Family adoption'))+'</small>'+
+   '<label>'+safe(pt?'Nome do companheiro':'Companion name')+
+   '<input type="text" maxlength="28" data-pet-name="'+species+'" autocomplete="off" placeholder="'+safe(names[species])+'"/></label>'+
+   '<button type="button" data-pet-adopt="'+species+'"'+(allowed?'':' disabled')+'>'+
+    safe(pt?'Adotar':'Adopt')+'</button></article>';
+ }).join('');
+ const companions=house.pets.length?'<div class="pet-household"><h4>'+
+  safe(pt?'Meus companheiros':'My companions')+'</h4><div class="pet-list">'+
+  house.pets.slice(-10).reverse().map(p=>{
+   const canCare=p.alive&&!life!.pendingEvent&&!s.ended&&s.justice.incarceratedUntil<=age&&
+    p.lastCareAge!==age&&age>=p.adoptedAt;
+   return '<article class="pet-family-card" data-pet-card="'+safe(p.id)+'">'+
+    '<span class="pet-family-image">'+petPortrait(p.species)+'</span>'+
+    '<div class="pet-family-info"><strong>'+safe(p.name)+'</strong>'+
+    '<span>'+safe(petLabel(p.species,language))+' · '+
+     p.ageYears+' '+safe(pt?'anos':'years')+'</span>'+
+    '<small>'+safe(pt?'Vínculo':'Bond')+': '+p.affection+'/100 · '+
+     safe(pt?'Energia':'Energy')+': '+p.energy+'/100</small>'+
+    '<div class="pet-bond-meter" role="progressbar" aria-label="'+safe(pt?'Vínculo de ':'Bond with ')+safe(p.name)+'" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+p.affection+'">'+
+     '<span style="width:'+p.affection+'%"></span></div></div>'+
+    (p.alive?'<button type="button" data-pet-care="'+safe(p.id)+'"'+(canCare?'':' disabled')+'>'+
+      safe(p.lastCareAge===age?(pt?'Cuidado neste ano':'Cared for this year'):pt?'Cuidar':'Care')+'</button>':
+     '<span class="pet-memorial">'+safe(pt?'Em memória':'In memory')+'</span>')+'</article>';
+  }).join('')+'</div></div>':'';
+ return '<section class="pet-studio" aria-label="'+safe(pt?'Animais de estimação':'Animal companions')+'">'+
+  '<div class="pet-intro"><h3>'+safe(pt?'Companheiros de vida':'Lifelong companions')+'</h3>'+
+  '<p>'+safe(pt?'Adote até dois animais. Eles envelhecem, precisam de cuidados e deixam lembranças na sua história.':
+    'Adopt up to two pets. They age, need care and create memories in your story.')+'</p>'+
+  '<span>'+alive.length+'/2 '+safe(pt?'animais em casa':'pets at home')+'</span></div>'+
+  companions+'<div class="pet-adoption-grid">'+adoption+'</div></section>';
+}
+function adoptPetFromUI(id:string):void{
+ if(!life||!PET_SPECIES.includes(id as PetSpecies)||life.pendingEvent||life.simulation.ended)return;
+ const species=id as PetSpecies,field=appEl?.querySelector<HTMLInputElement>('[data-pet-name="'+species+'"]');
+ const fallback:Record<PetSpecies,string>={dog:'Rex',cat:'Luna',rabbit:'Pipoca',bird:'Tico'};
+ const name=field?.value.trim()||fallback[species];
+ const before=life.simulation,prior=life.stats;
+ const applied=adoptCompanion(before,prior,life.age,species,name);
+ if(!applied.ok)return;
+ life.simulation=applied.state;life.stats=applied.stats;
+ const adopted=applied.state.pets.pets.at(-1);
+ sound.play('social');
+ recordStoryChoice('pet-adopt-'+species,
+   language==='pt-BR'?'Nova adoção':'New adoption',petLabel(species,language)+' · '+name,
+   language==='pt-BR'?'Acolher um companheiro':'Welcome a companion',
+   (language==='pt-BR'?'Você acolheu ':'You adopted ')+name+'. · '+
+    describeActualChanges(before,applied.state,prior,applied.stats),'family');
+ for(const note of applied.notes)life.history.push(life.age+': '+caption(note));
+ saveLife();tab='actions';render();
+}
+function carePetFromUI(id:string):void{
+ if(!life||life.pendingEvent||life.simulation.ended)return;
+ const pet=life.simulation.pets.pets.find(p=>p.id===id);
+ if(!pet)return;
+ const before=life.simulation,prior=life.stats;
+ const result=careForCompanion(before,prior,life.age,id);
+ if(!result.ok)return;
+ life.simulation=result.state;life.stats=result.stats;
+ sound.play('social');
+ recordStoryChoice('pet-care-'+pet.species,
+   language==='pt-BR'?'Cuidar do companheiro':'Care for a companion',
+   petLabel(pet.species,language)+' · '+pet.name,
+   language==='pt-BR'?'Dar atenção e carinho':'Offer care and affection',
+   (language==='pt-BR'?'Você cuidou de ':'You cared for ')+pet.name+'. · '+
+    describeActualChanges(before,result.state,prior,result.stats),'family');
+ for(const note of result.notes)life.history.push(life.age+': '+caption(note));
+ saveLife();tab='actions';render();
+}
 function renderActions(): string {
   if(!life)return '';
   const note=life.pendingEvent?u("blockedEvent"):(language==="pt-BR"?"Você pode fazer atividades diferentes no mesmo ano. Cada uma pode ser realizada uma vez por ano.":"Do different activities in the same year. Each activity is available once per year.");
@@ -1003,7 +1099,7 @@ function renderActions(): string {
       .map(actionButton).join('')+'</div>'+
     (isMysticOrigin(life.profile)?'<div class="special-origin"><strong>'+safe(mysticNatureLabel(life.profile.nature!,language))+
     '</strong><span>'+safe(language==='pt-BR'?'Domínio místico ':'Mystic mastery ')+(life.simulation.mysticMastery??0)+'/100</span></div>':'')+
-    renderHobbyStudio()+renderTravelStudio()+styleStudio()+(life.age>=12?justiceActions():'')+'</section>';
+    renderHobbyStudio()+renderTravelStudio()+renderPetStudio()+styleStudio()+(life.age>=12?justiceActions():'')+'</section>';
 }
 function progress(label: string, amount: number): string {
   return '<div class="relationship-progress"><div><span>'+safe(label)+'</span><b>'+clamp(amount)+'%</b></div>'+
@@ -1478,6 +1574,10 @@ appEl?.addEventListener("click",e=>{
   }
   const descendant=target.closest<HTMLButtonElement>("[data-descendant]");
   if(descendant){continueAsDescendant(descendant.dataset.descendant||'');return;}
+  const adopt=target.closest<HTMLButtonElement>("[data-pet-adopt]");
+  if(adopt){adoptPetFromUI(adopt.dataset.petAdopt||'');return;}
+  const care=target.closest<HTMLButtonElement>("[data-pet-care]");
+  if(care){carePetFromUI(care.dataset.petCare||'');return;}
   const journey=target.closest<HTMLButtonElement>("[data-journey]");
   if(journey){travelFromUI(journey.dataset.journey||'');return;}
   const hobby=target.closest<HTMLButtonElement>("[data-hobby]");
